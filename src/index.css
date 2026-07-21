@@ -1,0 +1,126 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Rsolve GRC design system. All colors in HSL. */
+
+@layer base {
+  :root {
+    /* Brand navy palette */
+    --navy:        231 53% 37%;   /* #2B3A8F */
+    --navy-dark:   230 57% 28%;   /* #1e2a6e */
+    --navy-deep:   232 58% 20%;   /* #141d50 */
+    --royal:       231 51% 50%;   /* #3D50C3 */
+    --accent:      230 76% 64%;   /* #5B72E8 */
+    --sky:         229 81% 76%;   /* #8FA3F5 */
+    --offwhite:    229 60% 96%;   /* #F0F2FB */
+    --surface:     229 47% 94%;   /* #E8EBF7 */
+    --muted-ink:   228 30% 70%;   /* #9AA5CC */
+
+    --error:       352 70% 61%;   /* #E05566 */
+    --success:     158 53% 49%;   /* #34C38F */
+    --warn:        34 89% 61%;    /* #F4A942 */
+
+    /* StratOS accent palette (HSL) — used in Strategy Formulation & Assessment */
+    --stratos-gold:   43 55% 55%;
+    --stratos-teal:   183 80% 26%;
+    --stratos-rose:   0 50% 50%;
+    --stratos-amber:  28 90% 44%;
+    --stratos-green:  142 64% 40%;
+    --stratos-blue:   220 70% 50%;
+    --stratos-purple: 265 60% 50%;
+
+    /* Shadcn semantic tokens mapped to brand */
+    --background: var(--offwhite);
+    --foreground: var(--navy-deep);
+
+    --card: 0 0% 100%;
+    --card-foreground: var(--navy-deep);
+
+    --popover: 0 0% 100%;
+    --popover-foreground: var(--navy-deep);
+
+    --primary: var(--navy-deep);
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: var(--surface);
+    --secondary-foreground: var(--navy-deep);
+
+    --muted: var(--surface);
+    --muted-foreground: var(--muted-ink);
+
+    --accent-bg: var(--accent);
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: var(--error);
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 229 60% 90%;
+    --input: 229 60% 90%;
+    --ring: var(--accent);
+
+    --radius: 0.625rem;
+
+    /* Gradients & shadows */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--navy)) 0%, hsl(var(--royal)) 100%);
+    --gradient-pc: linear-gradient(135deg, hsl(var(--navy-deep)) 0%, hsl(var(--navy)) 100%);
+    --shadow-button: 0 4px 20px hsl(var(--navy) / 0.26);
+    --shadow-card: 0 2px 14px hsl(var(--navy) / 0.06);
+    --shadow-card-hover: 0 16px 40px hsl(var(--navy) / 0.13);
+    --shadow-nav: 0 2px 16px hsl(var(--navy-deep) / 0.25);
+
+    --transition-card: transform .22s cubic-bezier(.16,1,.3,1), box-shadow .22s, border-color .22s;
+  }
+
+  /* shadcn sidebar tokens (unused but kept for component compat) */
+  :root {
+    --sidebar-background: var(--offwhite);
+    --sidebar-foreground: var(--navy-deep);
+    --sidebar-primary: var(--navy);
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: var(--surface);
+    --sidebar-accent-foreground: var(--navy-deep);
+    --sidebar-border: 229 60% 90%;
+    --sidebar-ring: var(--accent);
+  }
+
+  * { @apply border-border; }
+  html, body, #root { height: 100%; }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'DM Sans', system-ui, sans-serif;
+  }
+  .font-mono { font-family: 'DM Mono', ui-monospace, monospace; }
+}
+
+@layer components {
+  /* Auth panel decorations */
+  .dot-grid {
+    background-image: radial-gradient(hsl(var(--sky) / 0.10) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+  .auth-radial {
+    background:
+      radial-gradient(ellipse 80% 60% at 20% 80%, hsl(var(--accent) / 0.22) 0%, transparent 70%),
+      radial-gradient(ellipse 60% 50% at 80% 10%, hsl(var(--navy) / 0.55) 0%, transparent 70%);
+  }
+  .top-stripe {
+    background: linear-gradient(90deg, hsl(var(--navy)), hsl(var(--accent)), hsl(var(--sky)));
+  }
+}
+
+@layer utilities {
+  .animate-card-in { animation: cardIn .5s cubic-bezier(.16,1,.3,1) both; }
+  .animate-drop-in { animation: dropIn .25s cubic-bezier(.16,1,.3,1); }
+  .animate-modal-in { animation: modalIn .35s cubic-bezier(.16,1,.3,1); }
+  .animate-pop-in { animation: popIn .5s cubic-bezier(.16,1,.3,1); }
+  .animate-slide-in { animation: slideIn .35s cubic-bezier(.16,1,.3,1) forwards; }
+}
+
+@keyframes cardIn  { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+@keyframes dropIn  { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
+@keyframes modalIn { from{opacity:0;transform:scale(.92) translateY(12px)} to{opacity:1;transform:none} }
+@keyframes popIn   { from{transform:scale(.5);opacity:0} to{transform:scale(1);opacity:1} }
+@keyframes slideIn { from{opacity:0;transform:translateX(22px)} to{opacity:1;transform:translateX(0)} }
