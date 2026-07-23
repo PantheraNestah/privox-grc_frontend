@@ -25,14 +25,15 @@ export const ModuleCard = ({ module, index, onClick }: Props) => {
       style={styleVars}
       className={cn(
         "group relative text-left w-full rounded-2xl p-6 pb-5 border overflow-hidden cursor-pointer animate-card-in",
-        "transition-[transform,box-shadow,border-color] duration-300 ease-[cubic-bezier(.16,1,.3,1)]",
+        "transition-[transform,box-shadow,border-color] duration-300 ease-&lsqb;cubic-bezier(.16,1,.3,1)&rsqb;",
         "hover:-translate-y-1.5 hover:shadow-card-hover",
         dark
           ? "bg-gradient-pc border-brand-accent/30 text-white hover:shadow-[0_16px_40px_hsl(var(--navy)/0.3)]"
           : "bg-card border-brand-accent/10 shadow-card hover:border-brand-accent/30"
       )}
     >
-      {/* top stripe */}
+      {/* top stripe */}, 
+      
       <span
         aria-hidden
         className="absolute inset-x-0 top-0 h-1 rounded-t-2xl"

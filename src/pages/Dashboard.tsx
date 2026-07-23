@@ -7,6 +7,7 @@ import { QuickActionsPanel } from "@/components/grc/QuickActionsPanel";
 import { MODULES } from "@/data/modules";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { useActiveUser } from "@/hooks/use-active-user";
 import type { ModuleDef } from "@/data/modules";
 import type { QuickAction } from "@/data/quickActions";
 
@@ -14,6 +15,7 @@ const greetingFor = (h: number) => (h < 12 ? "Good morning" : h < 17 ? "Good aft
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const activeUser = useActiveUser();
   const [openModule, setOpenModule] = useState<ModuleDef | null>(null);
   const [openAction, setOpenAction] = useState<QuickAction | null>(null);
   const [now, setNow] = useState(() => new Date());
@@ -57,7 +59,7 @@ const Dashboard = () => {
 
         <main className="flex-1 px-5 md:px-10 py-8 md:py-9">
           <header className="mb-8">
-            <h1 className="text-[25px] font-semibold tracking-tight text-navy-deep">{greeting}, Admin 👋</h1>
+            <h1 className="text-[25px] font-semibold tracking-tight text-navy-deep">{greeting}, {activeUser?.name?.split(" ")[0] ?? "User"} 👋</h1>
             <p className="text-[13.5px] text-brand-muted mt-0.5">Here's your GRC platform overview for today.</p>
             <p className="text-[11px] text-brand-accent font-mono mt-1">{dateStr}</p>
           </header>

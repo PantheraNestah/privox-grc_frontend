@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Bell, LogOut, ChevronDown, UserCircle2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import { Logo, BrandName } from "@/components/grc/Logo";
 import { cn } from "@/lib/utils";
 import { loadUsers, setActiveUserId, ROLE_LABELS, ROLE_COLORS, type AppUser } from "@/data/userStore";
@@ -37,6 +38,7 @@ export const TopNav = () => {
   const [open, setOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
   const [users, setUsers] = useState<AppUser[]>([]);
+  const { logout } = useAuth();
   const wrapRef = useRef<HTMLDivElement>(null);
   const userWrapRef = useRef<HTMLDivElement>(null);
   const activeUser = useActiveUser();
@@ -176,7 +178,7 @@ export const TopNav = () => {
         </div>
 
         <button
-          onClick={() => navigate("/")}
+          onClick={() => { logout(); navigate("/"); }}
           className="flex items-center gap-1.5 border border-destructive/35 text-destructive/80 rounded-lg px-3 py-1.5 text-[12.5px] font-medium hover:bg-destructive/10 hover:border-destructive/60 hover:text-destructive transition"
         >
           <LogOut className="w-3.5 h-3.5" /> Log out

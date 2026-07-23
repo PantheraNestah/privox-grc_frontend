@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect, KeyboardEvent, ClipboardEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Mail, User, Lock, ArrowLeft, AlertCircle, CheckCircle2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import { Logo, BrandName } from "@/components/grc/Logo";
 import { cn } from "@/lib/utils";
+import { AxiosError } from "axios";
 
 type View = "login" | "fp-email" | "fp-otp" | "fp-newpw" | "fp-done";
 
@@ -141,23 +143,40 @@ const Steps = ({ step }: { step: 1 | 2 | 3 }) => {
 /* ---------- Login ---------- */
 
 const LoginView = ({ go, onSuccess }: { go: (v: View) => void; onSuccess: () => void }) => {
-  const [u, setU] = useState("");
+  const { login } = useAuth();
+  const [identifier, setIdentifier] = useState("");
   const [p, setP] = useState("");
   const [showPw, setShowPw] = useState(false);
-  const [errs, setErrs] = useState<{ u?: boolean; p?: boolean; alert?: string }>({});
+  const [rememberMe, setRememberMe] = useState(true);
+  const [errs, setErrs] = useState<{ id?: boolean; p?: boolean; alert?: string }>({});
   const [loading, setLoading] = useState(false);
 
-  const submit = () => {
+  const submit = async () => {
     const next: typeof errs = {};
-    if (!u.trim()) next.u = true;
+    if (!identifier.trim()) next.id = true;
     if (!p) next.p = true;
-    if (next.u || next.p) return setErrs(next);
+    if (next.id || next.p) return setErrs(next);
+
     setLoading(true);
-    setTimeout(() => {
+    setErrs({});
+    try {
+      await login({
+        identifier: identifier.trim(),
+        password: p,
+        rememberMe,
+      });
+      onSuccess();
+    } catch (err) {
+      const msg =
+        err instanceof AxiosError
+          ? err.response?.data?.message ||
+            err.response?.data?.error ||
+            `Login failed (${err.response?.status ?? "network error"})`
+          : "An unexpected error occurred. Please try again.";
+      setErrs({ alert: msg });
+    } finally {
       setLoading(false);
-      if (u === "admin" && p === "admingrc2026") onSuccess();
-      else setErrs({ u: true, p: true, alert: "Invalid username or password. Please try again." });
-    }, 900);
+    }
   };
 
   return (
@@ -166,13 +185,14 @@ const LoginView = ({ go, onSuccess }: { go: (v: View) => void; onSuccess: () => 
       <ErrAlert show={!!errs.alert} msg={errs.alert ?? ""} />
 
       <div className="mb-4">
-        <FieldLabel>Username</FieldLabel>
+        <FieldLabel>Email or Username</FieldLabel>
         <div className="relative">
-          <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-muted" />
-          <input className={inputCx(errs.u)} placeholder="your.username" value={u}
-            onChange={e => { setU(e.target.value); setErrs(s => ({ ...s, u: false, alert: undefined })); }} />
+          <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-muted" />
+          <input className={inputCx(errs.id)} placeholder="you@organisation.com" value={identifier}
+            onChange={e => { setIdentifier(e.target.value); setErrs(s => ({ ...s, id: false, alert: undefined })); }}
+            autoComplete="username" />
         </div>
-        {errs.u && !errs.alert && <p className="text-xs text-destructive mt-1">Username is required.</p>}
+        {errs.id && !errs.alert && <p className="text-xs text-destructive mt-1">Email or username is required.</p>}
       </div>
 
       <div className="mb-4">
@@ -181,7 +201,8 @@ const LoginView = ({ go, onSuccess }: { go: (v: View) => void; onSuccess: () => 
           <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-muted" />
           <input type={showPw ? "text" : "password"} className={inputCx(errs.p)} placeholder="••••••••" value={p}
             onChange={e => { setP(e.target.value); setErrs(s => ({ ...s, p: false, alert: undefined })); }}
-            onKeyDown={e => e.key === "Enter" && submit()} />
+            onKeyDown={e => e.key === "Enter" && submit()}
+            autoComplete="current-password" />
           <button type="button" onClick={() => setShowPw(s => !s)}
             className="absolute right-3 top-1/2 -translate-y-1/2 text-brand-muted hover:text-brand-accent transition" aria-label="Toggle password">
             {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -191,8 +212,10 @@ const LoginView = ({ go, onSuccess }: { go: (v: View) => void; onSuccess: () => 
       </div>
 
       <div className="flex justify-between items-center mb-5">
-        <label className="flex items-center gap-2 text-[13px] text-brand-muted cursor-pointer">
-          <input type="checkbox" className="w-3.5 h-3.5 accent-brand-accent" /> Remember me
+        <label className="flex items-center gap-2 text-[13px] text-brand-muted cursor-pointer select-none">
+          <input type="checkbox" checked={rememberMe}
+            onChange={e => setRememberMe(e.target.checked)}
+            className="w-3.5 h-3.5 accent-brand-accent" /> Remember me
         </label>
         <button onClick={() => go("fp-email")} className="text-[13px] font-medium text-brand-accent hover:text-navy transition">
           Forgot password?
@@ -202,9 +225,6 @@ const LoginView = ({ go, onSuccess }: { go: (v: View) => void; onSuccess: () => 
       <PrimaryBtn loading={loading} onClick={submit}>Sign In</PrimaryBtn>
       <p className="text-center text-xs text-brand-muted mt-4">
         Don't have access? Contact your <strong className="text-navy-dark font-medium">GRC Administrator</strong>.
-      </p>
-      <p className="text-center text-[11px] text-brand-muted/60 mt-3 font-mono">
-        demo: admin / admingrc2026
       </p>
     </div>
   );
