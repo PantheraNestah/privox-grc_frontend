@@ -1,16 +1,19 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
-import { ArrowLeft, ChevronRight, Plus, Pencil, Trash2, Users, ShieldAlert } from "lucide-react";
+import {
+  ArrowLeft, ChevronRight, Users, ShieldAlert, Layers,
+  UserCircle2, Mail, Hash, Trash2, UserPlus, Eye, ShieldCheck, Calendar, BadgeCheck, X,
+  Plus, Pencil, KeyRound,
+} from "lucide-react";
 import { TopNav } from "@/components/grc/TopNav";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
@@ -18,68 +21,325 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { toast } from "sonner";
-import {
-  loadUsers, saveUsers, newUser, ROLE_LABELS, ROLE_DESCRIPTIONS, ROLE_COLORS,
-  can, type AppUser, type UserRole,
-} from "@/data/userStore";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useActiveUser } from "@/hooks/use-active-user";
-import { loadOrgNodes, ORG_TYPE_LABELS, type OrgNode } from "@/data/orgStore";
-
-const ROLES: UserRole[] = ["admin", "input_user", "approver", "risk_manager", "executive"];
+import { can } from "@/data/userStore";
+import {
+  mockPermissionsForGroup,
+  DEFAULT_PERMISSIONS,
+  type MockPermission,
+} from "@/data/mockGroupPermissions";
+import {
+  fetchOrganizationMembers,
+  fetchOrganizationGroups,
+  fetchGroupMembers,
+  fetchMemberGroups,
+  addGroupMember,
+  removeGroupMember,
+} from "@/lib/organization";
+import type {
+  OrganizationMember,
+  OrganizationGroup,
+  GroupMember,
+} from "@/lib/auth-types";
 
 const UserManagement = () => {
   const activeUser = useActiveUser();
-  const [users, setUsers] = useState<AppUser[]>([]);
-  const [orgNodes, setOrgNodes] = useState<OrgNode[]>([]);
-  const [dialog, setDialog] = useState<{ user: AppUser; isNew: boolean } | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState<AppUser | null>(null);
-
-  useEffect(() => {
-    setUsers(loadUsers());
-    setOrgNodes(loadOrgNodes());
-  }, []);
-
-  const persist = (next: AppUser[]) => {
-    setUsers(next);
-    saveUsers(next);
-    window.dispatchEvent(new CustomEvent("rsolve:active-user-changed"));
-  };
-
-  const orgNodeMap = useMemo(() => new Map(orgNodes.map(n => [n.id, n])), [orgNodes]);
-
   const isAdmin = can.manageUsers(activeUser.role);
 
-  const handleSave = (u: AppUser, isNew: boolean) => {
-    if (!u.name.trim()) { toast.error("Name is required"); return; }
-    if (!u.email.trim()) { toast.error("Email is required"); return; }
-    const next = isNew ? [...users, u] : users.map(x => x.id === u.id ? u : x);
-    persist(next);
-    setDialog(null);
-    toast.success(isNew ? "User added" : "User updated");
+  // API data
+  const [members, setMembers] = useState<OrganizationMember[]>([]);
+  const [groups, setGroups] = useState<OrganizationGroup[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Detail dialogs
+  const [viewedMember, setViewedMember] = useState<OrganizationMember | null>(null);
+  const [selectedMember, setSelectedMember] = useState<OrganizationMember | null>(null);
+  const [memberGroups, setMemberGroups] = useState<OrganizationGroup[]>([]);
+  const [memberGroupsLoading, setMemberGroupsLoading] = useState(false);
+
+  const [selectedGroup, setSelectedGroup] = useState<OrganizationGroup | null>(null);
+  const [groupMembers, setGroupMembers] = useState<GroupMember[]>([]);
+  const [groupMembersLoading, setGroupMembersLoading] = useState(false);
+  const [groupMembersError, setGroupMembersError] = useState<string | null>(null);
+
+  // Add/remove group member
+  const [selectedNewUserId, setSelectedNewUserId] = useState<string>("");
+  const [addMemberLoading, setAddMemberLoading] = useState(false);
+  const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
+
+  // Group permissions (mock, local-only — no backend endpoint yet)
+  const [groupPermissions, setGroupPermissions] = useState<Record<string, string[]>>({});
+  const [selectedPermGroup, setSelectedPermGroup] = useState<OrganizationGroup | null>(null);
+  const [newPermSelection, setNewPermSelection] = useState<string>("");
+
+  // Create/edit/delete group (mock, local-only — no backend endpoint yet)
+  const [groupFormOpen, setGroupFormOpen] = useState(false);
+  const [groupFormMode, setGroupFormMode] = useState<"create" | "edit">("create");
+  const [groupFormTarget, setGroupFormTarget] = useState<OrganizationGroup | null>(null);
+  const [groupFormName, setGroupFormName] = useState("");
+  const [groupFormDescription, setGroupFormDescription] = useState("");
+  const [groupToDelete, setGroupToDelete] = useState<OrganizationGroup | null>(null);
+
+  // Create/edit/delete permission catalog entries (mock, local-only — no backend endpoint yet)
+  const [permissionCatalog, setPermissionCatalog] = useState<MockPermission[]>(DEFAULT_PERMISSIONS);
+  const [permissionFormOpen, setPermissionFormOpen] = useState(false);
+  const [permissionFormMode, setPermissionFormMode] = useState<"create" | "edit">("create");
+  const [permissionFormTarget, setPermissionFormTarget] = useState<MockPermission | null>(null);
+  const [permissionFormKey, setPermissionFormKey] = useState("");
+  const [permissionFormDescription, setPermissionFormDescription] = useState("");
+  const [permissionFormError, setPermissionFormError] = useState<string | null>(null);
+  const [permissionToDelete, setPermissionToDelete] = useState<MockPermission | null>(null);
+
+  // Fetch all data
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    Promise.all([fetchOrganizationMembers(), fetchOrganizationGroups()])
+      .then(([membersData, groupsData]) => {
+        if (cancelled) return;
+        setMembers(membersData);
+        setGroups(groupsData);
+        setGroupPermissions(
+          Object.fromEntries(groupsData.map((g) => [g.id, mockPermissionsForGroup(g.name)])),
+        );
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : "Failed to load data");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, []);
+
+  // Open member detail — load their groups
+  const openMemberDetail = async (member: OrganizationMember) => {
+    setSelectedMember(member);
+    setMemberGroups([]);
+    setMemberGroupsLoading(true);
+    try {
+      const data = await fetchMemberGroups(member.userId);
+      setMemberGroups(data);
+    } catch {
+      setMemberGroups([]);
+    } finally {
+      setMemberGroupsLoading(false);
+    }
   };
 
-  const handleDelete = (u: AppUser) => {
-    if (u.role === "admin" && users.filter(x => x.role === "admin").length === 1) {
-      toast.error("Cannot delete the last administrator");
+  // Open group detail — load its members
+  const openGroupDetail = async (group: OrganizationGroup) => {
+    setSelectedGroup(group);
+    setGroupMembers([]);
+    setGroupMembersError(null);
+    setSelectedNewUserId("");
+    setGroupMembersLoading(true);
+    try {
+      const data = await fetchGroupMembers(group.id);
+      setGroupMembers(data);
+    } catch {
+      setGroupMembers([]);
+    } finally {
+      setGroupMembersLoading(false);
+    }
+  };
+
+  const handleAddGroupMember = async () => {
+    if (!selectedGroup || !selectedNewUserId) return;
+    setAddMemberLoading(true);
+    setGroupMembersError(null);
+    try {
+      await addGroupMember(selectedGroup.id, selectedNewUserId);
+      const data = await fetchGroupMembers(selectedGroup.id);
+      setGroupMembers(data);
+      setSelectedNewUserId("");
+    } catch (err) {
+      setGroupMembersError(err instanceof Error ? err.message : "Failed to add member");
+    } finally {
+      setAddMemberLoading(false);
+    }
+  };
+
+  const handleRemoveGroupMember = async (membershipId: string) => {
+    if (!selectedGroup) return;
+    setRemovingMemberId(membershipId);
+    setGroupMembersError(null);
+    try {
+      await removeGroupMember(selectedGroup.id, membershipId);
+      const data = await fetchGroupMembers(selectedGroup.id);
+      setGroupMembers(data);
+    } catch (err) {
+      setGroupMembersError(err instanceof Error ? err.message : "Failed to remove member");
+    } finally {
+      setRemovingMemberId(null);
+    }
+  };
+
+  const availableMembersToAdd = members.filter(
+    (m) => !groupMembers.some((gm) => gm.userId === m.userId),
+  );
+
+  // Mock, local-only — no backend endpoint yet for group permissions
+  const openPermGroupDetail = (group: OrganizationGroup) => {
+    setSelectedPermGroup(group);
+    setNewPermSelection("");
+  };
+
+  const addPermissionToGroup = () => {
+    if (!selectedPermGroup || !newPermSelection) return;
+    setGroupPermissions((prev) => ({
+      ...prev,
+      [selectedPermGroup.id]: [...(prev[selectedPermGroup.id] ?? []), newPermSelection],
+    }));
+    setNewPermSelection("");
+  };
+
+  const removePermissionFromGroup = (perm: string) => {
+    if (!selectedPermGroup) return;
+    setGroupPermissions((prev) => ({
+      ...prev,
+      [selectedPermGroup.id]: (prev[selectedPermGroup.id] ?? []).filter((p) => p !== perm),
+    }));
+  };
+
+  const availablePermissionsToAdd = permissionCatalog
+    .map((p) => p.key)
+    .filter((p) => !(groupPermissions[selectedPermGroup?.id ?? ""] ?? []).includes(p));
+
+  // Mock, local-only — no backend endpoint yet for group creation/editing/deletion
+  const openCreateGroup = () => {
+    setGroupFormMode("create");
+    setGroupFormTarget(null);
+    setGroupFormName("");
+    setGroupFormDescription("");
+    setGroupFormOpen(true);
+  };
+
+  const openEditGroup = (group: OrganizationGroup) => {
+    setGroupFormMode("edit");
+    setGroupFormTarget(group);
+    setGroupFormName(group.name);
+    setGroupFormDescription(group.description ?? "");
+    setGroupFormOpen(true);
+  };
+
+  const handleSubmitGroupForm = () => {
+    const name = groupFormName.trim();
+    if (!name) return;
+    const description = groupFormDescription.trim() || undefined;
+
+    if (groupFormMode === "create") {
+      const newGroup: OrganizationGroup = {
+        id: crypto.randomUUID(),
+        name,
+        description,
+        memberCount: 0,
+      };
+      setGroups((prev) => [...prev, newGroup]);
+      setGroupPermissions((prev) => ({
+        ...prev,
+        [newGroup.id]: mockPermissionsForGroup(newGroup.name),
+      }));
+    } else if (groupFormTarget) {
+      setGroups((prev) =>
+        prev.map((g) => (g.id === groupFormTarget.id ? { ...g, name, description } : g)),
+      );
+    }
+
+    setGroupFormOpen(false);
+  };
+
+  const handleDeleteGroup = () => {
+    if (!groupToDelete) return;
+    const deletedId = groupToDelete.id;
+    setGroups((prev) => prev.filter((g) => g.id !== deletedId));
+    setGroupPermissions((prev) => {
+      const next = { ...prev };
+      delete next[deletedId];
+      return next;
+    });
+    if (selectedGroup?.id === deletedId) setSelectedGroup(null);
+    if (selectedPermGroup?.id === deletedId) setSelectedPermGroup(null);
+    setGroupToDelete(null);
+  };
+
+  // Mock, local-only — no backend endpoint yet for permission catalog management
+  const openCreatePermission = () => {
+    setPermissionFormMode("create");
+    setPermissionFormTarget(null);
+    setPermissionFormKey("");
+    setPermissionFormDescription("");
+    setPermissionFormError(null);
+    setPermissionFormOpen(true);
+  };
+
+  const openEditPermission = (perm: MockPermission) => {
+    setPermissionFormMode("edit");
+    setPermissionFormTarget(perm);
+    setPermissionFormKey(perm.key);
+    setPermissionFormDescription(perm.description);
+    setPermissionFormError(null);
+    setPermissionFormOpen(true);
+  };
+
+  const handleSubmitPermissionForm = () => {
+    const key = permissionFormKey.trim();
+    if (!key) return;
+    const description = permissionFormDescription.trim();
+
+    const duplicate = permissionCatalog.some(
+      (p) => p.key === key && p.key !== permissionFormTarget?.key,
+    );
+    if (duplicate) {
+      setPermissionFormError("A permission with this key already exists.");
       return;
     }
-    persist(users.filter(x => x.id !== u.id));
-    setConfirmDelete(null);
-    toast.success("User removed");
+
+    if (permissionFormMode === "create") {
+      setPermissionCatalog((prev) => [...prev, { key, description }]);
+    } else if (permissionFormTarget) {
+      const oldKey = permissionFormTarget.key;
+      setPermissionCatalog((prev) =>
+        prev.map((p) => (p.key === oldKey ? { key, description } : p)),
+      );
+      if (oldKey !== key) {
+        setGroupPermissions((prev) =>
+          Object.fromEntries(
+            Object.entries(prev).map(([gid, keys]) => [
+              gid,
+              Array.from(new Set(keys.map((k) => (k === oldKey ? key : k)))),
+            ]),
+          ),
+        );
+      }
+    }
+
+    setPermissionFormOpen(false);
   };
 
-  const counts = useMemo(() => {
-    const c: Record<UserRole, number> = { admin: 0, input_user: 0, approver: 0, risk_manager: 0, executive: 0 };
-    users.forEach(u => { c[u.role]++; });
-    return c;
-  }, [users]);
+  const handleDeletePermission = () => {
+    if (!permissionToDelete) return;
+    const deletedKey = permissionToDelete.key;
+    setPermissionCatalog((prev) => prev.filter((p) => p.key !== deletedKey));
+    setGroupPermissions((prev) =>
+      Object.fromEntries(
+        Object.entries(prev).map(([gid, keys]) => [gid, keys.filter((k) => k !== deletedKey)]),
+      ),
+    );
+    setPermissionToDelete(null);
+  };
 
   return (
     <>
       <Helmet>
         <title>User Management · Rsolve GRC Platform</title>
-        <meta name="description" content="Manage users, assign roles and link them to the Risk Governance organisation structure." />
+        <meta name="description" content="View organisation members, groups and group assignments." />
         <link rel="canonical" href="/settings/users" />
       </Helmet>
 
@@ -97,22 +357,15 @@ const UserManagement = () => {
             <div>
               <h1 className="text-[25px] font-semibold tracking-tight text-foreground">User Management</h1>
               <p className="text-[13.5px] text-muted-foreground mt-0.5 max-w-2xl">
-                Create users, assign their role and link them to a unit in the Risk Governance hierarchy.
-                Roles control who can build the strategic plan, submit assessments and approve.
+                View organisation members and groups. Select a user to see their group assignments,
+                or select a group to see its members.
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <Button asChild variant="outline" size="sm">
-                <Link to="/dashboard">
-                  <ArrowLeft className="w-4 h-4 mr-1.5" /> Back
-                </Link>
-              </Button>
-              {isAdmin && (
-                <Button size="sm" onClick={() => setDialog({ user: newUser(), isNew: true })} className="bg-primary hover:bg-primary/90">
-                  <Plus className="w-4 h-4 mr-1.5" /> Add User
-                </Button>
-              )}
-            </div>
+            <Button asChild variant="outline" size="sm">
+              <Link to="/dashboard">
+                <ArrowLeft className="w-4 h-4 mr-1.5" /> Back
+              </Link>
+            </Button>
           </header>
 
           {!isAdmin && (
@@ -121,234 +374,747 @@ const UserManagement = () => {
                 <ShieldAlert className="w-5 h-5 text-warn mt-0.5" />
                 <div>
                   <p className="text-sm font-semibold text-foreground">Read-only view</p>
-                  <p className="text-xs text-muted-foreground">Only administrators can add, edit or remove users. Use the user switcher in the top-right to preview as an admin.</p>
+                  <p className="text-xs text-muted-foreground">Some management features are restricted to administrators.</p>
                 </div>
               </div>
             </Card>
           )}
 
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
-            {ROLES.map(r => (
-              <Card key={r} className="p-3">
-                <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-muted-foreground mb-1">
-                  <span className="w-2 h-2 rounded-full" style={{ background: `hsl(${ROLE_COLORS[r]})` }} />
-                  {ROLE_LABELS[r]}
+          {error && (
+            <Card className="p-4 mb-5 border-destructive/40 bg-destructive/5">
+              <p className="text-sm text-destructive">{error}</p>
+            </Card>
+          )}
+
+          <Tabs defaultValue="users">
+            <TabsList className="mb-5">
+              <TabsTrigger value="users" className="gap-2">
+                <Users className="w-4 h-4" /> All Users
+                {!loading && <Badge variant="secondary" className="text-[10px]">{members.length}</Badge>}
+              </TabsTrigger>
+              <TabsTrigger value="groups" className="gap-2">
+                <Layers className="w-4 h-4" /> Groups
+                {!loading && <Badge variant="secondary" className="text-[10px]">{groups.length}</Badge>}
+              </TabsTrigger>
+              <TabsTrigger value="permissions" className="gap-2">
+                <ShieldCheck className="w-4 h-4" /> Group Permissions
+              </TabsTrigger>
+              <TabsTrigger value="permission-catalog" className="gap-2">
+                <KeyRound className="w-4 h-4" /> Permissions
+                <Badge variant="secondary" className="text-[10px]">{permissionCatalog.length}</Badge>
+              </TabsTrigger>
+            </TabsList>
+
+            {/* ──────── All Users tab ──────── */}
+            <TabsContent value="users">
+              <Card className="p-0 overflow-hidden">
+                <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center gap-2">
+                  <Users className="w-4 h-4 text-muted-foreground" />
+                  <h2 className="text-sm font-semibold text-foreground">Organisation Members</h2>
                 </div>
-                <p className="text-2xl font-semibold text-foreground">{counts[r]}</p>
-              </Card>
-            ))}
-          </div>
 
-          <Card className="p-0 overflow-hidden">
-            <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center gap-2">
-              <Users className="w-4 h-4 text-muted-foreground" />
-              <h2 className="text-sm font-semibold text-foreground">All users</h2>
-              <Badge variant="secondary" className="text-[10px]">{users.length}</Badge>
-            </div>
-
-            {users.length === 0 ? (
-              <div className="text-center py-10">
-                <p className="text-sm text-muted-foreground">No users yet.</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border">
-                    <tr>
-                      <th className="text-left px-4 py-2 font-semibold">Name</th>
-                      <th className="text-left px-4 py-2 font-semibold">Email</th>
-                      <th className="text-left px-4 py-2 font-semibold">Role</th>
-                      <th className="text-left px-4 py-2 font-semibold">Org Unit</th>
-                      <th className="text-right px-4 py-2 font-semibold">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {users.map(u => {
-                      const node = u.orgNodeId ? orgNodeMap.get(u.orgNodeId) : null;
-                      return (
-                        <tr key={u.id} className="border-b border-border last:border-0 hover:bg-muted/20">
-                          <td className="px-4 py-2.5">
-                            <p className="font-medium text-foreground">{u.name || "—"}</p>
-                            {u.title && <p className="text-[11px] text-muted-foreground">{u.title}</p>}
-                          </td>
-                          <td className="px-4 py-2.5 text-xs text-muted-foreground">{u.email}</td>
-                          <td className="px-4 py-2.5">
-                            <Badge
-                              variant="outline"
-                              className="text-[10px] gap-1"
-                              style={{
-                                background: `hsl(${ROLE_COLORS[u.role]} / 0.12)`,
-                                borderColor: `hsl(${ROLE_COLORS[u.role]} / 0.4)`,
-                                color: `hsl(${ROLE_COLORS[u.role]})`,
-                              }}
-                            >
-                              <span className="w-1.5 h-1.5 rounded-full" style={{ background: `hsl(${ROLE_COLORS[u.role]})` }} />
-                              {ROLE_LABELS[u.role]}
-                            </Badge>
-                          </td>
-                          <td className="px-4 py-2.5">
-                            {node ? (
-                              <span className="inline-flex items-center gap-1.5 text-xs">
-                                <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{ORG_TYPE_LABELS[node.type]}</span>
-                                <span className="text-foreground">{node.name}</span>
-                              </span>
-                            ) : (
-                              <span className="text-xs text-muted-foreground italic">—</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-2.5 text-right">
-                            {isAdmin && (
-                              <>
-                                <Button size="icon" variant="ghost" className="h-7 w-7"
-                                  onClick={() => setDialog({ user: u, isNew: false })} aria-label="Edit">
-                                  <Pencil className="w-3.5 h-3.5" />
-                                </Button>
-                                <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive"
-                                  onClick={() => setConfirmDelete(u)} aria-label="Delete">
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </Button>
-                              </>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Card>
-
-          <Card className="p-4 mt-5">
-            <h3 className="text-sm font-semibold text-foreground mb-2">Role definitions</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-              {ROLES.map(r => (
-                <div key={r} className="flex items-start gap-2.5 p-2.5 rounded-md border border-border bg-muted/20">
-                  <span className="w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ background: `hsl(${ROLE_COLORS[r]})` }} />
-                  <div>
-                    <p className="text-xs font-semibold text-foreground">{ROLE_LABELS[r]}</p>
-                    <p className="text-[11px] text-muted-foreground">{ROLE_DESCRIPTIONS[r]}</p>
+                {loading ? (
+                  <div className="text-center py-10">
+                    <div className="inline-block w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                    <p className="text-sm text-muted-foreground mt-2">Loading members…</p>
                   </div>
+                ) : members.length === 0 ? (
+                  <div className="text-center py-10">
+                    <p className="text-sm text-muted-foreground">No members found.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border">
+                        <tr>
+                          <th className="text-left px-4 py-2 font-semibold">Name</th>
+                          <th className="text-left px-4 py-2 font-semibold">Email</th>
+                          <th className="text-left px-4 py-2 font-semibold">Username</th>
+                          <th className="text-right px-4 py-2 font-semibold">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {members.map((m) => (
+                          <tr key={m.membershipId} className="border-b border-border last:border-0 hover:bg-muted/20">
+                            <td className="px-4 py-2.5">
+                              <div className="flex items-center gap-2.5">
+                                <UserCircle2 className="w-7 h-7 text-muted-foreground shrink-0" />
+                                <div>
+                                  <p className="font-medium text-foreground">{m.fullName}</p>
+                                  {m.membershipStatus && (
+                                    <Badge variant="outline" className="text-[10px] mt-0.5">{m.membershipStatus}</Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-2.5">
+                              <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                                <Mail className="w-3 h-3" /> {m.email}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2.5 text-xs text-muted-foreground font-mono">
+                              {m.username}
+                            </td>
+                            <td className="px-4 py-2.5 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs gap-1"
+                                  onClick={() => setViewedMember(m)}
+                                >
+                                  <Eye className="w-3 h-3" /> View
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs gap-1"
+                                  onClick={() => openMemberDetail(m)}
+                                >
+                                  <Hash className="w-3 h-3" /> View Groups
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </Card>
+            </TabsContent>
+
+            {/* ──────── Groups tab ──────── */}
+            <TabsContent value="groups">
+              {isAdmin && (
+                <Card className="p-4 mb-4 border-brand-accent/30 bg-brand-accent/5">
+                  <p className="text-xs text-muted-foreground">
+                    Placeholder data — creating, editing and deleting groups is a local mock.
+                    There's no backend endpoint for group management yet (only membership
+                    assignment is live), so changes here are local to this session and not saved.
+                  </p>
+                </Card>
+              )}
+              <Card className="p-0 overflow-hidden">
+                <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-muted-foreground" />
+                    <h2 className="text-sm font-semibold text-foreground">Organisation Groups</h2>
+                  </div>
+                  {isAdmin && (
+                    <Button size="sm" className="h-7 text-xs gap-1" onClick={openCreateGroup}>
+                      <Plus className="w-3.5 h-3.5" /> Create Group
+                    </Button>
+                  )}
                 </div>
-              ))}
-            </div>
-          </Card>
+
+                {loading ? (
+                  <div className="text-center py-10">
+                    <div className="inline-block w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                    <p className="text-sm text-muted-foreground mt-2">Loading groups…</p>
+                  </div>
+                ) : groups.length === 0 ? (
+                  <div className="text-center py-10">
+                    <p className="text-sm text-muted-foreground">No groups found.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border">
+                        <tr>
+                          <th className="text-left px-4 py-2 font-semibold">Group Name</th>
+                          <th className="text-left px-4 py-2 font-semibold">Description</th>
+                          <th className="text-center px-4 py-2 font-semibold">Members</th>
+                          <th className="text-right px-4 py-2 font-semibold">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {groups.map((g) => (
+                          <tr key={g.id} className="border-b border-border last:border-0 hover:bg-muted/20">
+                            <td className="px-4 py-2.5 font-medium text-foreground">{g.name}</td>
+                            <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                              {g.description || "—"}
+                            </td>
+                            <td className="px-4 py-2.5 text-center">
+                              {g.memberCount != null && (
+                                <Badge variant="secondary" className="text-[10px]">
+                                  {g.memberCount}
+                                </Badge>
+                              )}
+                            </td>
+                            <td className="px-4 py-2.5 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs gap-1"
+                                  onClick={() => openGroupDetail(g)}
+                                >
+                                  <Users className="w-3 h-3" /> View Members
+                                </Button>
+                                {isAdmin && (
+                                  <>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 text-xs gap-1"
+                                      onClick={() => openEditGroup(g)}
+                                    >
+                                      <Pencil className="w-3 h-3" /> Edit
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 text-xs gap-1 text-destructive hover:text-destructive"
+                                      onClick={() => setGroupToDelete(g)}
+                                    >
+                                      <Trash2 className="w-3 h-3" /> Delete
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </Card>
+            </TabsContent>
+
+            {/* ──────── Group Permissions tab ──────── */}
+            <TabsContent value="permissions">
+              <Card className="p-4 mb-4 border-brand-accent/30 bg-brand-accent/5">
+                <p className="text-xs text-muted-foreground">
+                  Placeholder data — group permissions aren't available from the backend yet.
+                  Additions and edits made here are local to this session only and are not saved.
+                </p>
+              </Card>
+              <Card className="p-0 overflow-hidden">
+                <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-muted-foreground" />
+                  <h2 className="text-sm font-semibold text-foreground">Group Permissions</h2>
+                </div>
+
+                {loading ? (
+                  <div className="text-center py-10">
+                    <div className="inline-block w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                    <p className="text-sm text-muted-foreground mt-2">Loading groups…</p>
+                  </div>
+                ) : groups.length === 0 ? (
+                  <div className="text-center py-10">
+                    <p className="text-sm text-muted-foreground">No groups found.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border">
+                        <tr>
+                          <th className="text-left px-4 py-2 font-semibold">Group Name</th>
+                          <th className="text-left px-4 py-2 font-semibold">Permissions</th>
+                          <th className="text-right px-4 py-2 font-semibold">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {groups.map((g) => (
+                          <tr key={g.id} className="border-b border-border last:border-0 hover:bg-muted/20">
+                            <td className="px-4 py-2.5 font-medium text-foreground align-top whitespace-nowrap">{g.name}</td>
+                            <td className="px-4 py-2.5">
+                              <div className="flex flex-wrap gap-1.5">
+                                {(groupPermissions[g.id] ?? []).length === 0 ? (
+                                  <span className="text-xs text-muted-foreground">No permissions assigned.</span>
+                                ) : (
+                                  (groupPermissions[g.id] ?? []).map((perm) => (
+                                    <Badge key={perm} variant="outline" className="text-[10px] font-mono">
+                                      {perm}
+                                    </Badge>
+                                  ))
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-4 py-2.5 text-right align-top">
+                              {isAdmin && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs gap-1"
+                                  onClick={() => openPermGroupDetail(g)}
+                                >
+                                  <ShieldCheck className="w-3 h-3" /> Manage
+                                </Button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </Card>
+            </TabsContent>
+
+            {/* ──────── Permission Catalog tab ──────── */}
+            <TabsContent value="permission-catalog">
+              {isAdmin && (
+                <Card className="p-4 mb-4 border-brand-accent/30 bg-brand-accent/5">
+                  <p className="text-xs text-muted-foreground">
+                    Placeholder data — there's no backend endpoint for permissions yet.
+                    Creating, editing and deleting permissions here only affects this session
+                    and is not saved.
+                  </p>
+                </Card>
+              )}
+              <Card className="p-0 overflow-hidden">
+                <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <KeyRound className="w-4 h-4 text-muted-foreground" />
+                    <h2 className="text-sm font-semibold text-foreground">Permissions</h2>
+                  </div>
+                  {isAdmin && (
+                    <Button size="sm" className="h-7 text-xs gap-1" onClick={openCreatePermission}>
+                      <Plus className="w-3.5 h-3.5" /> Create Permission
+                    </Button>
+                  )}
+                </div>
+
+                {permissionCatalog.length === 0 ? (
+                  <div className="text-center py-10">
+                    <p className="text-sm text-muted-foreground">No permissions defined.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border">
+                        <tr>
+                          <th className="text-left px-4 py-2 font-semibold">Key</th>
+                          <th className="text-left px-4 py-2 font-semibold">Description</th>
+                          <th className="text-right px-4 py-2 font-semibold">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {permissionCatalog.map((perm) => (
+                          <tr key={perm.key} className="border-b border-border last:border-0 hover:bg-muted/20">
+                            <td className="px-4 py-2.5 font-mono text-xs text-foreground whitespace-nowrap">{perm.key}</td>
+                            <td className="px-4 py-2.5 text-xs text-muted-foreground">{perm.description || "—"}</td>
+                            <td className="px-4 py-2.5 text-right">
+                              {isAdmin && (
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 text-xs gap-1"
+                                    onClick={() => openEditPermission(perm)}
+                                  >
+                                    <Pencil className="w-3 h-3" /> Edit
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 text-xs gap-1 text-destructive hover:text-destructive"
+                                    onClick={() => setPermissionToDelete(perm)}
+                                  >
+                                    <Trash2 className="w-3 h-3" /> Delete
+                                  </Button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </Card>
+            </TabsContent>
+          </Tabs>
         </main>
       </div>
 
-      <UserDialog
-        state={dialog}
-        orgNodes={orgNodes}
-        onClose={() => setDialog(null)}
-        onSave={handleSave}
-      />
+      {/* ── User details dialog ── */}
+      <Dialog open={!!viewedMember} onOpenChange={(o) => !o && setViewedMember(null)}>
+        <DialogContent className="sm:max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserCircle2 className="w-5 h-5" />
+              {viewedMember?.fullName}
+            </DialogTitle>
+            <DialogDescription>
+              {viewedMember?.email} &middot; {viewedMember?.username}
+            </DialogDescription>
+          </DialogHeader>
 
-      <AlertDialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
+          {viewedMember && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2.5 p-3 rounded-lg border border-border bg-muted/20">
+                <BadgeCheck className="w-4 h-4 text-muted-foreground shrink-0" />
+                <div className="flex-1">
+                  <p className="text-[11px] text-muted-foreground">Status</p>
+                  <p className="text-sm font-medium text-foreground">{viewedMember.membershipStatus || "—"}</p>
+                </div>
+                {viewedMember.primary && (
+                  <Badge variant="secondary" className="text-[10px]">Primary</Badge>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2.5 p-3 rounded-lg border border-border bg-muted/20">
+                <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
+                <div>
+                  <p className="text-[11px] text-muted-foreground">Joined</p>
+                  <p className="text-sm font-medium text-foreground">
+                    {viewedMember.joinedAt ? new Date(viewedMember.joinedAt).toLocaleDateString() : "—"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-lg border border-border bg-muted/20 space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] text-muted-foreground">User ID</span>
+                  <span className="text-xs font-mono text-foreground truncate">{viewedMember.userId}</span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] text-muted-foreground">Membership ID</span>
+                  <span className="text-xs font-mono text-foreground truncate">{viewedMember.membershipId}</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Member detail dialog (shows groups for this member) ── */}
+      <Dialog open={!!selectedMember} onOpenChange={(o) => !o && setSelectedMember(null)}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserCircle2 className="w-5 h-5" />
+              {selectedMember?.fullName}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedMember?.email} &middot; {selectedMember?.username}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div>
+            <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+              <Hash className="w-4 h-4 text-muted-foreground" />
+              Assigned Groups
+            </h4>
+
+            {memberGroupsLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+                <div className="inline-block w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                Loading groups…
+              </div>
+            ) : memberGroups.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4">Not assigned to any groups.</p>
+            ) : (
+              <div className="space-y-2">
+                {memberGroups.map((g) => (
+                  <div
+                    key={g.id}
+                    className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/20"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{g.name}</p>
+                      {g.description && (
+                        <p className="text-xs text-muted-foreground">{g.description}</p>
+                      )}
+                    </div>
+                    {g.memberCount != null && (
+                      <Badge variant="secondary" className="text-[10px]">{g.memberCount} members</Badge>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Group detail dialog (shows members in this group) ── */}
+      <Dialog open={!!selectedGroup} onOpenChange={(o) => !o && setSelectedGroup(null)}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Layers className="w-5 h-5" />
+              {selectedGroup?.name}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedGroup?.description || "Group members"}
+              {selectedGroup?.memberCount != null && ` · ${selectedGroup.memberCount} members`}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div>
+            {isAdmin && (
+              <div className="flex items-center gap-2 mb-4">
+                <Select value={selectedNewUserId} onValueChange={setSelectedNewUserId}>
+                  <SelectTrigger className="h-9 text-sm">
+                    <SelectValue placeholder="Select a user to add…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableMembersToAdd.map((m) => (
+                      <SelectItem key={m.userId} value={m.userId}>
+                        {m.fullName} ({m.email})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  size="sm"
+                  className="h-9 gap-1.5 shrink-0"
+                  disabled={!selectedNewUserId || addMemberLoading}
+                  onClick={handleAddGroupMember}
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  {addMemberLoading ? "Adding…" : "Add"}
+                </Button>
+              </div>
+            )}
+
+            {groupMembersError && (
+              <p className="text-xs text-destructive mb-3">{groupMembersError}</p>
+            )}
+
+            {groupMembersLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+                <div className="inline-block w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                Loading members…
+              </div>
+            ) : groupMembers.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4">No members in this group.</p>
+            ) : (
+              <div className="space-y-2">
+                {groupMembers.map((gm) => (
+                  <div
+                    key={gm.userId}
+                    className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/20"
+                  >
+                    <UserCircle2 className="w-8 h-8 text-muted-foreground shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground">{gm.fullName}</p>
+                      <p className="text-xs text-muted-foreground">{gm.email}</p>
+                    </div>
+                    {isAdmin && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs gap-1 text-destructive hover:text-destructive"
+                        disabled={removingMemberId === gm.userId}
+                        onClick={() => handleRemoveGroupMember(gm.userId)}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        {removingMemberId === gm.userId ? "Removing…" : "Remove"}
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Manage group permissions dialog (mock, local-only) ── */}
+      <Dialog open={!!selectedPermGroup} onOpenChange={(o) => !o && setSelectedPermGroup(null)}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5" />
+              {selectedPermGroup?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Add or remove permissions for this group. Changes are local to this session only.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div>
+            {isAdmin && (
+              <div className="flex items-center gap-2 mb-4">
+                <Select value={newPermSelection} onValueChange={setNewPermSelection}>
+                  <SelectTrigger className="h-9 text-sm">
+                    <SelectValue placeholder="Select a permission to add…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availablePermissionsToAdd.map((perm) => (
+                      <SelectItem key={perm} value={perm}>
+                        {perm}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  size="sm"
+                  className="h-9 gap-1.5 shrink-0"
+                  disabled={!newPermSelection}
+                  onClick={addPermissionToGroup}
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  Add
+                </Button>
+              </div>
+            )}
+
+            {(groupPermissions[selectedPermGroup?.id ?? ""] ?? []).length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4">No permissions assigned.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {(groupPermissions[selectedPermGroup?.id ?? ""] ?? []).map((perm) => (
+                  <Badge key={perm} variant="outline" className="text-[11px] font-mono gap-1.5 pr-1.5">
+                    {perm}
+                    {isAdmin && (
+                      <button
+                        onClick={() => removePermissionFromGroup(perm)}
+                        aria-label={`Remove ${perm}`}
+                        className="hover:text-destructive"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Create/edit group dialog (mock, local-only) ── */}
+      <Dialog open={groupFormOpen} onOpenChange={setGroupFormOpen}>
+        <DialogContent className="sm:max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle>{groupFormMode === "create" ? "Create Group" : "Edit Group"}</DialogTitle>
+            <DialogDescription>
+              {groupFormMode === "create"
+                ? "Add a new group. This is a local mock — not saved to the backend."
+                : "Update this group's name and description. This is a local mock — not saved to the backend."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="group-name">Name</Label>
+              <Input
+                id="group-name"
+                value={groupFormName}
+                onChange={(e) => setGroupFormName(e.target.value)}
+                placeholder="e.g. Risk Managers"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="group-description">Description</Label>
+              <Textarea
+                id="group-description"
+                value={groupFormDescription}
+                onChange={(e) => setGroupFormDescription(e.target.value)}
+                placeholder="Optional description"
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setGroupFormOpen(false)}>Cancel</Button>
+            <Button onClick={handleSubmitGroupForm} disabled={!groupFormName.trim()}>
+              {groupFormMode === "create" ? "Create" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Delete group confirmation (mock, local-only) ── */}
+      <AlertDialog open={!!groupToDelete} onOpenChange={(o) => !o && setGroupToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete user?</AlertDialogTitle>
+            <AlertDialogTitle>Delete group?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will remove <strong>{confirmDelete?.name}</strong>. Their submitted assessments and approval decisions will remain on record.
+              This will remove "{groupToDelete?.name}" from this local mock view. This is not
+              saved to the backend and will reappear if the page reloads.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive hover:bg-destructive/90"
-              onClick={() => confirmDelete && handleDelete(confirmDelete)}
-            >Delete</AlertDialogAction>
+              onClick={handleDeleteGroup}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Create/edit permission dialog (mock, local-only) ── */}
+      <Dialog open={permissionFormOpen} onOpenChange={setPermissionFormOpen}>
+        <DialogContent className="sm:max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle>{permissionFormMode === "create" ? "Create Permission" : "Edit Permission"}</DialogTitle>
+            <DialogDescription>
+              {permissionFormMode === "create"
+                ? "Add a new permission to the catalog. This is a local mock — not saved to the backend."
+                : "Update this permission's key and description. This is a local mock — not saved to the backend."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="permission-key">Key</Label>
+              <Input
+                id="permission-key"
+                value={permissionFormKey}
+                onChange={(e) => { setPermissionFormKey(e.target.value); setPermissionFormError(null); }}
+                placeholder="e.g. audit.view"
+                className="font-mono"
+              />
+              {permissionFormError && (
+                <p className="text-xs text-destructive">{permissionFormError}</p>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="permission-description">Description</Label>
+              <Textarea
+                id="permission-description"
+                value={permissionFormDescription}
+                onChange={(e) => setPermissionFormDescription(e.target.value)}
+                placeholder="What this permission allows"
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPermissionFormOpen(false)}>Cancel</Button>
+            <Button onClick={handleSubmitPermissionForm} disabled={!permissionFormKey.trim()}>
+              {permissionFormMode === "create" ? "Create" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Delete permission confirmation (mock, local-only) ── */}
+      <AlertDialog open={!!permissionToDelete} onOpenChange={(o) => !o && setPermissionToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete permission?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove "{permissionToDelete?.key}" from the catalog and unassign it from
+              any groups that currently have it. This is not saved to the backend and will
+              reappear if the page reloads.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90"
+              onClick={handleDeletePermission}
+            >
+              Delete
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </>
-  );
-};
-
-const UserDialog = ({ state, orgNodes, onClose, onSave }: {
-  state: { user: AppUser; isNew: boolean } | null;
-  orgNodes: OrgNode[];
-  onClose: () => void;
-  onSave: (u: AppUser, isNew: boolean) => void;
-}) => {
-  const [draft, setDraft] = useState<AppUser | null>(null);
-  useEffect(() => { setDraft(state?.user ?? null); }, [state]);
-  if (!draft || !state) return null;
-
-  return (
-    <Dialog open={!!state} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>{state.isNew ? "Add user" : "Edit user"}</DialogTitle>
-          <DialogDescription>
-            Set their name, role and (optionally) the organisation unit they belong to.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="u-name">Full name *</Label>
-              <Input id="u-name" value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} placeholder="e.g. Jane Smith" />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="u-title">Job title</Label>
-              <Input id="u-title" value={draft.title ?? ""} onChange={e => setDraft({ ...draft, title: e.target.value })} placeholder="e.g. Risk Analyst" />
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="u-email">Email *</Label>
-            <Input id="u-email" type="email" value={draft.email} onChange={e => setDraft({ ...draft, email: e.target.value })} placeholder="user@company.com" />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="u-role">Role *</Label>
-            <Select value={draft.role} onValueChange={(v) => setDraft({ ...draft, role: v as UserRole })}>
-              <SelectTrigger id="u-role">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ROLES.map(r => (
-                  <SelectItem key={r} value={r}>
-                    <span className="inline-flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full" style={{ background: `hsl(${ROLE_COLORS[r]})` }} />
-                      {ROLE_LABELS[r]}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-[11px] text-muted-foreground">{ROLE_DESCRIPTIONS[draft.role]}</p>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="u-org">Organisation unit (optional)</Label>
-            <Select
-              value={draft.orgNodeId ?? "__none__"}
-              onValueChange={(v) => setDraft({ ...draft, orgNodeId: v === "__none__" ? undefined : v })}
-            >
-              <SelectTrigger id="u-org">
-                <SelectValue placeholder="No unit assigned" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">— No unit assigned —</SelectItem>
-                {orgNodes
-                  .filter(n => n.type !== "process" && n.type !== "subprocess")
-                  .map(n => (
-                    <SelectItem key={n.id} value={n.id}>
-                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground mr-1.5">{ORG_TYPE_LABELS[n.type]}</span>
-                      {n.name}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-            <p className="text-[11px] text-muted-foreground">
-              Required for Input Users and Approvers. Admins, Risk Managers and Executives don't need a unit.
-            </p>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={() => onSave(draft, state.isNew)} className="bg-primary hover:bg-primary/90">Save</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 };
 

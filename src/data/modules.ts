@@ -19,7 +19,7 @@ export const MODULES: ModuleDef[] = [
   { id: "data",       name: "Data Protection Management", desc: "POPIA/GDPR compliance, data subject requests and protection impact assessments.", icon: ShieldCheck,     color: "34 89% 61%" },
   { id: "resilience", name: "Resilience Management",      desc: "Business continuity, disaster recovery, BIA and operational resilience planning.", icon: RotateCw,        color: "192 60% 53%" },
   { id: "cyber",      name: "Cyber Risk Management",      desc: "Cyber threats, vulnerability assessments, security incidents and control frameworks.", icon: Lock,         color: "265 88% 66%" },
-  { id: "settings",   name: "Profile & Settings",         desc: "Manage users, assign roles, audit logs and platform configuration.",               icon: UserCog,         color: "229 81% 76%", dark: true },
+  { id: "settings",   name: "User Management",            desc: "View organisation members, manage groups and assign users to groups.",            icon: UserCog,         color: "229 81% 76%", dark: true },
 ];
 
 export const MODULE_OPTIONS = MODULES.map(m => ({ value: m.id, label: m.name }));

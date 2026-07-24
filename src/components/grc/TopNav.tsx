@@ -1,11 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Bell, LogOut, ChevronDown, UserCircle2 } from "lucide-react";
+import { Search, Bell, LogOut } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Logo, BrandName } from "@/components/grc/Logo";
 import { cn } from "@/lib/utils";
-import { loadUsers, setActiveUserId, ROLE_LABELS, ROLE_COLORS, type AppUser } from "@/data/userStore";
-import { useActiveUser } from "@/hooks/use-active-user";
 
 interface Notif {
   id: string;
@@ -36,28 +34,12 @@ export const TopNav = () => {
   const navigate = useNavigate();
   const [notifs, setNotifs] = useState<Notif[]>(initialNotifs);
   const [open, setOpen] = useState(false);
-  const [userOpen, setUserOpen] = useState(false);
-  const [users, setUsers] = useState<AppUser[]>([]);
   const { logout } = useAuth();
   const wrapRef = useRef<HTMLDivElement>(null);
-  const userWrapRef = useRef<HTMLDivElement>(null);
-  const activeUser = useActiveUser();
-
-  useEffect(() => {
-    setUsers(loadUsers());
-    const refresh = () => setUsers(loadUsers());
-    window.addEventListener("rsolve:active-user-changed", refresh);
-    window.addEventListener("storage", refresh);
-    return () => {
-      window.removeEventListener("rsolve:active-user-changed", refresh);
-      window.removeEventListener("storage", refresh);
-    };
-  }, []);
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
       if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
-      if (userWrapRef.current && !userWrapRef.current.contains(e.target as Node)) setUserOpen(false);
     };
     document.addEventListener("click", onClick);
     return () => document.removeEventListener("click", onClick);
@@ -66,9 +48,6 @@ export const TopNav = () => {
   const unreadCount = notifs.filter(n => n.unread).length;
   const markRead = (id: string) => setNotifs(prev => prev.map(n => n.id === id ? { ...n, unread: false } : n));
   const markAll = () => setNotifs(prev => prev.map(n => ({ ...n, unread: false })));
-
-  const initials = (activeUser?.name || "??")
-    .split(" ").map(s => s[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
 
   return (
     <nav className="sticky top-0 z-40 h-15 flex items-center gap-5 bg-navy-deep px-5 md:px-8 shadow-nav text-white" style={{ height: 60 }}>
@@ -120,65 +99,8 @@ export const TopNav = () => {
           )}
         </div>
 
-        <div className="relative" ref={userWrapRef}>
-          <button
-            onClick={() => setUserOpen(o => !o)}
-            className="hidden sm:flex items-center gap-2.5 bg-white/[0.07] border border-white/10 rounded-[9px] py-1 pl-1.5 pr-2.5 cursor-pointer hover:bg-white/15 transition"
-            aria-label="Switch active user"
-          >
-            <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold text-white"
-                 style={{ background: `linear-gradient(135deg, hsl(${ROLE_COLORS[activeUser?.role ?? "admin"]}), hsl(var(--sky)))` }}>
-              {initials}
-            </div>
-            <div className="text-left">
-              <div className="text-[13px] font-semibold leading-tight">{activeUser?.name ?? "—"}</div>
-              <div className="text-[10px] text-sky font-mono">{ROLE_LABELS[activeUser?.role ?? "admin"]}</div>
-            </div>
-            <ChevronDown className="w-3.5 h-3.5 text-sky/70" />
-          </button>
-
-          {userOpen && (
-            <div className="absolute right-0 top-[calc(100%+10px)] w-[300px] bg-white rounded-2xl border border-brand-accent/10 shadow-card-hover z-50 overflow-hidden text-foreground animate-drop-in">
-              <div className="px-4 pt-3 pb-2 border-b border-surface">
-                <p className="text-[11px] uppercase tracking-wider text-brand-muted font-semibold">Switch active user</p>
-                <p className="text-[11px] text-brand-muted">Prototype role preview</p>
-              </div>
-              <div className="max-h-[300px] overflow-y-auto py-1">
-                {users.map(u => {
-                  const active = u.id === activeUser?.id;
-                  return (
-                    <button
-                      key={u.id}
-                      onClick={() => { setActiveUserId(u.id); setUserOpen(false); }}
-                      className={cn(
-                        "w-full flex items-center gap-2.5 px-4 py-2 text-left hover:bg-offwhite transition",
-                        active && "bg-brand-accent/[0.06]"
-                      )}
-                    >
-                      <UserCircle2 className="w-7 h-7 shrink-0" style={{ color: `hsl(${ROLE_COLORS[u.role]})` }} />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[13px] font-medium text-navy-deep truncate">{u.name || u.email}</div>
-                        <div className="text-[10px] text-brand-muted font-mono">{ROLE_LABELS[u.role]}</div>
-                      </div>
-                      {active && <span className="text-[10px] text-brand-accent font-semibold">ACTIVE</span>}
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="border-t border-surface px-4 py-2">
-                <button
-                  onClick={() => { setUserOpen(false); navigate("/settings/users"); }}
-                  className="w-full text-[12px] text-brand-accent font-medium hover:underline text-left"
-                >
-                  Manage users →
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
         <button
-          onClick={() => { logout(); navigate("/"); }}
+          onClick={async () => { await logout(); navigate("/"); }}
           className="flex items-center gap-1.5 border border-destructive/35 text-destructive/80 rounded-lg px-3 py-1.5 text-[12.5px] font-medium hover:bg-destructive/10 hover:border-destructive/60 hover:text-destructive transition"
         >
           <LogOut className="w-3.5 h-3.5" /> Log out
