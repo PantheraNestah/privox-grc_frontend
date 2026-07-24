@@ -6,57 +6,30 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
-import { api } from "@/lib/api";
-import { setAccessToken } from "@/lib/token";
+import { api, refreshAccessToken } from "@/lib/api";
+import {
+  getAccessToken,
+  setAccessToken,
+  getStoredRefreshToken,
+  storeRefreshToken,
+  clearStoredTokens,
+} from "@/lib/token";
 import type {
   LoginRequest,
   LoginResponse,
   MeResponse,
+  LogoutRequest,
   AuthState,
 } from "@/lib/auth-types";
 
 // Default organisation UUID — hardcoded here, not in .env
 const ORGANIZATION_ID = "6d46a49f-268c-468a-a9ea-a0407db30d6b";
 
-// ─── Token storage helpers ───────────────────────────────
-
-const REFRESH_KEY = "grc_refresh_token";
-const REMEMBER_KEY = "grc_remember_me";
-
-function getStoredRefreshToken(): string | null {
-  // Check localStorage first (remember me), then sessionStorage
-  return (
-    localStorage.getItem(REFRESH_KEY) ?? sessionStorage.getItem(REFRESH_KEY)
-  );
-}
-
-function storeRefreshToken(token: string, rememberMe: boolean) {
-  if (rememberMe) {
-    localStorage.setItem(REFRESH_KEY, token);
-    localStorage.setItem(REMEMBER_KEY, "true");
-    // Clear session storage in case it was there
-    sessionStorage.removeItem(REFRESH_KEY);
-  } else {
-    sessionStorage.setItem(REFRESH_KEY, token);
-    sessionStorage.setItem(REMEMBER_KEY, "true");
-    // Clear local storage in case it was there
-    localStorage.removeItem(REFRESH_KEY);
-    localStorage.removeItem(REMEMBER_KEY);
-  }
-}
-
-function clearTokens() {
-  localStorage.removeItem(REFRESH_KEY);
-  localStorage.removeItem(REMEMBER_KEY);
-  sessionStorage.removeItem(REFRESH_KEY);
-  sessionStorage.removeItem(REMEMBER_KEY);
-}
-
 // ─── Context ─────────────────────────────────────────────
 
 interface AuthContextValue extends AuthState {
   login: (req: LoginRequest) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   refreshSession: () => Promise<void>;
 }
 
@@ -70,26 +43,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     organization: null,
     permissions: [],
     accessToken: null,
+    refreshToken: null,
     accessTokenExpiresAt: null,
     isAuthenticated: false,
-    isLoading: true, // starts loading until we check for existing session
+    isLoading: true,
   });
 
   // ── Restore session from refresh token ─────────────────
   const refreshSession = useCallback(async () => {
-    const refreshToken = getStoredRefreshToken();
-    if (!refreshToken) {
+    const storedRefresh = getStoredRefreshToken();
+    if (!storedRefresh) {
       setState((s) => ({ ...s, isLoading: false }));
       return;
     }
 
     try {
-      const { data } = await api.get<MeResponse>("/v1/me", {
-        headers: { Authorization: `Bearer ${refreshToken}` },
-      });
-
-      // Use the refresh token as our current bearer token
-      setAccessToken(refreshToken);
+      const newAccessToken = await refreshAccessToken();
+      const { data } = await api.get<MeResponse>("/v1/me");
 
       setState({
         user: {
@@ -100,20 +70,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
         organization: data.organization,
         permissions: data.permissions,
-        accessToken: refreshToken,
+        accessToken: newAccessToken,
+        refreshToken: getStoredRefreshToken(),
         accessTokenExpiresAt: data.accessTokenExpiresAt,
         isAuthenticated: true,
         isLoading: false,
       });
     } catch {
-      // Token invalid or expired — clear and redirect to login
-      clearTokens();
+      clearStoredTokens();
       setAccessToken(null);
       setState({
         user: null,
         organization: null,
         permissions: [],
         accessToken: null,
+        refreshToken: null,
         accessTokenExpiresAt: null,
         isAuthenticated: false,
         isLoading: false,
@@ -135,10 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       rememberMe: req.rememberMe,
     });
 
-    // Store refresh token per remember-me preference
     storeRefreshToken(data.refreshToken, req.rememberMe);
-
-    // Set the access token in the shared module for axios interceptors
     setAccessToken(data.accessToken);
 
     setState({
@@ -146,21 +114,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       organization: data.organization,
       permissions: data.permissions,
       accessToken: data.accessToken,
+      refreshToken: data.refreshToken,
       accessTokenExpiresAt: data.accessTokenExpiresAt,
       isAuthenticated: true,
       isLoading: false,
     });
   }, []);
 
-  // ── Logout ─────────────────────────────────────────────
-  const logout = useCallback(() => {
-    clearTokens();
+  // ── Logout (calls API then clears local state) ─────────
+  const logout = useCallback(async () => {
+    const body: LogoutRequest = {
+      accessToken: getAccessToken() ?? "",
+      refreshToken: getStoredRefreshToken() ?? "",
+    };
+
+    // Fire-and-forget — clear local state regardless of API result
+    try {
+      await api.post("/v1/auth/logout", body);
+    } catch {
+      // API may be unreachable; still clear locally
+    }
+
+    clearStoredTokens();
     setAccessToken(null);
     setState({
       user: null,
       organization: null,
       permissions: [],
       accessToken: null,
+      refreshToken: null,
       accessTokenExpiresAt: null,
       isAuthenticated: false,
       isLoading: false,
