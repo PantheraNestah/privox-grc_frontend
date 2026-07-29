@@ -108,7 +108,6 @@ api.interceptors.response.use(
     originalRequest._retry = true;
     try {
       const refreshResponse = await refreshAccessToken();
-      originalRequest.headers = originalRequest.headers ?? {};
       originalRequest.headers.Authorization = `Bearer ${refreshResponse.accessToken}`;
       return api.request(originalRequest);
     } catch {

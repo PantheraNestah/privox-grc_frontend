@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { RequireAuth } from "@/components/grc/RequireAuth";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -30,16 +31,18 @@ const App = () => (
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/governance" element={<Governance />} />
-              <Route path="/governance/risk-governance" element={<RiskGovernance />} />
-              <Route path="/governance/strategy-formulation" element={<StrategyFormulation />} />
-              <Route path="/governance/strategy-assessment" element={<StrategyAssessment />} />
-              <Route path="/governance/risk-strategy" element={<RiskStrategy />} />
-              <Route path="/governance/documents" element={<DocumentManagement />} />
-              <Route path="/governance/surveys" element={<SurveyManagement />} />
-              <Route path="/surveys/:surveyId/respond" element={<SurveyRespond />} />
-              <Route path="/settings/users" element={<UserManagement />} />
+              <Route element={<RequireAuth />}>
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/governance" element={<Governance />} />
+                <Route path="/governance/risk-governance" element={<RiskGovernance />} />
+                <Route path="/governance/strategy-formulation" element={<StrategyFormulation />} />
+                <Route path="/governance/strategy-assessment" element={<StrategyAssessment />} />
+                <Route path="/governance/risk-strategy" element={<RiskStrategy />} />
+                <Route path="/governance/documents" element={<DocumentManagement />} />
+                <Route path="/governance/surveys" element={<SurveyManagement />} />
+                <Route path="/surveys/:surveyId/respond" element={<SurveyRespond />} />
+                <Route path="/settings/users" element={<UserManagement />} />
+              </Route>
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
