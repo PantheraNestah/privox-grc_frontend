@@ -48,10 +48,10 @@ api.interceptors.request.use(
 // or a failed refresh would loop forever.
 const NO_REFRESH_PATHS = ["/auth/login", "/auth/logout", "/auth/refresh"];
 
-let refreshPromise: Promise<string> | null = null;
+let refreshPromise: Promise<RefreshResponse> | null = null;
 
 /** Exchanges the stored refresh token for a new access token. Deduplicates concurrent callers. */
-export async function refreshAccessToken(): Promise<string> {
+export async function refreshAccessToken(): Promise<RefreshResponse> {
   if (!refreshPromise) {
     refreshPromise = (async () => {
       const storedRefresh = getStoredRefreshToken();
@@ -65,7 +65,7 @@ export async function refreshAccessToken(): Promise<string> {
 
       setAccessToken(data.accessToken);
       updateStoredRefreshToken(data.refreshToken);
-      return data.accessToken;
+      return data;
     })().finally(() => {
       refreshPromise = null;
     });
@@ -107,9 +107,9 @@ api.interceptors.response.use(
 
     originalRequest._retry = true;
     try {
-      const newToken = await refreshAccessToken();
+      const refreshResponse = await refreshAccessToken();
       originalRequest.headers = originalRequest.headers ?? {};
-      originalRequest.headers.Authorization = `Bearer ${newToken}`;
+      originalRequest.headers.Authorization = `Bearer ${refreshResponse.accessToken}`;
       return api.request(originalRequest);
     } catch {
       forceLogout();
