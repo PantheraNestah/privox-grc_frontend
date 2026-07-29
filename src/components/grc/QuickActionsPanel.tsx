@@ -13,9 +13,10 @@ import {
   QUICK_ACTION_ICONS, QUICK_ACTION_COLORS, ICON_BY_KEY,
   type QuickAction, DEFAULT_QUICK_ACTIONS,
 } from "@/data/quickActions";
-import { MODULES, MODULE_OPTIONS } from "@/data/modules";
+import { MODULES, type ModuleDef } from "@/data/modules";
 
 interface Props {
+  modules?: ModuleDef[];
   onActionClick: (action: QuickAction) => void;
 }
 
@@ -23,10 +24,11 @@ const emptyDraft: QuickAction = {
   id: "", title: "", description: "", iconKey: "zap", color: QUICK_ACTION_COLORS[0].value, moduleId: "",
 };
 
-export const QuickActionsPanel = ({ onActionClick }: Props) => {
+export const QuickActionsPanel = ({ modules = MODULES, onActionClick }: Props) => {
   const [actions, setActions] = useState<QuickAction[]>(DEFAULT_QUICK_ACTIONS);
   const [editing, setEditing] = useState<QuickAction | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const moduleOptions = modules.map(m => ({ value: m.id, label: m.name }));
 
   const openNew = () => setEditing({ ...emptyDraft, id: `qa-${Date.now()}` });
   const openEdit = (a: QuickAction) => setEditing(a);
@@ -74,6 +76,7 @@ export const QuickActionsPanel = ({ onActionClick }: Props) => {
         )}
         {actions.map((a, i) => (
           <QuickActionCard key={a.id} action={a} index={i}
+            modules={modules}
             onClick={() => onActionClick(a)}
             onEdit={() => openEdit(a)}
             onDelete={() => setDeleteId(a.id)}
@@ -84,7 +87,7 @@ export const QuickActionsPanel = ({ onActionClick }: Props) => {
       {/* Create/Edit dialog */}
       <Dialog open={!!editing} onOpenChange={o => !o && setEditing(null)}>
         <DialogContent className="sm:max-w-[460px]">
-          {editing && <ActionForm draft={editing} onChange={setEditing} onSave={() => save(editing)} onCancel={() => setEditing(null)} />}
+          {editing && <ActionForm draft={editing} moduleOptions={moduleOptions} onChange={setEditing} onSave={() => save(editing)} onCancel={() => setEditing(null)} />}
         </DialogContent>
       </Dialog>
 
@@ -108,10 +111,10 @@ export const QuickActionsPanel = ({ onActionClick }: Props) => {
 /* ---------- Quick action card ---------- */
 
 const QuickActionCard = ({
-  action, index, onClick, onEdit, onDelete,
-}: { action: QuickAction; index: number; onClick: () => void; onEdit: () => void; onDelete: () => void }) => {
+  action, index, modules, onClick, onEdit, onDelete,
+}: { action: QuickAction; index: number; modules: ModuleDef[]; onClick: () => void; onEdit: () => void; onDelete: () => void }) => {
   const Icon = ICON_BY_KEY[action.iconKey] ?? ICON_BY_KEY.zap;
-  const moduleLabel = action.moduleId ? MODULES.find(m => m.id === action.moduleId)?.name : null;
+  const moduleLabel = action.moduleId ? modules.find(m => m.id === action.moduleId)?.name : null;
 
   return (
     <div
@@ -156,8 +159,8 @@ const QuickActionCard = ({
 /* ---------- Form ---------- */
 
 const ActionForm = ({
-  draft, onChange, onSave, onCancel,
-}: { draft: QuickAction; onChange: (d: QuickAction) => void; onSave: () => void; onCancel: () => void }) => {
+  draft, moduleOptions, onChange, onSave, onCancel,
+}: { draft: QuickAction; moduleOptions: { value: string; label: string }[]; onChange: (d: QuickAction) => void; onSave: () => void; onCancel: () => void }) => {
   const set = <K extends keyof QuickAction>(k: K, v: QuickAction[K]) => onChange({ ...draft, [k]: v });
 
   return (
@@ -184,7 +187,7 @@ const ActionForm = ({
             <SelectTrigger id="qa-mod"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="none">No module</SelectItem>
-              {MODULE_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+              {moduleOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
