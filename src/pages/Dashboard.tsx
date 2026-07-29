@@ -4,7 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { TopNav } from "@/components/grc/TopNav";
 import { ModuleCard } from "@/components/grc/ModuleCard";
 import { QuickActionsPanel } from "@/components/grc/QuickActionsPanel";
-import { MODULES } from "@/data/modules";
+import { useAuth } from "@/contexts/AuthContext";
+import { getOrganizationEnabledModules } from "@/lib/organizationModules";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useActiveUser } from "@/hooks/use-active-user";
@@ -15,10 +16,14 @@ const greetingFor = (h: number) => (h < 12 ? "Good morning" : h < 17 ? "Good aft
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { organization, isLoading: isAuthLoading } = useAuth();
   const activeUser = useActiveUser();
   const [openModule, setOpenModule] = useState<ModuleDef | null>(null);
   const [openAction, setOpenAction] = useState<QuickAction | null>(null);
   const [now, setNow] = useState(() => new Date());
+  const [enabledModules, setEnabledModules] = useState<ModuleDef[]>([]);
+  const [isModulesLoading, setIsModulesLoading] = useState(true);
+  const [modulesError, setModulesError] = useState<string | null>(null);
 
   const handleModuleClick = (m: ModuleDef) => {
     if (m.id === "governance") {
@@ -37,6 +42,39 @@ const Dashboard = () => {
     return () => clearInterval(t);
   }, []);
 
+  useEffect(() => {
+    if (isAuthLoading) return;
+
+    if (!organization?.id) {
+      setEnabledModules([]);
+      setIsModulesLoading(false);
+      setModulesError("No organization is linked to the signed-in user.");
+      return;
+    }
+
+    let cancelled = false;
+    setIsModulesLoading(true);
+    setModulesError(null);
+
+    getOrganizationEnabledModules(organization.id)
+      .then((modules) => {
+        if (cancelled) return;
+        setEnabledModules(modules);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setEnabledModules([]);
+        setModulesError("Unable to load enabled modules for your organization.");
+      })
+      .finally(() => {
+        if (!cancelled) setIsModulesLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthLoading, organization?.id]);
+
   const greeting = useMemo(() => greetingFor(now.getHours()), [now]);
   const dateStr = useMemo(
     () => now.toLocaleDateString("en-ZA", { weekday: "long", year: "numeric", month: "long", day: "numeric" }),
@@ -44,7 +82,7 @@ const Dashboard = () => {
   );
 
   const handleAction = (a: QuickAction) => setOpenAction(a);
-  const linkedModule = openAction?.moduleId ? MODULES.find(m => m.id === openAction.moduleId) : null;
+  const linkedModule = openAction?.moduleId ? enabledModules.find(m => m.id === openAction.moduleId) : null;
 
   return (
     <>
@@ -72,14 +110,29 @@ const Dashboard = () => {
                 <span className="text-xs text-brand-muted">Select a module to get started</span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                {MODULES.map((m, i) => (
+                {isModulesLoading && (
+                  <div className="sm:col-span-2 xl:col-span-3 rounded-2xl border border-brand-accent/10 bg-card p-6 text-sm text-brand-muted shadow-card">
+                    Loading enabled modules...
+                  </div>
+                )}
+                {!isModulesLoading && modulesError && (
+                  <div className="sm:col-span-2 xl:col-span-3 rounded-2xl border border-destructive/20 bg-destructive/5 p-6 text-sm text-destructive">
+                    {modulesError}
+                  </div>
+                )}
+                {!isModulesLoading && !modulesError && enabledModules.length === 0 && (
+                  <div className="sm:col-span-2 xl:col-span-3 rounded-2xl border border-brand-accent/10 bg-card p-6 text-sm text-brand-muted shadow-card">
+                    No modules are enabled for your organization.
+                  </div>
+                )}
+                {!isModulesLoading && !modulesError && enabledModules.map((m, i) => (
                   <ModuleCard key={m.id} module={m} index={i} onClick={() => handleModuleClick(m)} />
                 ))}
               </div>
             </section>
 
             {/* Right: Quick actions */}
-            <QuickActionsPanel onActionClick={handleAction} />
+            <QuickActionsPanel modules={enabledModules} onActionClick={handleAction} />
           </div>
         </main>
       </div>
