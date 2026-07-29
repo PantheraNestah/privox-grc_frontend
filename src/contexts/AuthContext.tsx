@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { api, refreshAccessToken } from "@/lib/api";
+import { getTokenRefreshDelay } from "@/lib/auth-refresh";
 import {
   getAccessToken,
   setAccessToken,
@@ -49,6 +50,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isLoading: true,
   });
 
+  const clearSession = useCallback(() => {
+    clearStoredTokens();
+    setAccessToken(null);
+    setState({
+      user: null,
+      organization: null,
+      permissions: [],
+      accessToken: null,
+      refreshToken: null,
+      accessTokenExpiresAt: null,
+      isAuthenticated: false,
+      isLoading: false,
+    });
+  }, []);
+
   // ── Restore session from refresh token ─────────────────
   const refreshSession = useCallback(async () => {
     const storedRefresh = getStoredRefreshToken();
@@ -58,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const newAccessToken = await refreshAccessToken();
+      const refreshResponse = await refreshAccessToken();
       const { data } = await api.get<MeResponse>("/v1/me");
 
       setState({
@@ -70,32 +86,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
         organization: data.organization,
         permissions: data.permissions,
-        accessToken: newAccessToken,
+        accessToken: refreshResponse.accessToken,
         refreshToken: getStoredRefreshToken(),
-        accessTokenExpiresAt: data.accessTokenExpiresAt,
+        accessTokenExpiresAt: refreshResponse.accessTokenExpiresAt,
         isAuthenticated: true,
         isLoading: false,
       });
     } catch {
-      clearStoredTokens();
-      setAccessToken(null);
-      setState({
-        user: null,
-        organization: null,
-        permissions: [],
-        accessToken: null,
-        refreshToken: null,
-        accessTokenExpiresAt: null,
-        isAuthenticated: false,
-        isLoading: false,
-      });
+      clearSession();
     }
-  }, []);
+  }, [clearSession]);
 
   // ── Check for existing session on mount ────────────────
   useEffect(() => {
     refreshSession();
   }, [refreshSession]);
+
+  // Refresh one minute before expiry, then reschedule from the new expiry.
+  useEffect(() => {
+    if (!state.isAuthenticated || !state.accessTokenExpiresAt) {
+      return;
+    }
+
+    let active = true;
+    const timer = window.setTimeout(async () => {
+      try {
+        const refreshResponse = await refreshAccessToken();
+        if (!active) return;
+
+        setState((current) => ({
+          ...current,
+          accessToken: refreshResponse.accessToken,
+          refreshToken: refreshResponse.refreshToken,
+          accessTokenExpiresAt: refreshResponse.accessTokenExpiresAt,
+        }));
+      } catch {
+        if (active) clearSession();
+      }
+    }, getTokenRefreshDelay(state.accessTokenExpiresAt));
+
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [state.isAuthenticated, state.accessTokenExpiresAt, clearSession]);
 
   // ── Login ──────────────────────────────────────────────
   const login = useCallback(async (req: LoginRequest) => {
@@ -135,19 +169,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // API may be unreachable; still clear locally
     }
 
-    clearStoredTokens();
-    setAccessToken(null);
-    setState({
-      user: null,
-      organization: null,
-      permissions: [],
-      accessToken: null,
-      refreshToken: null,
-      accessTokenExpiresAt: null,
-      isAuthenticated: false,
-      isLoading: false,
-    });
-  }, []);
+    clearSession();
+  }, [clearSession]);
 
   return (
     <AuthContext.Provider
