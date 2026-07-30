@@ -8,6 +8,7 @@ import { api } from "./api";
 import type {
   OrganizationMember,
   OrganizationGroup,
+  OrganizationGroupDetail,
   GroupMember,
 } from "./auth-types";
 
@@ -38,6 +39,33 @@ export async function fetchOrganizationGroups(): Promise<OrganizationGroup[]> {
     `/v1/organizations/${ORG_ID}/groups`,
   );
   return data;
+}
+
+export async function fetchOrganizationGroup(
+  groupId: string,
+): Promise<OrganizationGroupDetail> {
+  const { data } = await api.get<
+    Omit<OrganizationGroupDetail, "permissions"> & {
+      permissions: Array<
+        string | { id: string; code: string; name: string; scopeType: string }
+      >;
+    }
+  >(
+    `/v1/organizations/${ORG_ID}/groups/${groupId}`,
+  );
+  return {
+    ...data,
+    permissions: data.permissions.map((permission) =>
+      typeof permission === "string"
+        ? {
+            id: permission,
+            code: permission,
+            name: permission,
+            scopeType: "",
+          }
+        : permission,
+    ),
+  };
 }
 
 export async function fetchGroupMembers(
