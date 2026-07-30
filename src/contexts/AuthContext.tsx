@@ -97,10 +97,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [clearSession]);
 
-  // ── Check for existing session on mount ────────────────
+  // Always require an explicit login when the application starts.
+  // Proactive refresh still keeps the session alive after login.
   useEffect(() => {
-    refreshSession();
-  }, [refreshSession]);
+    clearStoredTokens();
+    setAccessToken(null);
+    setState((current) => ({ ...current, isLoading: false }));
+  }, []);
 
   // Refresh one minute before expiry, then reschedule from the new expiry.
   useEffect(() => {

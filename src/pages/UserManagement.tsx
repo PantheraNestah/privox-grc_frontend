@@ -32,6 +32,7 @@ import {
 import {
   fetchOrganizationMembers,
   fetchOrganizationGroups,
+  fetchOrganizationGroup,
   fetchGroupMembers,
   fetchMemberGroups,
   addGroupMember,
@@ -40,8 +41,11 @@ import {
 import type {
   OrganizationMember,
   OrganizationGroup,
+  OrganizationGroupDetail,
   GroupMember,
 } from "@/lib/auth-types";
+
+const FEATURED_GROUP_ID = "0a7ea4ae-0829-4911-a992-0531a9c1e6f9";
 
 const UserManagement = () => {
   const activeUser = useActiveUser();
@@ -50,6 +54,7 @@ const UserManagement = () => {
   // API data
   const [members, setMembers] = useState<OrganizationMember[]>([]);
   const [groups, setGroups] = useState<OrganizationGroup[]>([]);
+  const [featuredGroup, setFeaturedGroup] = useState<OrganizationGroupDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -98,22 +103,44 @@ const UserManagement = () => {
     setLoading(true);
     setError(null);
 
-    Promise.all([fetchOrganizationMembers(), fetchOrganizationGroups()])
-      .then(([membersData, groupsData]) => {
-        if (cancelled) return;
-        setMembers(membersData);
-        setGroups(groupsData);
-        setGroupPermissions(
-          Object.fromEntries(groupsData.map((g) => [g.id, mockPermissionsForGroup(g.name)])),
-        );
+    const loadMembers = fetchOrganizationMembers()
+      .then((membersData) => {
+        if (!cancelled) setMembers(membersData);
       })
       .catch((err) => {
-        if (cancelled) return;
-        setError(err instanceof Error ? err.message : "Failed to load data");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Failed to load members");
+        }
       });
+
+    const loadGroups = fetchOrganizationGroups()
+      .then((groupsData) => {
+        if (cancelled) return;
+        setGroups(groupsData);
+        setGroupPermissions(
+          Object.fromEntries(groupsData.map((group) => [
+            group.id,
+            mockPermissionsForGroup(group.name),
+          ])),
+        );
+
+        void fetchOrganizationGroup(FEATURED_GROUP_ID)
+          .then((detail) => {
+            if (!cancelled) setFeaturedGroup(detail);
+          })
+          .catch(() => {
+            if (!cancelled) setFeaturedGroup(null);
+          });
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Failed to load groups");
+        }
+      });
+
+    Promise.allSettled([loadMembers, loadGroups]).finally(() => {
+      if (!cancelled) setLoading(false);
+    });
 
     return () => { cancelled = true; };
   }, []);
@@ -185,7 +212,6 @@ const UserManagement = () => {
     (m) => !groupMembers.some((gm) => gm.userId === m.userId),
   );
 
-  // Mock, local-only — no backend endpoint yet for group permissions
   const openPermGroupDetail = (group: OrganizationGroup) => {
     setSelectedPermGroup(group);
     setNewPermSelection("");
@@ -209,9 +235,12 @@ const UserManagement = () => {
   };
 
   const availablePermissionsToAdd = permissionCatalog
-    .map((p) => p.key)
-    .filter((p) => !(groupPermissions[selectedPermGroup?.id ?? ""] ?? []).includes(p));
+    .map((permission) => permission.key)
+    .filter((permission) =>
+      !(groupPermissions[selectedPermGroup?.id ?? ""] ?? []).includes(permission),
+    );
 
+  // Mock, local-only — no backend endpoint yet for group permissions
   // Mock, local-only — no backend endpoint yet for group creation/editing/deletion
   const openCreateGroup = () => {
     setGroupFormMode("create");
@@ -269,7 +298,6 @@ const UserManagement = () => {
     setGroupToDelete(null);
   };
 
-  // Mock, local-only — no backend endpoint yet for permission catalog management
   const openCreatePermission = () => {
     setPermissionFormMode("create");
     setPermissionFormTarget(null);
@@ -279,11 +307,11 @@ const UserManagement = () => {
     setPermissionFormOpen(true);
   };
 
-  const openEditPermission = (perm: MockPermission) => {
+  const openEditPermission = (permission: MockPermission) => {
     setPermissionFormMode("edit");
-    setPermissionFormTarget(perm);
-    setPermissionFormKey(perm.key);
-    setPermissionFormDescription(perm.description);
+    setPermissionFormTarget(permission);
+    setPermissionFormKey(permission.key);
+    setPermissionFormDescription(permission.description);
     setPermissionFormError(null);
     setPermissionFormOpen(true);
   };
@@ -292,9 +320,9 @@ const UserManagement = () => {
     const key = permissionFormKey.trim();
     if (!key) return;
     const description = permissionFormDescription.trim();
-
     const duplicate = permissionCatalog.some(
-      (p) => p.key === key && p.key !== permissionFormTarget?.key,
+      (permission) =>
+        permission.key === key && permission.key !== permissionFormTarget?.key,
     );
     if (duplicate) {
       setPermissionFormError("A permission with this key already exists.");
@@ -306,35 +334,42 @@ const UserManagement = () => {
     } else if (permissionFormTarget) {
       const oldKey = permissionFormTarget.key;
       setPermissionCatalog((prev) =>
-        prev.map((p) => (p.key === oldKey ? { key, description } : p)),
+        prev.map((permission) =>
+          permission.key === oldKey ? { key, description } : permission,
+        ),
       );
       if (oldKey !== key) {
         setGroupPermissions((prev) =>
           Object.fromEntries(
-            Object.entries(prev).map(([gid, keys]) => [
-              gid,
-              Array.from(new Set(keys.map((k) => (k === oldKey ? key : k)))),
+            Object.entries(prev).map(([groupId, keys]) => [
+              groupId,
+              Array.from(new Set(keys.map((value) => value === oldKey ? key : value))),
             ]),
           ),
         );
       }
     }
-
     setPermissionFormOpen(false);
   };
 
   const handleDeletePermission = () => {
     if (!permissionToDelete) return;
     const deletedKey = permissionToDelete.key;
-    setPermissionCatalog((prev) => prev.filter((p) => p.key !== deletedKey));
+    setPermissionCatalog((prev) =>
+      prev.filter((permission) => permission.key !== deletedKey),
+    );
     setGroupPermissions((prev) =>
       Object.fromEntries(
-        Object.entries(prev).map(([gid, keys]) => [gid, keys.filter((k) => k !== deletedKey)]),
+        Object.entries(prev).map(([groupId, keys]) => [
+          groupId,
+          keys.filter((key) => key !== deletedKey),
+        ]),
       ),
     );
     setPermissionToDelete(null);
   };
 
+  // Mock, local-only — no backend endpoint yet for permission catalog management
   return (
     <>
       <Helmet>
@@ -401,7 +436,9 @@ const UserManagement = () => {
               </TabsTrigger>
               <TabsTrigger value="permission-catalog" className="gap-2">
                 <KeyRound className="w-4 h-4" /> Permissions
-                <Badge variant="secondary" className="text-[10px]">{permissionCatalog.length}</Badge>
+                <Badge variant="secondary" className="text-[10px]">
+                  {permissionCatalog.length}
+                </Badge>
               </TabsTrigger>
             </TabsList>
 
@@ -523,9 +560,10 @@ const UserManagement = () => {
                       <thead className="text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border">
                         <tr>
                           <th className="text-left px-4 py-2 font-semibold">Group Name</th>
-                          <th className="text-left px-4 py-2 font-semibold">Description</th>
-                          <th className="text-center px-4 py-2 font-semibold">Members</th>
-                          <th className="text-right px-4 py-2 font-semibold">Actions</th>
+                           <th className="text-left px-4 py-2 font-semibold">Description</th>
+                           <th className="text-center px-4 py-2 font-semibold">Members</th>
+                           <th className="text-left px-4 py-2 font-semibold">Permissions</th>
+                           <th className="text-right px-4 py-2 font-semibold">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -535,13 +573,38 @@ const UserManagement = () => {
                             <td className="px-4 py-2.5 text-xs text-muted-foreground">
                               {g.description || "—"}
                             </td>
-                            <td className="px-4 py-2.5 text-center">
-                              {g.memberCount != null && (
-                                <Badge variant="secondary" className="text-[10px]">
-                                  {g.memberCount}
-                                </Badge>
-                              )}
-                            </td>
+                             <td className="px-4 py-2.5 text-center">
+                               {(g.id === FEATURED_GROUP_ID
+                                 ? featuredGroup?.memberCount
+                                 : g.memberCount) != null && (
+                                 <Badge variant="secondary" className="text-[10px]">
+                                   {g.id === FEATURED_GROUP_ID
+                                     ? featuredGroup?.memberCount
+                                     : g.memberCount}
+                                 </Badge>
+                               )}
+                             </td>
+                             <td className="px-4 py-2.5">
+                               {g.id !== FEATURED_GROUP_ID || !featuredGroup ? (
+                                 <span className="text-xs text-muted-foreground">—</span>
+                               ) : featuredGroup.permissions.length === 0 ? (
+                                 <span className="text-xs text-muted-foreground">
+                                   No permissions assigned.
+                                 </span>
+                               ) : (
+                                 <div className="flex flex-wrap gap-1.5">
+                                   {featuredGroup.permissions.map((permission) => (
+                                     <Badge
+                                       key={permission.id}
+                                       variant="outline"
+                                       className="text-[10px] font-mono"
+                                     >
+                                       {permission.code}
+                                     </Badge>
+                                   ))}
+                                 </div>
+                               )}
+                             </td>
                             <td className="px-4 py-2.5 text-right">
                               <div className="flex items-center justify-end gap-1.5">
                                 <Button
@@ -585,12 +648,6 @@ const UserManagement = () => {
 
             {/* ──────── Group Permissions tab ──────── */}
             <TabsContent value="permissions">
-              <Card className="p-4 mb-4 border-brand-accent/30 bg-brand-accent/5">
-                <p className="text-xs text-muted-foreground">
-                  Placeholder data — group permissions aren't available from the backend yet.
-                  Additions and edits made here are local to this session only and are not saved.
-                </p>
-              </Card>
               <Card className="p-0 overflow-hidden">
                 <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-muted-foreground" />
@@ -625,9 +682,9 @@ const UserManagement = () => {
                                 {(groupPermissions[g.id] ?? []).length === 0 ? (
                                   <span className="text-xs text-muted-foreground">No permissions assigned.</span>
                                 ) : (
-                                  (groupPermissions[g.id] ?? []).map((perm) => (
-                                    <Badge key={perm} variant="outline" className="text-[10px] font-mono">
-                                      {perm}
+                                  (groupPermissions[g.id] ?? []).map((permission) => (
+                                    <Badge key={permission} variant="outline" className="text-[10px] font-mono">
+                                      {permission}
                                     </Badge>
                                   ))
                                 )}
@@ -656,15 +713,6 @@ const UserManagement = () => {
 
             {/* ──────── Permission Catalog tab ──────── */}
             <TabsContent value="permission-catalog">
-              {isAdmin && (
-                <Card className="p-4 mb-4 border-brand-accent/30 bg-brand-accent/5">
-                  <p className="text-xs text-muted-foreground">
-                    Placeholder data — there's no backend endpoint for permissions yet.
-                    Creating, editing and deleting permissions here only affects this session
-                    and is not saved.
-                  </p>
-                </Card>
-              )}
               <Card className="p-0 overflow-hidden">
                 <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
@@ -677,11 +725,10 @@ const UserManagement = () => {
                     </Button>
                   )}
                 </div>
-
                 {permissionCatalog.length === 0 ? (
-                  <div className="text-center py-10">
-                    <p className="text-sm text-muted-foreground">No permissions defined.</p>
-                  </div>
+                  <p className="text-sm text-muted-foreground text-center py-10">
+                    No permissions defined.
+                  </p>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
@@ -693,27 +740,19 @@ const UserManagement = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {permissionCatalog.map((perm) => (
-                          <tr key={perm.key} className="border-b border-border last:border-0 hover:bg-muted/20">
-                            <td className="px-4 py-2.5 font-mono text-xs text-foreground whitespace-nowrap">{perm.key}</td>
-                            <td className="px-4 py-2.5 text-xs text-muted-foreground">{perm.description || "—"}</td>
+                        {permissionCatalog.map((permission) => (
+                          <tr key={permission.key} className="border-b border-border last:border-0">
+                            <td className="px-4 py-2.5 font-mono text-xs">{permission.key}</td>
+                            <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                              {permission.description || "—"}
+                            </td>
                             <td className="px-4 py-2.5 text-right">
                               {isAdmin && (
                                 <div className="flex items-center justify-end gap-1.5">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 text-xs gap-1"
-                                    onClick={() => openEditPermission(perm)}
-                                  >
+                                  <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => openEditPermission(permission)}>
                                     <Pencil className="w-3 h-3" /> Edit
                                   </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 text-xs gap-1 text-destructive hover:text-destructive"
-                                    onClick={() => setPermissionToDelete(perm)}
-                                  >
+                                  <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-destructive" onClick={() => setPermissionToDelete(permission)}>
                                     <Trash2 className="w-3 h-3" /> Delete
                                   </Button>
                                 </div>
@@ -916,8 +955,7 @@ const UserManagement = () => {
         </DialogContent>
       </Dialog>
 
-      {/* ── Manage group permissions dialog (mock, local-only) ── */}
-      <Dialog open={!!selectedPermGroup} onOpenChange={(o) => !o && setSelectedPermGroup(null)}>
+      <Dialog open={!!selectedPermGroup} onOpenChange={(open) => !open && setSelectedPermGroup(null)}>
         <DialogContent className="sm:max-w-[480px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -928,53 +966,37 @@ const UserManagement = () => {
               Add or remove permissions for this group. Changes are local to this session only.
             </DialogDescription>
           </DialogHeader>
-
-          <div>
-            {isAdmin && (
-              <div className="flex items-center gap-2 mb-4">
-                <Select value={newPermSelection} onValueChange={setNewPermSelection}>
-                  <SelectTrigger className="h-9 text-sm">
-                    <SelectValue placeholder="Select a permission to add…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availablePermissionsToAdd.map((perm) => (
-                      <SelectItem key={perm} value={perm}>
-                        {perm}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button
-                  size="sm"
-                  className="h-9 gap-1.5 shrink-0"
-                  disabled={!newPermSelection}
-                  onClick={addPermissionToGroup}
-                >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  Add
-                </Button>
-              </div>
-            )}
-
+          {isAdmin && (
+            <div className="flex items-center gap-2">
+              <Select value={newPermSelection} onValueChange={setNewPermSelection}>
+                <SelectTrigger className="h-9 text-sm">
+                  <SelectValue placeholder="Select a permission to add…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availablePermissionsToAdd.map((permission) => (
+                    <SelectItem key={permission} value={permission}>{permission}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button size="sm" disabled={!newPermSelection} onClick={addPermissionToGroup}>
+                <UserPlus className="w-3.5 h-3.5 mr-1" /> Add
+              </Button>
+            </div>
+          )}
+          <div className="flex flex-wrap gap-2">
             {(groupPermissions[selectedPermGroup?.id ?? ""] ?? []).length === 0 ? (
               <p className="text-sm text-muted-foreground py-4">No permissions assigned.</p>
             ) : (
-              <div className="flex flex-wrap gap-2">
-                {(groupPermissions[selectedPermGroup?.id ?? ""] ?? []).map((perm) => (
-                  <Badge key={perm} variant="outline" className="text-[11px] font-mono gap-1.5 pr-1.5">
-                    {perm}
-                    {isAdmin && (
-                      <button
-                        onClick={() => removePermissionFromGroup(perm)}
-                        aria-label={`Remove ${perm}`}
-                        className="hover:text-destructive"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    )}
-                  </Badge>
-                ))}
-              </div>
+              (groupPermissions[selectedPermGroup?.id ?? ""] ?? []).map((permission) => (
+                <Badge key={permission} variant="outline" className="font-mono gap-1.5">
+                  {permission}
+                  {isAdmin && (
+                    <button onClick={() => removePermissionFromGroup(permission)} aria-label={`Remove ${permission}`}>
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </Badge>
+              ))
             )}
           </div>
         </DialogContent>
@@ -1045,44 +1067,38 @@ const UserManagement = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* ── Create/edit permission dialog (mock, local-only) ── */}
       <Dialog open={permissionFormOpen} onOpenChange={setPermissionFormOpen}>
         <DialogContent className="sm:max-w-[440px]">
           <DialogHeader>
-            <DialogTitle>{permissionFormMode === "create" ? "Create Permission" : "Edit Permission"}</DialogTitle>
+            <DialogTitle>
+              {permissionFormMode === "create" ? "Create Permission" : "Edit Permission"}
+            </DialogTitle>
             <DialogDescription>
-              {permissionFormMode === "create"
-                ? "Add a new permission to the catalog. This is a local mock — not saved to the backend."
-                : "Update this permission's key and description. This is a local mock — not saved to the backend."}
+              Changes to this permission catalog are local to this session only.
             </DialogDescription>
           </DialogHeader>
-
           <div className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="permission-key">Key</Label>
               <Input
                 id="permission-key"
                 value={permissionFormKey}
-                onChange={(e) => { setPermissionFormKey(e.target.value); setPermissionFormError(null); }}
-                placeholder="e.g. audit.view"
-                className="font-mono"
+                onChange={(event) => {
+                  setPermissionFormKey(event.target.value);
+                  setPermissionFormError(null);
+                }}
               />
-              {permissionFormError && (
-                <p className="text-xs text-destructive">{permissionFormError}</p>
-              )}
+              {permissionFormError && <p className="text-xs text-destructive">{permissionFormError}</p>}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="permission-description">Description</Label>
               <Textarea
                 id="permission-description"
                 value={permissionFormDescription}
-                onChange={(e) => setPermissionFormDescription(e.target.value)}
-                placeholder="What this permission allows"
-                rows={3}
+                onChange={(event) => setPermissionFormDescription(event.target.value)}
               />
             </div>
           </div>
-
           <DialogFooter>
             <Button variant="outline" onClick={() => setPermissionFormOpen(false)}>Cancel</Button>
             <Button onClick={handleSubmitPermissionForm} disabled={!permissionFormKey.trim()}>
@@ -1092,28 +1108,23 @@ const UserManagement = () => {
         </DialogContent>
       </Dialog>
 
-      {/* ── Delete permission confirmation (mock, local-only) ── */}
-      <AlertDialog open={!!permissionToDelete} onOpenChange={(o) => !o && setPermissionToDelete(null)}>
+      <AlertDialog open={!!permissionToDelete} onOpenChange={(open) => !open && setPermissionToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete permission?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will remove "{permissionToDelete?.key}" from the catalog and unassign it from
-              any groups that currently have it. This is not saved to the backend and will
-              reappear if the page reloads.
+              This removes "{permissionToDelete?.key}" from the local catalog and group assignments.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive hover:bg-destructive/90"
-              onClick={handleDeletePermission}
-            >
+            <AlertDialogAction className="bg-destructive" onClick={handleDeletePermission}>
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
     </>
   );
 };

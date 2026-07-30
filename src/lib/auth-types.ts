@@ -88,6 +88,18 @@ export interface OrganizationGroup {
   memberCount?: number;
 }
 
+export interface OrganizationPermission {
+  id: string;
+  code: string;
+  name: string;
+  scopeType: string;
+}
+
+export interface OrganizationGroupDetail extends OrganizationGroup {
+  memberCount: number;
+  permissions: OrganizationPermission[];
+}
+
 export interface GroupMember {
   userId: string;
   email: string;
