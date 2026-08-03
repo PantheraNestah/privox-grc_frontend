@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Bell, LogOut } from "lucide-react";
+import { Building2, Search, Bell, LogOut } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Logo, BrandName } from "@/components/grc/Logo";
 import { cn } from "@/lib/utils";
@@ -34,7 +34,7 @@ export const TopNav = () => {
   const navigate = useNavigate();
   const [notifs, setNotifs] = useState<Notif[]>(initialNotifs);
   const [open, setOpen] = useState(false);
-  const { logout } = useAuth();
+  const { logout, organization } = useAuth();
   const wrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -48,12 +48,23 @@ export const TopNav = () => {
   const unreadCount = notifs.filter(n => n.unread).length;
   const markRead = (id: string) => setNotifs(prev => prev.map(n => n.id === id ? { ...n, unread: false } : n));
   const markAll = () => setNotifs(prev => prev.map(n => ({ ...n, unread: false })));
+  const organizationLabel = organization?.name?.trim() || organization?.code?.trim() || "Organization";
 
   return (
-    <nav className="sticky top-0 z-40 h-15 flex items-center gap-5 bg-navy-deep px-5 md:px-8 shadow-nav text-white" style={{ height: 60 }}>
-      <div className="flex items-center gap-2.5 mr-auto">
+    <nav className="sticky top-0 z-40 flex min-h-16 items-center gap-3 bg-navy-deep px-4 py-3 shadow-nav text-white sm:gap-5 md:px-8">
+      <div className="flex min-w-0 items-center gap-2.5 mr-auto">
         <Logo size={28} />
-        <BrandName className="text-[22px] font-semibold tracking-tight" />
+        <BrandName className="truncate text-xl font-semibold tracking-tight sm:text-2xl" />
+        <button
+          type="button"
+          onClick={() => organization?.id && navigate("/settings/organization")}
+          disabled={!organization?.id}
+          className="ml-1 inline-flex min-h-8 max-w-[34vw] items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.07] px-2.5 py-1 text-xs font-medium text-sky transition hover:bg-white/15 hover:text-white disabled:cursor-not-allowed disabled:opacity-60 sm:max-w-[210px] lg:max-w-[280px]"
+          title="View organization details"
+        >
+          <Building2 className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">{organizationLabel}</span>
+        </button>
       </div>
 
       <div className="hidden md:flex items-center gap-2 bg-white/[0.07] border border-white/10 rounded-lg px-3.5 py-1.5 w-[250px]">
@@ -61,7 +72,7 @@ export const TopNav = () => {
         <input className="bg-transparent border-0 outline-none text-[13px] text-white placeholder:text-sky/55 w-full" placeholder="Search modules, records…" />
       </div>
 
-      <div className="flex items-center gap-3.5">
+      <div className="flex items-center gap-2.5 sm:gap-3.5">
         <div className="relative" ref={wrapRef}>
           <button
             onClick={() => setOpen(o => !o)}
@@ -73,7 +84,7 @@ export const TopNav = () => {
           </button>
 
           {open && (
-            <div className="absolute right-0 top-[calc(100%+10px)] w-[360px] bg-white rounded-2xl border border-brand-accent/10 shadow-card-hover z-50 overflow-hidden text-foreground animate-drop-in">
+            <div className="absolute right-0 top-[calc(100%+10px)] w-[calc(100vw-2rem)] max-w-[380px] bg-white rounded-lg border border-brand-accent/10 shadow-card-hover z-50 overflow-hidden text-foreground animate-drop-in">
               <div className="px-4.5 pt-4 pb-3 border-b border-surface flex justify-between items-center">
                 <span className="text-sm font-semibold text-navy-deep">Recent Activity</span>
                 <button onClick={markAll} className="text-xs font-medium text-brand-accent">Mark all read</button>
@@ -101,9 +112,9 @@ export const TopNav = () => {
 
         <button
           onClick={async () => { await logout(); navigate("/"); }}
-          className="flex items-center gap-1.5 border border-destructive/35 text-destructive/80 rounded-lg px-3 py-1.5 text-[12.5px] font-medium hover:bg-destructive/10 hover:border-destructive/60 hover:text-destructive transition"
+          className="flex min-h-9 items-center gap-1.5 border border-destructive/35 text-destructive/80 rounded-lg px-2.5 py-1.5 text-sm font-medium hover:bg-destructive/10 hover:border-destructive/60 hover:text-destructive transition sm:px-3"
         >
-          <LogOut className="w-3.5 h-3.5" /> Log out
+          <LogOut className="w-4 h-4" /> <span className="hidden sm:inline">Log out</span>
         </button>
       </div>
     </nav>

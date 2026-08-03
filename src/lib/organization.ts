@@ -6,91 +6,182 @@
 
 import { api } from "./api";
 import type {
+  CreateOrganizationGroupRequest,
+  UpdateOrganizationGroupRequest,
   OrganizationMember,
   OrganizationGroup,
   OrganizationGroupDetail,
+  OrganizationPermission,
+  OrganizationDetailDto,
   GroupMember,
 } from "./auth-types";
 
-const ORG_ID = "6d46a49f-268c-468a-a9ea-a0407db30d6b";
+type GroupDetailResponse = Omit<OrganizationGroupDetail, "permissions"> & {
+  permissions?: Array<string | OrganizationPermission>;
+};
 
-// ─── Members ─────────────────────────────────────────────
+function normalizePermissions(
+  permissions: Array<string | OrganizationPermission> = [],
+): OrganizationPermission[] {
+  return permissions.map((permission) =>
+    typeof permission === "string"
+      ? { id: permission, code: permission, name: permission, scopeType: "" }
+      : permission,
+  );
+}
 
-export async function fetchOrganizationMembers(): Promise<OrganizationMember[]> {
+function normalizeGroup<T extends OrganizationGroup>(group: T): T {
+  if (typeof group.active !== "boolean") return group;
+  return {
+    ...group,
+    status: group.active ? "active" : "inactive",
+  };
+}
+
+export async function fetchOrganization(
+  orgId: string,
+): Promise<OrganizationDetailDto> {
+  const { data } = await api.get<OrganizationDetailDto>(
+    `/v1/organizations/${orgId}`,
+  );
+  return data;
+}
+
+export async function fetchOrganizationMembers(
+  orgId: string,
+): Promise<OrganizationMember[]> {
   const { data } = await api.get<OrganizationMember[]>(
-    `/v1/organizations/${ORG_ID}/members`,
+    `/v1/organizations/${orgId}/members`,
   );
   return data;
 }
 
 export async function fetchMemberGroups(
+  orgId: string,
   memberId: string,
 ): Promise<OrganizationGroup[]> {
   const { data } = await api.get<OrganizationGroup[]>(
-    `/v1/organizations/${ORG_ID}/members/${memberId}/groups`,
+    `/v1/organizations/${orgId}/members/${memberId}/groups`,
   );
-  return data;
+  return data.map(normalizeGroup);
 }
 
-// ─── Groups ──────────────────────────────────────────────
-
-export async function fetchOrganizationGroups(): Promise<OrganizationGroup[]> {
+export async function fetchOrganizationGroups(
+  orgId: string,
+): Promise<OrganizationGroup[]> {
   const { data } = await api.get<OrganizationGroup[]>(
-    `/v1/organizations/${ORG_ID}/groups`,
+    `/v1/organizations/${orgId}/groups`,
   );
-  return data;
+  return data.map(normalizeGroup);
 }
 
 export async function fetchOrganizationGroup(
+  orgId: string,
   groupId: string,
 ): Promise<OrganizationGroupDetail> {
-  const { data } = await api.get<
-    Omit<OrganizationGroupDetail, "permissions"> & {
-      permissions: Array<
-        string | { id: string; code: string; name: string; scopeType: string }
-      >;
-    }
-  >(
-    `/v1/organizations/${ORG_ID}/groups/${groupId}`,
+  const { data } = await api.get<GroupDetailResponse>(
+    `/v1/organizations/${orgId}/groups/${groupId}`,
   );
-  return {
+  return normalizeGroup({
     ...data,
-    permissions: data.permissions.map((permission) =>
-      typeof permission === "string"
-        ? {
-            id: permission,
-            code: permission,
-            name: permission,
-            scopeType: "",
-          }
-        : permission,
-    ),
-  };
+    memberCount: data.memberCount ?? 0,
+    permissions: normalizePermissions(data.permissions),
+  });
+}
+
+export async function createOrganizationGroup(
+  orgId: string,
+  body: CreateOrganizationGroupRequest,
+): Promise<OrganizationGroup> {
+  const { data } = await api.post<OrganizationGroup>(
+    `/v1/organizations/${orgId}/groups`,
+    body,
+  );
+  return normalizeGroup(data);
+}
+
+export async function updateOrganizationGroup(
+  orgId: string,
+  groupId: string,
+  body: UpdateOrganizationGroupRequest,
+): Promise<OrganizationGroupDetail> {
+  const { data } = await api.patch<GroupDetailResponse>(
+    `/v1/organizations/${orgId}/groups/${groupId}`,
+    body,
+  );
+  return normalizeGroup({
+    ...data,
+    memberCount: data.memberCount ?? 0,
+    permissions: normalizePermissions(data.permissions),
+  });
+}
+
+export async function activateOrganizationGroup(
+  orgId: string,
+  groupId: string,
+): Promise<void> {
+  await api.post(`/v1/organizations/${orgId}/groups/${groupId}/activate`);
+}
+
+export async function deactivateOrganizationGroup(
+  orgId: string,
+  groupId: string,
+): Promise<void> {
+  await api.post(`/v1/organizations/${orgId}/groups/${groupId}/deactivate`);
 }
 
 export async function fetchGroupMembers(
+  orgId: string,
   groupId: string,
 ): Promise<GroupMember[]> {
   const { data } = await api.get<GroupMember[]>(
-    `/v1/organizations/${ORG_ID}/groups/${groupId}/members`,
+    `/v1/organizations/${orgId}/groups/${groupId}/members`,
   );
   return data;
 }
 
 export async function addGroupMember(
+  orgId: string,
   groupId: string,
   userId: string,
 ): Promise<void> {
-  await api.post(`/v1/organizations/${ORG_ID}/groups/${groupId}/members`, {
+  await api.post(`/v1/organizations/${orgId}/groups/${groupId}/members`, {
     userId,
   });
 }
 
 export async function removeGroupMember(
+  orgId: string,
   groupId: string,
   membershipId: string,
 ): Promise<void> {
   await api.delete(
-    `/v1/organizations/${ORG_ID}/groups/${groupId}/members/${membershipId}`,
+    `/v1/organizations/${orgId}/groups/${groupId}/members/${membershipId}`,
+  );
+}
+
+export async function fetchPermissionCatalog(): Promise<OrganizationPermission[]> {
+  const { data } = await api.get<OrganizationPermission[]>("/v1/permissions");
+  return data;
+}
+
+export async function fetchGroupPermissions(
+  orgId: string,
+  groupId: string,
+): Promise<OrganizationPermission[]> {
+  const { data } = await api.get<Array<string | OrganizationPermission>>(
+    `/v1/organizations/${orgId}/groups/${groupId}/permissions`,
+  );
+  return normalizePermissions(data);
+}
+
+export async function updateGroupPermissions(
+  orgId: string,
+  groupId: string,
+  permissionIds: string[],
+): Promise<void> {
+  await api.put(
+    `/v1/organizations/${orgId}/groups/${groupId}/permissions`,
+    { permissionIds },
   );
 }
