@@ -62,6 +62,15 @@ describe("UserManagement", () => {
   beforeEach(() => {
     vi.spyOn(organizationApi, "fetchOrganizationMembers").mockResolvedValue(members);
     vi.spyOn(organizationApi, "fetchOrganizationGroups").mockResolvedValue(groups);
+    vi.spyOn(organizationApi, "fetchPermissionCatalog").mockResolvedValue([
+      {
+        id: "permission-1",
+        code: "user.view",
+        name: "View users",
+        description: "View organization users",
+        scopeType: "ORG",
+      },
+    ]);
     vi.spyOn(organizationApi, "createOrganizationGroup").mockResolvedValue({
       id: "group-2",
       code: "RISK_OWNERS",
@@ -123,6 +132,23 @@ describe("UserManagement", () => {
       });
       expect(organizationApi.deactivateOrganizationGroup).toHaveBeenCalledWith("org-1", "group-2");
     });
+  });
+
+  it("loads and displays the permission catalog in the permissions tab", async () => {
+    render(
+      <HelmetProvider>
+        <MemoryRouter initialEntries={["/settings/users?tab=permissions"]}>
+          <UserManagement />
+        </MemoryRouter>
+      </HelmetProvider>,
+    );
+
+    expect(await screen.findByText("View users")).toBeInTheDocument();
+    expect(screen.getByText("user.view")).toBeInTheDocument();
+    expect(screen.getByText("View organization users")).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Actions" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /edit/i })).toBeInTheDocument();
+    expect(organizationApi.fetchPermissionCatalog).toHaveBeenCalledTimes(1);
   });
 });
 
