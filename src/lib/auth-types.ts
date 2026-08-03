@@ -112,6 +112,7 @@ export interface OrganizationPermission {
   id: string;
   code: string;
   name: string;
+  description?: string;
   scopeType: string;
 }
 
