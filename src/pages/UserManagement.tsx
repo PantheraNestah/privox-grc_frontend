@@ -292,11 +292,13 @@ export const UserManagement = () => {
   const isAdmin = can.manageUsers(activeUser.role);
   const [members, setMembers] = useState<OrganizationMember[]>([]);
   const [groups, setGroups] = useState<OrganizationGroup[]>([]);
+  const [permissions, setPermissions] = useState<OrganizationPermission[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [memberToDeactivate, setMemberToDeactivate] = useState<OrganizationMember | null>(null);
   const [groupToToggle, setGroupToToggle] = useState<OrganizationGroup | null>(null);
-  const activeTab = searchParams.get("tab") === "groups" ? "groups" : "users";
+  const requestedTab = searchParams.get("tab");
+  const activeTab = requestedTab === "groups" || requestedTab === "permissions" ? requestedTab : "users";
   const [createOpen, setCreateOpen] = useState(false);
   const [groupName, setGroupName] = useState("");
   const [creatingGroup, setCreatingGroup] = useState(false);
@@ -311,12 +313,14 @@ export const UserManagement = () => {
     setLoading(true);
     setError(null);
     try {
-      const [membersData, groupsData] = await Promise.all([
+      const [membersData, groupsData, permissionsData] = await Promise.all([
         fetchOrganizationMembers(orgId),
         fetchOrganizationGroups(orgId),
+        fetchPermissionCatalog(),
       ]);
       setMembers(membersData);
       setGroups(groupsData);
+      setPermissions(permissionsData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load user management data");
     } finally {
@@ -329,7 +333,7 @@ export const UserManagement = () => {
   }, [orgId]);
 
   const handleTabChange = (value: string) => {
-    setSearchParams(value === "groups" ? { tab: "groups" } : {});
+    setSearchParams(value === "users" ? {} : { tab: value });
   };
 
   const handleCreateGroup = async () => {
@@ -434,6 +438,10 @@ export const UserManagement = () => {
           <TabsTrigger value="groups" className="gap-2" onClick={() => handleTabChange("groups")}>
             <Layers className="w-4 h-4" /> Groups
             {!loading && <Badge variant="secondary" className="text-[10px]">{groups.length}</Badge>}
+          </TabsTrigger>
+          <TabsTrigger value="permissions" className="gap-2" onClick={() => handleTabChange("permissions")}>
+            <ShieldCheck className="w-4 h-4" /> Permissions
+            {!loading && <Badge variant="secondary" className="text-[10px]">{permissions.length}</Badge>}
           </TabsTrigger>
         </TabsList>
 
@@ -588,6 +596,59 @@ export const UserManagement = () => {
                               </>
                             )}
                           </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="permissions">
+          <Card className="p-0 overflow-hidden">
+            <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-muted-foreground" />
+              <h2 className="text-sm font-semibold text-foreground">Permissions</h2>
+            </div>
+
+            {loading ? (
+              <LoadingPanel label="Loading permissions..." />
+            ) : permissions.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-10">No permissions found.</p>
+            ) : (
+              <div className="max-w-full overflow-x-auto [-webkit-overflow-scrolling:touch]">
+                <table className="w-full min-w-[700px] text-sm">
+                  <thead className="text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border">
+                    <tr>
+                      <th className="text-left px-4 py-2 font-semibold">Name</th>
+                      <th className="text-left px-4 py-2 font-semibold">Code</th>
+                      <th className="text-left px-4 py-2 font-semibold">Description</th>
+                      <th className="text-right px-4 py-2 font-semibold">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {permissions.map((permission) => (
+                      <tr key={permission.id || permission.code} className="border-b border-border last:border-0 hover:bg-muted/20">
+                        <td className="px-4 py-2.5 font-medium text-foreground">{permission.name || permission.code}</td>
+                        <td className="px-4 py-2.5 text-xs text-muted-foreground font-mono">{permission.code}</td>
+                        <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                          {permission.description || fallbackText}
+                        </td>
+                        <td className="px-4 py-2.5 text-right">
+                          {isAdmin ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="min-h-8 h-auto text-sm gap-1"
+                              onClick={() => toast.info("Permission editing is pending backend support")}
+                            >
+                              <Pencil className="w-3 h-3" /> Edit
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Read only</span>
+                          )}
                         </td>
                       </tr>
                     ))}
