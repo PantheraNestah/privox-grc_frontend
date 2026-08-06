@@ -88,7 +88,7 @@ describe("UserManagement", () => {
   it("renders the users table columns and page action links", async () => {
     render(
       <HelmetProvider>
-        <MemoryRouter>
+        <MemoryRouter initialEntries={["/settings/users?tab=users"]}>
           <UserManagement />
         </MemoryRouter>
       </HelmetProvider>,
@@ -174,8 +174,14 @@ describe("UserMemberView", () => {
 
     expect(await screen.findByText("Profile Info")).toBeInTheDocument();
     expect(screen.getAllByText("Jane Doe").length).toBeGreaterThan(0);
+
+    const detailTabs = screen.getByRole("tablist", { name: /user detail sections/i });
+    fireEvent.mouseDown(within(detailTabs).getByRole("tab", { name: /groups/i }));
     expect(await screen.findByText("Editors")).toBeInTheDocument();
+
+    fireEvent.mouseDown(within(detailTabs).getByRole("tab", { name: /permissions/i }));
     expect(await screen.findByText("user.view")).toBeInTheDocument();
+
     expect(organizationApi.fetchMemberGroups).toHaveBeenCalledWith("org-1", "user-1");
     expect(fetchGroupPermissions).not.toHaveBeenCalled();
   });
@@ -195,6 +201,8 @@ describe("UserMemberView", () => {
       </HelmetProvider>,
     );
 
+    const detailTabs = await screen.findByRole("tablist", { name: /user detail sections/i });
+    fireEvent.mouseDown(within(detailTabs).getByRole("tab", { name: /groups/i }));
     expect(await screen.findByText("Editors")).toBeInTheDocument();
     expect(organizationApi.fetchMemberGroups).toHaveBeenCalledWith("org-1", "user-1");
   });
