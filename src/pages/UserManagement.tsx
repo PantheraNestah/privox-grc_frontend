@@ -5,30 +5,35 @@ import {
   ArrowLeft,
   BadgeCheck,
   Calendar,
-  Check,
   ChevronDown,
   ChevronRight,
   Eye,
   Hash,
   Layers,
+  LayoutDashboard,
   Mail,
   Pencil,
   Plus,
   ShieldAlert,
   ShieldCheck,
+  UserCheck,
   UserCircle2,
   UserPlus,
   Users,
+  UserX,
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import { TopNav } from "@/components/grc/TopNav";
+import { UserManagementSidebar, useUserManagementSection } from "@/components/grc/UserManagementSidebar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertDialog,
@@ -127,23 +132,71 @@ function ManagementLayout({
 
       <div className="flex flex-col min-h-screen">
         <TopNav />
-        <main className="flex-1 px-4 py-6 sm:px-6 md:px-10 md:py-9">
-          <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground mb-4">
-            <Link to="/dashboard" className="hover:text-foreground transition-colors">Dashboard</Link>
-            <ChevronRight className="w-3.5 h-3.5" />
-            <Link to="/settings/users" className="hover:text-foreground transition-colors">User Management</Link>
-            {canonical !== "/settings/users" && (
-              <>
-                <ChevronRight className="w-3.5 h-3.5" />
-                <span className="text-foreground font-medium">{title.replace(" - Rsolve GRC Platform", "")}</span>
-              </>
-            )}
-          </nav>
+        <div className="flex flex-1 min-w-0">
+          <UserManagementSidebar />
+          <main className="flex-1 min-w-0 px-4 py-6 sm:px-6 md:px-10 md:py-9">
+            <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1.5 text-xs text-foreground mb-4">
+              <Link to="/dashboard" className="text-blue-600 hover:text-blue-700 transition-colors">Dashboard</Link>
+              <ChevronRight className="w-3.5 h-3.5" />
+              <Link to="/settings/users" className="text-blue-600 hover:text-blue-700 transition-colors">User Management</Link>
+              {canonical !== "/settings/users" && (
+                <>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                  <span className="text-foreground font-medium">{title.replace(" - Rsolve GRC Platform", "")}</span>
+                </>
+              )}
+            </nav>
 
-          {children}
-        </main>
+            <MobileSectionTabs />
+
+            {children}
+          </main>
+        </div>
       </div>
     </>
+  );
+}
+
+function MobileSectionTabs() {
+  const navigate = useNavigate();
+  const activeSection = useUserManagementSection();
+
+  const goTo = (value: string) =>
+    navigate(value === "dashboard" ? "/settings/users" : `/settings/users?tab=${value}`);
+
+  return (
+    <Tabs value={activeSection} onValueChange={goTo} className="mb-4 md:hidden">
+      <TabsList className="w-full" aria-label="Section navigation">
+        <TabsTrigger
+          value="dashboard"
+          className="flex-1 gap-1.5 text-black data-[state=active]:text-blue-600"
+          onClick={() => goTo("dashboard")}
+        >
+          <LayoutDashboard className="w-3.5 h-3.5" /> Dashboard
+        </TabsTrigger>
+        <TabsTrigger
+          value="users"
+          className="flex-1 gap-1.5 text-black data-[state=active]:text-blue-600"
+          onClick={() => goTo("users")}
+        >
+          <Users className="w-3.5 h-3.5" /> Users
+        </TabsTrigger>
+        <TabsTrigger
+          value="groups"
+          className="flex-1 gap-1.5 text-black data-[state=active]:text-blue-600"
+          onClick={() => goTo("groups")}
+        >
+          <Layers className="w-3.5 h-3.5" /> Groups
+        </TabsTrigger>
+        <TabsTrigger
+          value="permissions"
+          className="flex-1 gap-1.5 text-black data-[state=active]:text-blue-600"
+          onClick={() => goTo("permissions")}
+        >
+          <ShieldCheck className="w-3.5 h-3.5" /> Permissions
+        </TabsTrigger>
+      </TabsList>
+    </Tabs>
   );
 }
 
@@ -151,7 +204,7 @@ function LoadingPanel({ label }: { label: string }) {
   return (
     <div className="text-center py-10">
       <div className="inline-block w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-      <p className="text-sm text-muted-foreground mt-2">{label}</p>
+      <p className="text-sm text-foreground mt-2">{label}</p>
     </div>
   );
 }
@@ -165,17 +218,48 @@ function ErrorPanel({ message }: { message: string }) {
 }
 
 function StatusBadge({ status, active }: { status?: string; active?: boolean }) {
+  const inactive = isInactiveStatus(status, active);
   return (
-    <Badge variant={isInactiveStatus(status, active) ? "destructive" : "outline"} className="text-[10px]">
+    <Badge
+      variant="outline"
+      className={cn(
+        "text-[10px] border-transparent",
+        inactive ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700",
+      )}
+    >
       {statusLabel(status, active)}
     </Badge>
+  );
+}
+
+function StatCard({
+  icon,
+  label,
+  value,
+  loading,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: number;
+  loading: boolean;
+}) {
+  return (
+    <Card className="p-4 flex items-center justify-between gap-3">
+      <div className="min-w-0">
+        <p className="text-xs text-foreground">{label}</p>
+        <p className="text-2xl font-semibold text-foreground mt-1">{loading ? "—" : value}</p>
+      </div>
+      <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+        {icon}
+      </div>
+    </Card>
   );
 }
 
 function DetailRow({ label, value }: { label: string; value?: string }) {
   return (
     <div className="rounded-md border border-border bg-muted/20 p-3">
-      <p className="text-[11px] uppercase text-muted-foreground">{label}</p>
+      <p className="text-[11px] uppercase text-foreground">{label}</p>
       <p className="text-sm font-medium text-foreground mt-1 break-words">{value || fallbackText}</p>
     </div>
   );
@@ -229,7 +313,7 @@ function PermissionsList({
   showCode?: boolean;
 }) {
   if (permissions.length === 0) {
-    return <p className="text-sm text-muted-foreground">{emptyText}</p>;
+    return <p className="text-sm text-foreground">{emptyText}</p>;
   }
 
   return (
@@ -243,10 +327,10 @@ function PermissionsList({
         >
           <span className="font-medium">{permissionName(permission)}</span>
           {showCode && permissionName(permission) !== permissionCode(permission) && (
-            <span className="font-mono text-muted-foreground break-all">{permissionCode(permission)}</span>
+            <span className="font-mono text-foreground break-all">{permissionCode(permission)}</span>
           )}
           {permissionScope(permission) && (
-            <span className="text-muted-foreground">({permissionScope(permission)})</span>
+            <span className="text-foreground">({permissionScope(permission)})</span>
           )}
         </Badge>
       ))}
@@ -271,7 +355,7 @@ function PageHeader({
     <header className="mb-6 flex flex-col items-stretch justify-between gap-4 sm:flex-row sm:items-start">
       <div className="min-w-0">
         <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">{title}</h1>
-        <p className="text-sm text-muted-foreground mt-1 max-w-2xl">{description}</p>
+        <p className="text-sm text-foreground mt-1 max-w-2xl">{description}</p>
       </div>
       <div className="flex flex-wrap items-center gap-2 sm:justify-end">
         {actions}
@@ -295,10 +379,13 @@ export const UserManagement = () => {
   const [permissions, setPermissions] = useState<OrganizationPermission[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [memberToDeactivate, setMemberToDeactivate] = useState<OrganizationMember | null>(null);
+  const [memberToToggle, setMemberToToggle] = useState<OrganizationMember | null>(null);
   const [groupToToggle, setGroupToToggle] = useState<OrganizationGroup | null>(null);
   const requestedTab = searchParams.get("tab");
-  const activeTab = requestedTab === "groups" || requestedTab === "permissions" ? requestedTab : "users";
+  const activeTab =
+    requestedTab === "users" || requestedTab === "groups" || requestedTab === "permissions"
+      ? requestedTab
+      : "dashboard";
   const [createOpen, setCreateOpen] = useState(false);
   const [groupName, setGroupName] = useState("");
   const [creatingGroup, setCreatingGroup] = useState(false);
@@ -333,7 +420,7 @@ export const UserManagement = () => {
   }, [orgId]);
 
   const handleTabChange = (value: string) => {
-    setSearchParams(value === "users" ? {} : { tab: value });
+    setSearchParams(value === "dashboard" ? {} : { tab: value });
   };
 
   const handleCreateGroup = async () => {
@@ -389,18 +476,23 @@ export const UserManagement = () => {
     }
   };
 
-  const handleDeactivateMember = () => {
-    if (!memberToDeactivate) return;
-    const target = memberToDeactivate;
+  const handleToggleMember = () => {
+    if (!memberToToggle) return;
+    const target = memberToToggle;
+    const nextActive = isInactiveStatus(target.membershipStatus);
     setMembers((current) =>
       current.map((member) =>
         member.membershipId === target.membershipId
-          ? { ...member, membershipStatus: "inactive" }
+          ? { ...member, membershipStatus: nextActive ? "active" : "inactive" }
           : member,
       ),
     );
-    setMemberToDeactivate(null);
-    toast.info("User deactivation is pending backend support");
+    setMemberToToggle(null);
+    toast.info(
+      nextActive
+        ? "User activation is pending backend support"
+        : "User deactivation is pending backend support",
+    );
   };
 
   return (
@@ -421,7 +513,7 @@ export const UserManagement = () => {
             <ShieldAlert className="w-5 h-5 text-warn mt-0.5" />
             <div>
               <p className="text-sm font-semibold text-foreground">Read-only view</p>
-              <p className="text-xs text-muted-foreground">Some management features are restricted to administrators.</p>
+              <p className="text-xs text-foreground">Some management features are restricted to administrators.</p>
             </div>
           </div>
         </Card>
@@ -430,42 +522,96 @@ export const UserManagement = () => {
       {error && <div className="mb-5"><ErrorPanel message={error} /></div>}
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="mb-5">
-          <TabsTrigger value="users" className="gap-2" onClick={() => handleTabChange("users")}>
-            <Users className="w-4 h-4" /> Users
-            {!loading && <Badge variant="secondary" className="text-[10px]">{members.length}</Badge>}
-          </TabsTrigger>
-          <TabsTrigger value="groups" className="gap-2" onClick={() => handleTabChange("groups")}>
-            <Layers className="w-4 h-4" /> Groups
-            {!loading && <Badge variant="secondary" className="text-[10px]">{groups.length}</Badge>}
-          </TabsTrigger>
-          <TabsTrigger value="permissions" className="gap-2" onClick={() => handleTabChange("permissions")}>
-            <ShieldCheck className="w-4 h-4" /> Permissions
-            {!loading && <Badge variant="secondary" className="text-[10px]">{permissions.length}</Badge>}
-          </TabsTrigger>
-        </TabsList>
+        <TabsContent value="dashboard">
+          <div className="space-y-5">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <StatCard icon={<Users className="w-4 h-4" />} label="Total Users" value={members.length} loading={loading} />
+              <StatCard icon={<Layers className="w-4 h-4" />} label="Total Groups" value={groups.length} loading={loading} />
+              <StatCard
+                icon={<UserCheck className="w-4 h-4" />}
+                label="Active Users"
+                value={members.filter((member) => !isInactiveStatus(member.membershipStatus)).length}
+                loading={loading}
+              />
+              <StatCard
+                icon={<UserX className="w-4 h-4" />}
+                label="Inactive Users"
+                value={members.filter((member) => isInactiveStatus(member.membershipStatus)).length}
+                loading={loading}
+              />
+            </div>
+
+            <Card className="p-0 overflow-hidden">
+              <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center gap-2">
+                <Users className="w-4 h-4 text-foreground" />
+                <h2 className="text-sm font-semibold text-foreground">Users</h2>
+              </div>
+
+              {loading ? (
+                <LoadingPanel label="Loading members..." />
+              ) : members.length === 0 ? (
+                <p className="text-sm text-foreground text-center py-10">No members found.</p>
+              ) : (
+                <div className="max-w-full overflow-x-auto [-webkit-overflow-scrolling:touch]">
+                  <table className="w-full min-w-[700px] text-sm">
+                    <thead className="text-[11px] uppercase tracking-wider text-foreground border-b border-border">
+                      <tr>
+                        <th className="text-left px-4 py-2 font-semibold">Name</th>
+                        <th className="text-left px-4 py-2 font-semibold">Email</th>
+                        <th className="text-left px-4 py-2 font-semibold">Username</th>
+                        <th className="text-left px-4 py-2 font-semibold">Status</th>
+                        <th className="text-left px-4 py-2 font-semibold">Date Joined</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {members.map((member) => (
+                        <tr key={member.membershipId} className="border-b border-border last:border-0 hover:bg-muted/20">
+                          <td className="px-4 py-2.5">
+                            <div className="flex items-center gap-2.5">
+                              <UserCircle2 className="w-7 h-7 text-foreground shrink-0" />
+                              <span className="font-medium text-foreground">{member.fullName}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-2.5 text-xs text-foreground">
+                            <span className="inline-flex items-center gap-1.5">
+                              <Mail className="w-3 h-3" /> {member.email}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5 text-xs text-foreground font-mono">{member.username}</td>
+                          <td className="px-4 py-2.5"><StatusBadge status={member.membershipStatus} /></td>
+                          <td className="px-4 py-2.5 text-xs text-foreground">{formatDate(member.joinedAt)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Card>
+          </div>
+        </TabsContent>
 
         <TabsContent value="users">
           <Card className="p-0 overflow-hidden">
             <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center gap-2">
-              <Users className="w-4 h-4 text-muted-foreground" />
+              <Users className="w-4 h-4 text-foreground" />
               <h2 className="text-sm font-semibold text-foreground">Users</h2>
             </div>
 
             {loading ? (
               <LoadingPanel label="Loading members..." />
             ) : members.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-10">No members found.</p>
+              <p className="text-sm text-foreground text-center py-10">No members found.</p>
             ) : (
               <div className="max-w-full overflow-x-auto [-webkit-overflow-scrolling:touch]">
                 <table className="w-full min-w-[860px] text-sm">
-                  <thead className="text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border">
+                  <thead className="text-[11px] uppercase tracking-wider text-foreground border-b border-border">
                     <tr>
                       <th className="text-left px-4 py-2 font-semibold">Name</th>
                       <th className="text-left px-4 py-2 font-semibold">Email</th>
                       <th className="text-left px-4 py-2 font-semibold">Username</th>
                       <th className="text-left px-4 py-2 font-semibold">Status</th>
                       <th className="text-left px-4 py-2 font-semibold">Date Joined</th>
+                      {isAdmin && <th className="text-left px-4 py-2 font-semibold">System Access</th>}
                       <th className="text-right px-4 py-2 font-semibold">Actions</th>
                     </tr>
                   </thead>
@@ -474,40 +620,42 @@ export const UserManagement = () => {
                       <tr key={member.membershipId} className="border-b border-border last:border-0 hover:bg-muted/20">
                         <td className="px-4 py-2.5">
                           <div className="flex items-center gap-2.5">
-                            <UserCircle2 className="w-7 h-7 text-muted-foreground shrink-0" />
+                            <UserCircle2 className="w-7 h-7 text-foreground shrink-0" />
                             <span className="font-medium text-foreground">{member.fullName}</span>
                           </div>
                         </td>
-                        <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                        <td className="px-4 py-2.5 text-xs text-foreground">
                           <span className="inline-flex items-center gap-1.5">
                             <Mail className="w-3 h-3" /> {member.email}
                           </span>
                         </td>
-                        <td className="px-4 py-2.5 text-xs text-muted-foreground font-mono">{member.username}</td>
+                        <td className="px-4 py-2.5 text-xs text-foreground font-mono">{member.username}</td>
                         <td className="px-4 py-2.5"><StatusBadge status={member.membershipStatus} /></td>
-                        <td className="px-4 py-2.5 text-xs text-muted-foreground">{formatDate(member.joinedAt)}</td>
+                        <td className="px-4 py-2.5 text-xs text-foreground">{formatDate(member.joinedAt)}</td>
+                        {isAdmin && (
+                          <td className="px-4 py-2.5">
+                            <Switch
+                              checked={!isInactiveStatus(member.membershipStatus)}
+                              onCheckedChange={() => setMemberToToggle(member)}
+                              className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-red-500"
+                              aria-label={
+                                isInactiveStatus(member.membershipStatus) ? "Activate user" : "Deactivate user"
+                              }
+                            />
+                          </td>
+                        )}
                         <td className="px-4 py-2.5 text-right">
                           <div className="flex flex-wrap items-center justify-end gap-1.5">
-                            <Button asChild variant="ghost" size="sm" className="min-h-8 h-auto text-sm gap-1">
+                            <Button asChild variant="ghost" size="sm" className="min-h-8 h-auto text-sm gap-1 text-blue-600 hover:text-blue-700">
                               <Link to={`/settings/users/members/${member.membershipId}`}>
                                 <Eye className="w-3 h-3" /> View
                               </Link>
                             </Button>
-                            <Button asChild variant="ghost" size="sm" className="min-h-8 h-auto text-sm gap-1">
+                            <Button asChild variant="ghost" size="sm" className="min-h-8 h-auto text-sm gap-1 text-blue-600 hover:text-blue-700">
                               <Link to={`/settings/users/members/${member.membershipId}/edit`}>
                                 <Pencil className="w-3 h-3" /> Edit
                               </Link>
                             </Button>
-                            {isAdmin && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="min-h-8 h-auto text-sm gap-1 text-destructive hover:text-destructive"
-                                onClick={() => setMemberToDeactivate(member)}
-                              >
-                                <XCircle className="w-3 h-3" /> Deactivate
-                              </Button>
-                            )}
                           </div>
                         </td>
                       </tr>
@@ -523,7 +671,7 @@ export const UserManagement = () => {
           <Card className="p-0 overflow-hidden">
             <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <Layers className="w-4 h-4 text-muted-foreground" />
+                <Layers className="w-4 h-4 text-foreground" />
                 <h2 className="text-sm font-semibold text-foreground">Groups</h2>
               </div>
               {isAdmin && (
@@ -536,16 +684,17 @@ export const UserManagement = () => {
             {loading ? (
               <LoadingPanel label="Loading groups..." />
             ) : groups.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-10">No groups found.</p>
+              <p className="text-sm text-foreground text-center py-10">No groups found.</p>
             ) : (
               <div className="max-w-full overflow-x-auto [-webkit-overflow-scrolling:touch]">
                 <table className="w-full min-w-[860px] text-sm">
-                  <thead className="text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border">
+                  <thead className="text-[11px] uppercase tracking-wider text-foreground border-b border-border">
                     <tr>
                       <th className="text-left px-4 py-2 font-semibold">Name</th>
                       <th className="text-left px-4 py-2 font-semibold">Description</th>
                       <th className="text-center px-4 py-2 font-semibold">Member Count</th>
                       <th className="text-left px-4 py-2 font-semibold">Status</th>
+                      {isAdmin && <th className="text-left px-4 py-2 font-semibold">Active</th>}
                       <th className="text-right px-4 py-2 font-semibold">Actions</th>
                     </tr>
                   </thead>
@@ -553,47 +702,41 @@ export const UserManagement = () => {
                     {groups.map((group) => (
                       <tr key={group.id} className="border-b border-border last:border-0 hover:bg-muted/20">
                         <td className="px-4 py-2.5 font-medium text-foreground">{group.name}</td>
-                        <td className="px-4 py-2.5 text-xs text-muted-foreground">{group.description || fallbackText}</td>
+                        <td className="px-4 py-2.5 text-xs text-foreground">{group.description || fallbackText}</td>
                         <td className="px-4 py-2.5 text-center">
                           <Badge variant="secondary" className="text-[10px]">{group.memberCount ?? 0}</Badge>
                         </td>
                         <td className="px-4 py-2.5"><StatusBadge status={group.status} active={group.active} /></td>
+                        {isAdmin && (
+                          <td className="px-4 py-2.5">
+                            <Switch
+                              checked={!isInactiveStatus(group.status, group.active)}
+                              onCheckedChange={() => setGroupToToggle(group)}
+                              className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-red-500"
+                              aria-label={
+                                isInactiveStatus(group.status, group.active) ? "Activate group" : "Deactivate group"
+                              }
+                            />
+                          </td>
+                        )}
                         <td className="px-4 py-2.5 text-right">
                           <div className="flex flex-wrap items-center justify-end gap-1.5">
-                            <Button asChild variant="ghost" size="sm" className="min-h-8 h-auto text-sm gap-1">
+                            <Button asChild variant="ghost" size="sm" className="min-h-8 h-auto text-sm gap-1 text-blue-600 hover:text-blue-700">
                               <Link to={`/settings/users/groups/${group.id}`}>
                                 <Eye className="w-3 h-3" /> View
                               </Link>
                             </Button>
-                            <Button asChild variant="ghost" size="sm" className="min-h-8 h-auto text-sm gap-1">
+                            <Button asChild variant="ghost" size="sm" className="min-h-8 h-auto text-sm gap-1 text-blue-600 hover:text-blue-700">
                               <Link to={`/settings/users/groups/${group.id}/members`}>
                                 <Users className="w-3 h-3" /> View Members
                               </Link>
                             </Button>
                             {isAdmin && (
-                              <>
-                                <Button asChild variant="ghost" size="sm" className="min-h-8 h-auto text-sm gap-1">
-                                  <Link to={`/settings/users/groups/${group.id}/edit`}>
-                                    <Pencil className="w-3 h-3" /> Edit
-                                  </Link>
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="min-h-8 h-auto text-sm gap-1"
-                                  onClick={() => setGroupToToggle(group)}
-                                >
-                                  {isInactiveStatus(group.status, group.active) ? (
-                                    <>
-                                      <Check className="w-3 h-3" /> Activate
-                                    </>
-                                  ) : (
-                                    <>
-                                      <XCircle className="w-3 h-3" /> Deactivate
-                                    </>
-                                  )}
-                                </Button>
-                              </>
+                              <Button asChild variant="ghost" size="sm" className="min-h-8 h-auto text-sm gap-1 text-blue-600 hover:text-blue-700">
+                                <Link to={`/settings/users/groups/${group.id}/edit`}>
+                                  <Pencil className="w-3 h-3" /> Edit
+                                </Link>
+                              </Button>
                             )}
                           </div>
                         </td>
@@ -609,18 +752,18 @@ export const UserManagement = () => {
         <TabsContent value="permissions">
           <Card className="p-0 overflow-hidden">
             <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-muted-foreground" />
+              <ShieldCheck className="w-4 h-4 text-foreground" />
               <h2 className="text-sm font-semibold text-foreground">Permissions</h2>
             </div>
 
             {loading ? (
               <LoadingPanel label="Loading permissions..." />
             ) : permissions.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-10">No permissions found.</p>
+              <p className="text-sm text-foreground text-center py-10">No permissions found.</p>
             ) : (
               <div className="max-w-full overflow-x-auto [-webkit-overflow-scrolling:touch]">
                 <table className="w-full min-w-[700px] text-sm">
-                  <thead className="text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border">
+                  <thead className="text-[11px] uppercase tracking-wider text-foreground border-b border-border">
                     <tr>
                       <th className="text-left px-4 py-2 font-semibold">Name</th>
                       <th className="text-left px-4 py-2 font-semibold">Code</th>
@@ -632,8 +775,8 @@ export const UserManagement = () => {
                     {permissions.map((permission) => (
                       <tr key={permission.id || permission.code} className="border-b border-border last:border-0 hover:bg-muted/20">
                         <td className="px-4 py-2.5 font-medium text-foreground">{permission.name || permission.code}</td>
-                        <td className="px-4 py-2.5 text-xs text-muted-foreground font-mono">{permission.code}</td>
-                        <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                        <td className="px-4 py-2.5 text-xs text-foreground font-mono">{permission.code}</td>
+                        <td className="px-4 py-2.5 text-xs text-foreground">
                           {permission.description || fallbackText}
                         </td>
                         <td className="px-4 py-2.5 text-right">
@@ -641,13 +784,13 @@ export const UserManagement = () => {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="min-h-8 h-auto text-sm gap-1"
+                              className="min-h-8 h-auto text-sm gap-1 text-blue-600 hover:text-blue-700"
                               onClick={() => toast.info("Permission editing is pending backend support")}
                             >
                               <Pencil className="w-3 h-3" /> Edit
                             </Button>
                           ) : (
-                            <span className="text-xs text-muted-foreground">Read only</span>
+                            <span className="text-xs text-foreground">Read only</span>
                           )}
                         </td>
                       </tr>
@@ -660,18 +803,23 @@ export const UserManagement = () => {
         </TabsContent>
       </Tabs>
 
-      <AlertDialog open={!!memberToDeactivate} onOpenChange={(open) => !open && setMemberToDeactivate(null)}>
+      <AlertDialog open={!!memberToToggle} onOpenChange={(open) => !open && setMemberToToggle(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Deactivate user?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {isInactiveStatus(memberToToggle?.membershipStatus) ? "Activate user?" : "Deactivate user?"}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This updates the table optimistically. The backend endpoint for user deactivation has not been provided yet.
+              This updates the table optimistically. The backend endpoint for user activation/deactivation has not been provided yet.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={handleDeactivateMember}>
-              Deactivate
+            <AlertDialogAction
+              className={isInactiveStatus(memberToToggle?.membershipStatus) ? "" : "bg-destructive hover:bg-destructive/90"}
+              onClick={handleToggleMember}
+            >
+              {isInactiveStatus(memberToToggle?.membershipStatus) ? "Activate" : "Deactivate"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -827,44 +975,64 @@ export function UserMemberView() {
       {state === "loading" && <LoadingPanel label="Loading profile..." />}
       {state === "error" && <ErrorPanel message={error ?? "Failed to load profile"} />}
       {state === "ready" && member && (
-        <div className="space-y-5">
-          <SectionCard icon={<UserCircle2 className="w-4 h-4 text-muted-foreground" />} title="Profile Info">
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-              <DetailRow label="Name" value={member.fullName} />
-              <DetailRow label="Email" value={member.email} />
-              <DetailRow label="Username" value={member.username} />
-              <DetailRow label="Status" value={statusLabel(member.membershipStatus)} />
-              <DetailRow label="Date Joined" value={formatDate(member.joinedAt)} />
-            </div>
-          </SectionCard>
+        <Tabs defaultValue="profile">
+          <TabsList className="mb-5" aria-label="User detail sections">
+            <TabsTrigger value="profile" className="gap-2 text-black data-[state=active]:text-blue-600">
+              <UserCircle2 className="w-4 h-4" /> Profile
+            </TabsTrigger>
+            <TabsTrigger value="groups" className="gap-2 text-black data-[state=active]:text-blue-600">
+              <Layers className="w-4 h-4" /> Groups
+              {!detailsLoading && <Badge variant="secondary" className="text-[10px]">{groups.length}</Badge>}
+            </TabsTrigger>
+            <TabsTrigger value="permissions" className="gap-2 text-black data-[state=active]:text-blue-600">
+              <ShieldCheck className="w-4 h-4" /> Permissions
+              <Badge variant="secondary" className="text-[10px]">{permissions.length}</Badge>
+            </TabsTrigger>
+          </TabsList>
 
-          <SectionCard icon={<Layers className="w-4 h-4 text-muted-foreground" />} title="Groups">
-            {detailsLoading ? (
-              <LoadingPanel label="Loading groups..." />
-            ) : groups.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Not assigned to any groups.</p>
-            ) : (
-              <div className="space-y-2">
-                {groups.map((group) => (
-                  <div key={group.id} className="flex flex-col gap-3 rounded-md border border-border bg-muted/20 p-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-foreground">{group.name}</p>
-                      <p className="text-xs text-muted-foreground">{group.description || fallbackText}</p>
-                    </div>
-                    <StatusBadge status={group.status} active={group.active} />
-                  </div>
-                ))}
+          <TabsContent value="profile">
+            <SectionCard icon={<UserCircle2 className="w-4 h-4 text-foreground" />} title="Profile Info">
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                <DetailRow label="Name" value={member.fullName} />
+                <DetailRow label="Email" value={member.email} />
+                <DetailRow label="Username" value={member.username} />
+                <DetailRow label="Status" value={statusLabel(member.membershipStatus)} />
+                <DetailRow label="Date Joined" value={formatDate(member.joinedAt)} />
               </div>
-            )}
-          </SectionCard>
+            </SectionCard>
+          </TabsContent>
 
-          <SectionCard icon={<ShieldCheck className="w-4 h-4 text-muted-foreground" />} title="Permissions">
-            <PermissionsList
-              permissions={permissions}
-              emptyText="No permissions were found in the current auth session."
-            />
-          </SectionCard>
-        </div>
+          <TabsContent value="groups">
+            <SectionCard icon={<Layers className="w-4 h-4 text-foreground" />} title="Groups">
+              {detailsLoading ? (
+                <LoadingPanel label="Loading groups..." />
+              ) : groups.length === 0 ? (
+                <p className="text-sm text-foreground">Not assigned to any groups.</p>
+              ) : (
+                <div className="space-y-2">
+                  {groups.map((group) => (
+                    <div key={group.id} className="flex flex-col gap-3 rounded-md border border-border bg-muted/20 p-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground">{group.name}</p>
+                        <p className="text-xs text-foreground">{group.description || fallbackText}</p>
+                      </div>
+                      <StatusBadge status={group.status} active={group.active} />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </SectionCard>
+          </TabsContent>
+
+          <TabsContent value="permissions">
+            <SectionCard icon={<ShieldCheck className="w-4 h-4 text-foreground" />} title="Permissions">
+              <PermissionsList
+                permissions={permissions}
+                emptyText="No permissions were found in the current auth session."
+              />
+            </SectionCard>
+          </TabsContent>
+        </Tabs>
       )}
     </ManagementLayout>
   );
@@ -907,7 +1075,7 @@ export function UserMemberEdit() {
           <div className="mt-5 flex justify-end">
             <Button disabled>Save changes</Button>
           </div>
-          <p className="text-xs text-muted-foreground mt-3">
+          <p className="text-xs text-foreground mt-3">
             Saving is disabled until the user update endpoint is provided.
           </p>
         </Card>
@@ -984,7 +1152,7 @@ export function GroupView() {
       {state === "error" && <ErrorPanel message={error ?? "Failed to load group"} />}
       {state === "ready" && group && (
         <div className="space-y-5">
-          <SectionCard icon={<Layers className="w-4 h-4 text-muted-foreground" />} title="Group Details">
+          <SectionCard icon={<Layers className="w-4 h-4 text-foreground" />} title="Group Details">
             <div className="grid gap-3 md:grid-cols-2">
               <DetailRow label="Name" value={group.name} />
               <DetailRow label="Code" value={group.code} />
@@ -994,7 +1162,7 @@ export function GroupView() {
             </div>
           </SectionCard>
 
-          <SectionCard icon={<ShieldCheck className="w-4 h-4 text-muted-foreground" />} title="Permissions">
+          <SectionCard icon={<ShieldCheck className="w-4 h-4 text-foreground" />} title="Permissions">
             <PermissionsList
               permissions={group.permissions}
               emptyText="No permissions assigned to this group."
@@ -1108,7 +1276,7 @@ export function GroupMembersView() {
       <Card className="p-0 overflow-hidden">
         <div className="px-4 py-3 border-b border-border bg-muted/30 flex flex-wrap items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">
-            <Users className="w-4 h-4 text-muted-foreground" />
+            <Users className="w-4 h-4 text-foreground" />
             <h2 className="text-sm font-semibold text-foreground">Members</h2>
           </div>
           {group?.memberCount != null && (
@@ -1144,11 +1312,11 @@ export function GroupMembersView() {
         {loading ? (
           <LoadingPanel label="Loading members..." />
         ) : members.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-10">No members in this group.</p>
+          <p className="text-sm text-foreground text-center py-10">No members in this group.</p>
         ) : (
           <div className="max-w-full overflow-x-auto [-webkit-overflow-scrolling:touch]">
             <table className="w-full min-w-[760px] text-sm">
-              <thead className="text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border">
+              <thead className="text-[11px] uppercase tracking-wider text-foreground border-b border-border">
                 <tr>
                   <th className="text-left px-4 py-2 font-semibold">Name</th>
                   <th className="text-left px-4 py-2 font-semibold">Email</th>
@@ -1161,8 +1329,8 @@ export function GroupMembersView() {
                 {members.map((member) => (
                   <tr key={member.membershipId ?? member.userId} className="border-b border-border last:border-0 hover:bg-muted/20">
                     <td className="px-4 py-2.5 font-medium text-foreground">{member.fullName}</td>
-                    <td className="px-4 py-2.5 text-xs text-muted-foreground">{member.email}</td>
-                    <td className="px-4 py-2.5 text-xs text-muted-foreground font-mono">{member.username}</td>
+                    <td className="px-4 py-2.5 text-xs text-foreground">{member.email}</td>
+                    <td className="px-4 py-2.5 text-xs text-foreground font-mono">{member.username}</td>
                     <td className="px-4 py-2.5"><StatusBadge status={member.membershipStatus} /></td>
                     <td className="px-4 py-2.5 text-right">
                       {isAdmin && (
@@ -1312,7 +1480,7 @@ export function GroupEdit() {
               <PopoverContent className="w-[min(520px,calc(100vw-2rem))] p-0" align="start">
                 <div className="max-h-72 overflow-y-auto p-2">
                   {catalog.length === 0 ? (
-                    <p className="px-2 py-6 text-center text-sm text-muted-foreground">
+                    <p className="px-2 py-6 text-center text-sm text-foreground">
                       {loadingPermissions ? "Loading permissions..." : "No permissions available."}
                     </p>
                   ) : (
@@ -1328,7 +1496,7 @@ export function GroupEdit() {
                         />
                         <span className="min-w-0">
                           <span className="block text-sm font-medium text-foreground">{permission.name || permission.code}</span>
-                          <span className="block text-xs text-muted-foreground font-mono">{permission.code}</span>
+                          <span className="block text-xs text-foreground font-mono">{permission.code}</span>
                         </span>
                       </label>
                     ))
@@ -1339,7 +1507,7 @@ export function GroupEdit() {
 
             <div className="flex flex-wrap gap-2">
               {selectedPermissions.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No permissions selected.</p>
+                <p className="text-sm text-foreground">No permissions selected.</p>
               ) : (
                 selectedPermissions.map((permission) => (
                   <Badge key={permission.id} variant="outline" className="font-mono text-[11px]">
