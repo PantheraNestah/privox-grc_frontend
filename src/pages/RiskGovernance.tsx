@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import {
-  loadOrgNodes, saveOrgNodes, uid,
+  uid,
   ORG_TYPE_LABELS, ORG_TYPE_COLORS,
   getOrgDescendantChain,
   LINE_OF_DEFENSE_LABELS, LINE_OF_DEFENSE_SHORT, LINE_OF_DEFENSE_COLORS,
@@ -34,8 +34,13 @@ import { loadStrategy, type StrategyConfig } from "@/data/strategyStore";
 import { loadAssessments, type InitiativeAssessment } from "@/data/assessmentStore";
 import { loadUsers, type AppUser } from "@/data/userStore";
 import { useActiveUser } from "@/hooks/use-active-user";
+import { useAuth } from "@/contexts/AuthContext";
 import { can } from "@/data/userStore";
 import { OrgNodeInsightsPanel } from "@/components/grc/OrgNodeInsightsPanel";
+import {
+  useOrgNodes, useCreateOrgNode, useUpdateOrgNode, useMoveOrgNode, useSoftDeleteOrgNode,
+} from "@/hooks/use-org-nodes";
+import { fromOrgNodeResponse, toCreateOrgNodeRequest, toUpdateOrgNodeRequest } from "@/lib/org-node-mapping";
 
 // Hierarchy types are now admin-managed; see the "Hierarchy Types" card.
 
@@ -61,7 +66,18 @@ const RiskGovernance = () => {
   // everything beneath it, so a staff member in (e.g.) Travel never sees
   // sibling branches like Risk.
   const canSeeAll = isAdmin;
-  const [allNodes, setAllNodes] = useState<OrgNode[]>([]);
+
+  const { organization } = useAuth();
+  const orgId = organization?.id;
+  const { data: orgNodeResponses } = useOrgNodes(orgId);
+  const createNode = useCreateOrgNode(orgId ?? "");
+  const updateNode = useUpdateOrgNode(orgId ?? "");
+  const moveNode = useMoveOrgNode(orgId ?? "");
+  const softDeleteNode = useSoftDeleteOrgNode(orgId ?? "");
+  const allNodes = useMemo(
+    () => (orgNodeResponses ?? []).map(fromOrgNodeResponse),
+    [orgNodeResponses],
+  );
 
   // Scope nodes: privileged roles see everything; everyone else sees only their
   // assigned org unit and everything beneath it.
@@ -99,7 +115,6 @@ const RiskGovernance = () => {
   const TYPE_OPTIONS = useMemo<OrgNodeType[]>(() => orgTypes.map(t => t.key), [orgTypes]);
 
   useEffect(() => {
-    setAllNodes(loadOrgNodes());
     setDocuments(loadDocuments());
     setStrategy(loadStrategy());
     setAssessments(loadAssessments());
@@ -113,11 +128,6 @@ const RiskGovernance = () => {
   const persistOrgTypes = (next: OrgTypeDef[]) => {
     setOrgTypes(next);
     saveOrgTypes(next);
-  };
-
-  const persist = (next: OrgNode[]) => {
-    setAllNodes(next);
-    saveOrgNodes(next);
   };
 
   const childrenOf = useMemo(() => {
@@ -184,54 +194,49 @@ const RiskGovernance = () => {
     setDialogOpen(true);
   };
 
-  const submitForm = () => {
+  const submitForm = async () => {
     if (!form.name.trim()) {
       toast.error("Name is required");
       return;
     }
-    if (form.id) {
-      const next = nodes.map(n => n.id === form.id ? {
-        ...n,
-        name: form.name.trim(),
-        type: form.type,
-        parentId: form.parentId,
-        description: form.description.trim() || undefined,
-        lineOfDefense: form.lineOfDefense,
-        offerings: form.offerings,
-      } : n);
-      persist(next);
-      toast.success("Updated");
-    } else {
-      const newNode: OrgNode = {
-        id: uid("org"),
-        name: form.name.trim(),
-        type: form.type,
-        parentId: form.parentId,
-        description: form.description.trim() || undefined,
-        objectiveIds: [],
-        lineOfDefense: form.lineOfDefense,
-        offerings: form.offerings,
-      };
-      persist([...nodes, newNode]);
-      if (form.parentId) {
-        setExpanded(prev => new Set(prev).add(form.parentId!));
+    const trimmed = {
+      name: form.name.trim(),
+      type: form.type,
+      description: form.description.trim() || undefined,
+      lineOfDefense: form.lineOfDefense,
+      offerings: form.offerings,
+    };
+    try {
+      if (form.id) {
+        const original = nodes.find(n => n.id === form.id);
+        await updateNode.mutateAsync({ nodeId: form.id, body: toUpdateOrgNodeRequest(trimmed) });
+        if (original && original.parentId !== form.parentId) {
+          await moveNode.mutateAsync({ nodeId: form.id, body: { newParentId: form.parentId } });
+        }
+        toast.success("Updated");
+      } else {
+        await createNode.mutateAsync(toCreateOrgNodeRequest({ ...trimmed, parentId: form.parentId }));
+        if (form.parentId) {
+          setExpanded(prev => new Set(prev).add(form.parentId!));
+        }
+        toast.success("Added");
       }
-      toast.success("Added");
+      setDialogOpen(false);
+    } catch {
+      toast.error(form.id ? "Failed to update unit" : "Failed to add unit");
     }
-    setDialogOpen(false);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!deleteId) return;
-    const toRemove = new Set<string>();
-    const walk = (id: string) => {
-      toRemove.add(id);
-      (childrenOf.get(id) ?? []).forEach(c => walk(c.id));
-    };
-    walk(deleteId);
-    persist(nodes.filter(n => !toRemove.has(n.id)));
-    setDeleteId(null);
-    toast.success("Removed");
+    try {
+      // Backend soft-delete cascades to all descendants' effectiveTo in one transaction.
+      await softDeleteNode.mutateAsync(deleteId);
+      setDeleteId(null);
+      toast.success("Removed");
+    } catch {
+      toast.error("Failed to remove unit");
+    }
   };
 
   const toggle = (id: string) => {
@@ -250,24 +255,28 @@ const RiskGovernance = () => {
     setBulkNames("");
   };
 
-  const submitBulk = () => {
+  const submitBulk = async () => {
     const names = bulkNames.split(/\r?\n|,/).map(s => s.trim()).filter(Boolean);
     if (names.length === 0) {
       toast.error("Add at least one name (one per line or comma-separated).");
       return;
     }
-    const created: OrgNode[] = names.map(name => ({
-      id: uid("org"),
-      name,
-      type: bulkType,
-      parentId: bulkParentId,
-      objectiveIds: [],
-    }));
-    persist([...nodes, ...created]);
-    if (bulkParentId) setExpanded(prev => new Set(prev).add(bulkParentId));
-    toast.success(`Added ${created.length} unit${created.length === 1 ? "" : "s"}`);
-    setBulkParentId(null);
-    setBulkNames("");
+    try {
+      // Sequential, not Promise.all: each create call needs to succeed against
+      // the same parent, and keeping requests in order makes a partial failure
+      // easy to reason about (created-so-far vs. not-yet-attempted).
+      for (const name of names) {
+        await createNode.mutateAsync(
+          toCreateOrgNodeRequest({ name, type: bulkType, parentId: bulkParentId, description: undefined }),
+        );
+      }
+      if (bulkParentId) setExpanded(prev => new Set(prev).add(bulkParentId));
+      toast.success(`Added ${names.length} unit${names.length === 1 ? "" : "s"}`);
+      setBulkParentId(null);
+      setBulkNames("");
+    } catch {
+      toast.error("Failed to add all units — some may have been created");
+    }
   };
 
   const totalCount = nodes.length;
@@ -1128,34 +1137,11 @@ interface HierarchyTypesCardProps {
 }
 
 const HierarchyTypesCard = ({ types, nodes, onChange }: HierarchyTypesCardProps) => {
-  const [newLabel, setNewLabel] = useState("");
-  const [newColor, setNewColor] = useState(TYPE_COLOR_PALETTE[7].value);
-
   const usageByKey = useMemo(() => {
     const map = new Map<string, number>();
     nodes.forEach(n => map.set(n.type, (map.get(n.type) ?? 0) + 1));
     return map;
   }, [nodes]);
-
-  const addType = () => {
-    const label = newLabel.trim();
-    if (!label) {
-      toast.error("Type name is required");
-      return;
-    }
-    const key = label.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
-    if (!key) {
-      toast.error("Type name must contain letters or numbers");
-      return;
-    }
-    if (types.some(t => t.key === key)) {
-      toast.error("That type already exists");
-      return;
-    }
-    onChange([...types, { key, label, color: newColor }]);
-    setNewLabel("");
-    toast.success(`Added "${label}"`);
-  };
 
   const updateType = (key: string, patch: Partial<OrgTypeDef>) => {
     onChange(types.map(t => t.key === key ? { ...t, ...patch } : t));
@@ -1182,7 +1168,7 @@ const HierarchyTypesCard = ({ types, nodes, onChange }: HierarchyTypesCardProps)
         <div>
           <h2 className="text-base font-semibold text-foreground">Hierarchy Types</h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Define the tiers used in your organisation structure (e.g. Group, Branch, Team, Cell). Built-in types can be renamed and recoloured but not deleted.
+            The organisation structure API supports a fixed set of tiers (Group, Company, Department, Division, Section, Process, Sub-process). You can rename and recolour them here, but new custom tiers can't be added — org units are validated against this fixed list server-side.
           </p>
         </div>
       </div>
@@ -1236,38 +1222,6 @@ const HierarchyTypesCard = ({ types, nodes, onChange }: HierarchyTypesCardProps)
         })}
       </div>
 
-      <div className="flex flex-wrap items-end gap-2 pt-3 border-t border-border">
-        <div className="space-y-1.5">
-          <Label htmlFor="new-type-name" className="text-xs">New type name</Label>
-          <Input
-            id="new-type-name"
-            className="h-9 w-[200px]"
-            value={newLabel}
-            onChange={e => setNewLabel(e.target.value)}
-            placeholder="e.g. Branch, Team, Cell"
-            onKeyDown={e => { if (e.key === "Enter") addType(); }}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">Color</Label>
-          <Select value={newColor} onValueChange={setNewColor}>
-            <SelectTrigger className="h-9 w-[160px]"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {TYPE_COLOR_PALETTE.map(p => (
-                <SelectItem key={p.value} value={p.value}>
-                  <span className="inline-flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full" style={{ background: `hsl(${p.value})` }} />
-                    {p.label}
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <Button onClick={addType} className="bg-primary hover:bg-primary/90 h-9">
-          <Plus className="w-4 h-4 mr-1.5" /> Add type
-        </Button>
-      </div>
     </Card>
   );
 };
