@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { ArrowLeft, ChevronRight, Plus, Trash2, Save, Sliders, Target, Activity, Gauge, Lock } from "lucide-react";
 import { TopNav } from "@/components/grc/TopNav";
 import { useActiveUser } from "@/hooks/use-active-user";
+import { useAuth } from "@/contexts/AuthContext";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,11 +18,18 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
+import { buildBands, buildDefaultConfig, uid, IMPACT_MEASUREMENT_LABELS } from "@/data/orgStore";
+import type { RiskStrategyConfig, ScaleLevel, ScaleBand, AppetiteStatement, ImpactParameter, ImpactMeasurement } from "@/data/orgStore";
 import {
-  loadRiskStrategy, saveRiskStrategy, buildBands, buildDefaultConfig, uid,
-  IMPACT_MEASUREMENT_LABELS,
-  type RiskStrategyConfig, type ScaleLevel, type ScaleBand, type AppetiteStatement, type ImpactParameter, type ImpactMeasurement,
-} from "@/data/orgStore";
+  useCreateRiskStrategyVersion,
+  useCurrentRiskStrategy,
+  useDecideRiskStrategyVersion,
+  useRiskStrategySettings,
+} from "@/hooks/use-risk-strategy";
+import {
+  fromRiskStrategyResponse,
+  toCreateRiskStrategyVersionRequest,
+} from "@/lib/risk-strategy-mapping";
 
 const RiskStrategy = () => {
   const [cfg, setCfg] = useState<RiskStrategyConfig | null>(null);
@@ -29,9 +37,17 @@ const RiskStrategy = () => {
   const isAdmin = activeUser?.role === "admin";
   const readOnly = !isAdmin;
 
+  const { organization } = useAuth();
+  const orgId = organization?.id;
+  const { data: current, isLoading } = useCurrentRiskStrategy(orgId);
+  const { data: settings } = useRiskStrategySettings(orgId);
+  const createVersion = useCreateRiskStrategyVersion(orgId ?? "");
+  const decideVersion = useDecideRiskStrategyVersion(orgId ?? "");
+
   useEffect(() => {
-    setCfg(loadRiskStrategy());
-  }, []);
+    if (isLoading) return;
+    setCfg(current ? fromRiskStrategyResponse(current) : buildDefaultConfig(3));
+  }, [current, isLoading]);
 
   if (!cfg) return null;
 
@@ -54,16 +70,39 @@ const RiskStrategy = () => {
     toast.info(`Scale set to ${level} levels`);
   };
 
-  const save = () => {
-    saveRiskStrategy(cfg);
-    toast.success("Risk strategy saved");
+  /**
+   * The backend versions risk strategy and can gate a new version behind
+   * approval (`requiresApproval`). This page has no separate approval UI, so
+   * to preserve the previous single-shot "Save" behavior for an admin, a
+   * version created while approval is required is immediately self-approved.
+   */
+  const persist = async (next: RiskStrategyConfig) => {
+    if (!orgId) return;
+    const created = await createVersion.mutateAsync(toCreateRiskStrategyVersionRequest(next));
+    const activeVersion = created.current
+      ? created
+      : await decideVersion.mutateAsync({ configId: created.id, body: { decision: "APPROVE" } });
+    setCfg(fromRiskStrategyResponse(activeVersion));
   };
 
-  const reset = () => {
+  const save = async () => {
+    try {
+      await persist(cfg);
+      toast.success("Risk strategy saved");
+    } catch {
+      toast.error("Failed to save risk strategy");
+    }
+  };
+
+  const reset = async () => {
     const def = buildDefaultConfig(cfg.scaleLevel);
     setCfg(def);
-    saveRiskStrategy(def);
-    toast.success("Reset to defaults");
+    try {
+      await persist(def);
+      toast.success("Reset to defaults");
+    } catch {
+      toast.error("Failed to reset risk strategy");
+    }
   };
 
   const updateBand = (
