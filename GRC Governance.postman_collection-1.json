@@ -257,6 +257,46 @@
               "body": "{\n  \"accessToken\": \"eyJraWQiOiJBbmJNSmg5TXJaa1JBR2RfS3FPeV9MLUR5TmIyNzdNRXJiMXNuVjB5dFBZIiwidHlwIjoiSldUIiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiI1ZjFmMDQ4Mi02ZjM5LTRiNzktOGE5ZS0wZTUxMTljNDYzNGUiLCJvcmciOiI2ZDQ2YTQ5Zi0yNjhjLTQ2OGEtYTllYS1hMDQwN2RiMzBkNmIiLCJwZXJtaXNzaW9ucyI6WyJncm91cC5jcmVhdGUiLCJncm91cC5tYW5hZ2VfbWVtYmVycyIsImdyb3VwLm1hbmFnZV9wZXJtaXNzaW9ucyIsImdyb3VwLnVwZGF0ZSIsImdyb3VwLnZpZXciLCJvcmdub2RlLm1hbmFnZSIsIm9yZ25vZGUudmlldyIsInJpc2tzdHJhdGVneS5tYW5hZ2UiLCJyaXNrc3RyYXRlZ3kudmlldyIsInVzZXIuYWN0aXZhdGUiLCJ1c2VyLmNyZWF0ZSIsInVzZXIuZGVhY3RpdmF0ZSIsInVzZXIuaW52aXRlIiwidXNlci5yZWFjdGl2YXRlIiwidXNlci5zdXNwZW5kIiwidXNlci51cGRhdGUiLCJ1c2VyLnZpZXciXSwiaXNzIjoicHJpdm94LWdyYy1hcGkiLCJleHAiOjE3ODg1MzU0OTEsInRva2VuX3R5cGUiOiJhY2Nlc3MiLCJpYXQiOjE3ODg1MzQ1OTEsImp0aSI6IjY2MDVjODU2LTdlZjktNDA0NC1iMzBjLTU0M2RiNjkyNzZmMyIsInNpZCI6IjAwZDBlMzVjLTg4NDYtNDg4Ni1iNThkLTlhNTk1M2VhOTU0MSJ9.nW-dv1JZ43aJ7DXzPTcmHrPzRZWXSK940GfHfocUNMSnrQ3EWe8aHPrXVIl1iivxhLOEAm1YwXNTZdAc2CVph3HSaYiQ2Y48ioncpaz1JuDwp9enUc92V73286lm_x2mZHv-qC1gZsEVb9AKEUPGvHWrNjveVuMWJhUrvT8xeeKEL4avqpUxg3tByQY7_HOO99yg2BuDe68ZAvNSF8Lsxfn0SqpsubEYOpkHpScXsVYWMU-nn5eL9YFMUCwNpe4UNoZPOICM2Cm2Y_j39eMOJ5GcpgUv9P1l0pmEYcTBk9jRnpqcbieHdwpuXMzW9c5qrtrqC4OxHoY3mcs8KVrtgA\",\n  \"refreshToken\": \"s4jWjhCpL_NG98juwK6--rHlMYESsrP22g02kNLV8lk\",\n  \"tokenType\": \"Bearer\",\n  \"expiresIn\": 900,\n  \"accessTokenExpiresAt\": \"2026-09-04T15:24:51.107504257Z\",\n  \"user\": {\n    \"id\": \"5f1f0482-6f39-4b79-8a9e-0e5119c4634e\",\n    \"email\": \"amara.odhiambo@sic.co.ke\",\n    \"username\": \"amara.odhiambo\",\n    \"fullName\": \"Amara Odhiambo\"\n  },\n  \"organization\": {\n    \"id\": \"6d46a49f-268c-468a-a9ea-a0407db30d6b\",\n    \"code\": \"SIC\",\n    \"name\": \"Savanna Insurance Co.\"\n  },\n  \"permissions\": [\n    \"group.create\",\n    \"group.manage_members\",\n    \"group.manage_permissions\",\n    \"group.update\",\n    \"group.view\",\n    \"orgnode.manage\",\n    \"orgnode.view\",\n    \"riskstrategy.manage\",\n    \"riskstrategy.view\",\n    \"user.activate\",\n    \"user.create\",\n    \"user.deactivate\",\n    \"user.invite\",\n    \"user.reactivate\",\n    \"user.suspend\",\n    \"user.update\",\n    \"user.view\"\n  ]\n}"
             }
           ]
+        },
+        {
+          "name": "dev server org_admin login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Parse the JSON response body\nconst jsonData = pm.response.json();\n\n// Check if the response contains the expected data and set the collection variables\nif (jsonData.accessToken) {\n    pm.collectionVariables.set(\"jwt_access\", jsonData.accessToken);\n}\n\nif (jsonData.refreshToken) {\n    pm.collectionVariables.set(\"jwt_refresh\", jsonData.refreshToken);\n}\n\nif (jsonData.organization && jsonData.organization.id) {\n    pm.collectionVariables.set(\"org_id\", jsonData.organization.id);\n}\n\n// Optional: Add a quick test to verify the variables were extracted successfully in the Test Results tab\npm.test(\"Auth and Org variables set successfully\", function () {\n    pm.expect(pm.collectionVariables.get(\"jwt_access\")).to.not.be.undefined;\n    pm.expect(pm.collectionVariables.get(\"jwt_refresh\")).to.not.be.undefined;\n    pm.expect(pm.collectionVariables.get(\"org_id\")).to.not.be.undefined;\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"identifier\" : \"amara.odhiambo@sic.co.ke\",\n    \"password\" : \"Password@123\",\n    \"organizationId\" : \"6d46a49f-268c-468a-a9ea-a0407db30d6b\",\n    \"rememberMe\" : false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url_dev_server}}/api/v1/auth/login",
+              "host": [
+                "{{base_url_dev_server}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
         }
       ]
     },
@@ -955,7 +995,353 @@
     },
     {
       "name": "Risk Strategy",
-      "item": []
+      "item": [
+        {
+          "name": "get current risk strategy",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwt_access}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url_local}}/api/v1/organizations/{{org_id}}/risk-strategy/current",
+              "host": [
+                "{{base_url_local}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "organizations",
+                "{{org_id}}",
+                "risk-strategy",
+                "current"
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "response - current risk strategy",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url_local}}/api/v1/organizations/{{org_id}}/risk-strategy/current",
+                  "host": [
+                    "{{base_url_local}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "organizations",
+                    "{{org_id}}",
+                    "risk-strategy",
+                    "current"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "vary",
+                  "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+                },
+                {
+                  "key": "x-content-type-options",
+                  "value": "nosniff"
+                },
+                {
+                  "key": "x-xss-protection",
+                  "value": "0"
+                },
+                {
+                  "key": "cache-control",
+                  "value": "no-cache, no-store, max-age=0, must-revalidate"
+                },
+                {
+                  "key": "pragma",
+                  "value": "no-cache"
+                },
+                {
+                  "key": "expires",
+                  "value": "0"
+                },
+                {
+                  "key": "x-frame-options",
+                  "value": "DENY"
+                },
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "transfer-encoding",
+                  "value": "chunked"
+                },
+                {
+                  "key": "date",
+                  "value": "Sat, 05 Sep 2026 07:37:07 GMT"
+                },
+                {
+                  "key": "keep-alive",
+                  "value": "timeout=60"
+                },
+                {
+                  "key": "connection",
+                  "value": "keep-alive"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"id\": \"4312f0b9-2972-4dc7-9458-bf61fb2ee54f\",\n  \"organizationId\": \"6d46a49f-268c-468a-a9ea-a0407db30d6b\",\n  \"orgNodeId\": null,\n  \"version\": 2,\n  \"current\": true,\n  \"levels\": 4,\n  \"likelihoodMode\": \"BOTH\",\n  \"toleranceThreshold\": 20,\n  \"reviewFrequency\": \"MONTHLY\",\n  \"lastReviewedAt\": null,\n  \"approvedByUserId\": \"5f1f0482-6f39-4b79-8a9e-0e5119c4634e\",\n  \"approvedAt\": \"2026-09-05T06:57:23.818623Z\",\n  \"createdByUserId\": \"5f1f0482-6f39-4b79-8a9e-0e5119c4634e\",\n  \"createdAt\": \"2026-09-05T06:56:44.639763Z\",\n  \"appetiteCategories\": [\n    {\n      \"id\": \"b50f2849-56f6-4b01-b1e1-baaec5807db3\",\n      \"name\": \"Underwriting Risk\",\n      \"statement\": \"Low appetite for underwriting risk outside board-approved limits.\",\n      \"sortOrder\": 0\n    },\n    {\n      \"id\": \"8799e1a1-00b0-48e4-a1fa-370553a54f68\",\n      \"name\": \"Financial Risk\",\n      \"statement\": \"Moderate appetite for financial risk within regulatory solvency margins.\",\n      \"sortOrder\": 1\n    },\n    {\n      \"id\": \"47ec8e02-136e-428c-ae80-3075dc58c08f\",\n      \"name\": \"Operational Risk\",\n      \"statement\": \"Low appetite for operational disruptions affecting policyholder service.\",\n      \"sortOrder\": 2\n    },\n    {\n      \"id\": \"71581a90-39a9-479f-92f2-e7d5380f89af\",\n      \"name\": \"Compliance Risk\",\n      \"statement\": \"Zero appetite for regulatory non-compliance with IRA requirements.\",\n      \"sortOrder\": 3\n    }\n  ],\n  \"likelihoodBands\": {\n    \"probability\": [\n      {\n        \"id\": \"595219ba-8647-431f-ac42-f434f9413f7f\",\n        \"position\": 1,\n        \"label\": \"Rare\",\n        \"minValue\": 0,\n        \"maxValue\": 10\n      },\n      {\n        \"id\": \"6d255f3f-825c-4bae-9218-5f46e4bb0758\",\n        \"position\": 2,\n        \"label\": \"Possible\",\n        \"minValue\": 10,\n        \"maxValue\": 50\n      },\n      {\n        \"id\": \"7518c678-6675-4077-8be1-37197acdac97\",\n        \"position\": 3,\n        \"label\": \"Likely\",\n        \"minValue\": 50,\n        \"maxValue\": 100\n      },\n      {\n        \"id\": \"fb6c646b-3910-40f7-a9ef-27a0bd9e829d\",\n        \"position\": 4,\n        \"label\": \"Band 4\",\n        \"minValue\": null,\n        \"maxValue\": null\n      }\n    ],\n    \"timeline\": [\n      {\n        \"id\": \"3f5ec35e-27db-4f20-a03a-f7edd5c07147\",\n        \"position\": 1,\n        \"label\": \"Long-term (>3 years)\",\n        \"minValue\": null,\n        \"maxValue\": null\n      },\n      {\n        \"id\": \"478ae7c9-69a7-4ff7-a070-966f7e186c02\",\n        \"position\": 2,\n        \"label\": \"Medium-term (1-3 years)\",\n        \"minValue\": null,\n        \"maxValue\": null\n      },\n      {\n        \"id\": \"bdbdf218-7f6d-409c-ab7c-b29342648b77\",\n        \"position\": 3,\n        \"label\": \"Short-term (<1 year)\",\n        \"minValue\": null,\n        \"maxValue\": null\n      },\n      {\n        \"id\": \"46d03a80-7edb-453a-86f2-f38d5db44ee5\",\n        \"position\": 4,\n        \"label\": \"Band 4\",\n        \"minValue\": null,\n        \"maxValue\": null\n      }\n    ]\n  },\n  \"impactParameters\": [\n    {\n      \"id\": \"db1a184a-cdd7-43c7-8bda-3dc7cf0be165\",\n      \"name\": \"Financial Impact\",\n      \"enabled\": true,\n      \"mode\": \"QUANTITATIVE\",\n      \"sortOrder\": 0,\n      \"bands\": [\n        {\n          \"id\": \"afb4459b-dca4-4d12-8c3c-99f03879d4de\",\n          \"position\": 1,\n          \"label\": \"Low\",\n          \"minValue\": 0,\n          \"maxValue\": 50000\n        },\n        {\n          \"id\": \"98c68020-95e9-4dd2-b5c2-84ed69f62e79\",\n          \"position\": 2,\n          \"label\": \"Medium\",\n          \"minValue\": 50000,\n          \"maxValue\": 250000\n        },\n        {\n          \"id\": \"5e8896b7-bed2-4b45-abe5-66198babaf64\",\n          \"position\": 3,\n          \"label\": \"High\",\n          \"minValue\": 250000,\n          \"maxValue\": 999999.99\n        },\n        {\n          \"id\": \"b146a701-81f5-4c5b-a19e-f9885c45f88f\",\n          \"position\": 4,\n          \"label\": \"Band 4\",\n          \"minValue\": null,\n          \"maxValue\": null\n        }\n      ]\n    },\n    {\n      \"id\": \"de0d4535-7efc-4caa-ab6b-fe07ed1ef12d\",\n      \"name\": \"Reputational Impact\",\n      \"enabled\": true,\n      \"mode\": \"QUALITATIVE\",\n      \"sortOrder\": 1,\n      \"bands\": [\n        {\n          \"id\": \"eb53eefa-b02b-4c7f-9017-2558f59ece0d\",\n          \"position\": 1,\n          \"label\": \"Localized, no media attention\",\n          \"minValue\": null,\n          \"maxValue\": null\n        },\n        {\n          \"id\": \"441ba5c4-1dc4-4b50-a656-9cd8b109d915\",\n          \"position\": 2,\n          \"label\": \"Regional media attention\",\n          \"minValue\": null,\n          \"maxValue\": null\n        },\n        {\n          \"id\": \"b23e6d9b-3941-42ae-a51d-eb587874d54b\",\n          \"position\": 3,\n          \"label\": \"National media / regulator attention\",\n          \"minValue\": null,\n          \"maxValue\": null\n        },\n        {\n          \"id\": \"f20cd05f-b428-41dd-930c-0ed10ef1dd89\",\n          \"position\": 4,\n          \"label\": \"Band 4\",\n          \"minValue\": null,\n          \"maxValue\": null\n        }\n      ]\n    },\n    {\n      \"id\": \"548de067-8935-43e4-9f51-c4df47a7d053\",\n      \"name\": \"Regulatory Impact\",\n      \"enabled\": true,\n      \"mode\": \"QUALITATIVE\",\n      \"sortOrder\": 2,\n      \"bands\": [\n        {\n          \"id\": \"00d987ec-94a2-42f8-94a4-7f41f37b7362\",\n          \"position\": 1,\n          \"label\": \"Minor observation, no sanction\",\n          \"minValue\": null,\n          \"maxValue\": null\n        },\n        {\n          \"id\": \"b3a9bd8c-0408-44e0-8b43-200b6fb38816\",\n          \"position\": 2,\n          \"label\": \"Formal warning from IRA\",\n          \"minValue\": null,\n          \"maxValue\": null\n        },\n        {\n          \"id\": \"faf18fbd-af79-40a6-b773-bb19fa5ff3dd\",\n          \"position\": 3,\n          \"label\": \"License condition or suspension risk\",\n          \"minValue\": null,\n          \"maxValue\": null\n        },\n        {\n          \"id\": \"c24ecea1-72f6-4c35-a99b-0fd7610c89b6\",\n          \"position\": 4,\n          \"label\": \"Band 4\",\n          \"minValue\": null,\n          \"maxValue\": null\n        }\n      ]\n    },\n    {\n      \"id\": \"f6b00434-d82f-4bc4-8358-4d5680ec5db5\",\n      \"name\": \"Customer Impact\",\n      \"enabled\": false,\n      \"mode\": \"QUALITATIVE\",\n      \"sortOrder\": 3,\n      \"bands\": [\n        {\n          \"id\": \"ba55d851-a957-4e88-a00f-8a52ba772dcf\",\n          \"position\": 1,\n          \"label\": \"Band 1\",\n          \"minValue\": null,\n          \"maxValue\": null\n        },\n        {\n          \"id\": \"6527df4f-2f01-4f24-873d-0edd8862c9c0\",\n          \"position\": 2,\n          \"label\": \"Band 2\",\n          \"minValue\": null,\n          \"maxValue\": null\n        },\n        {\n          \"id\": \"add9cdc1-d15b-42a6-b94d-ee3e614cc01d\",\n          \"position\": 3,\n          \"label\": \"Band 3\",\n          \"minValue\": null,\n          \"maxValue\": null\n        },\n        {\n          \"id\": \"c921e2b3-f117-4ed4-bd2b-cc2787f302d1\",\n          \"position\": 4,\n          \"label\": \"Band 4\",\n          \"minValue\": null,\n          \"maxValue\": null\n        }\n      ]\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "risk strategy history",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwt_access}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url_local}}/api/v1/organizations/{{org_id}}/risk-strategy/history",
+              "host": [
+                "{{base_url_local}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "organizations",
+                "{{org_id}}",
+                "risk-strategy",
+                "history"
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "response - risk strategy history",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url_local}}/api/v1/organizations/{{org_id}}/risk-strategy/history",
+                  "host": [
+                    "{{base_url_local}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "organizations",
+                    "{{org_id}}",
+                    "risk-strategy",
+                    "history"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "vary",
+                  "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+                },
+                {
+                  "key": "x-content-type-options",
+                  "value": "nosniff"
+                },
+                {
+                  "key": "x-xss-protection",
+                  "value": "0"
+                },
+                {
+                  "key": "cache-control",
+                  "value": "no-cache, no-store, max-age=0, must-revalidate"
+                },
+                {
+                  "key": "pragma",
+                  "value": "no-cache"
+                },
+                {
+                  "key": "expires",
+                  "value": "0"
+                },
+                {
+                  "key": "x-frame-options",
+                  "value": "DENY"
+                },
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "transfer-encoding",
+                  "value": "chunked"
+                },
+                {
+                  "key": "date",
+                  "value": "Sat, 05 Sep 2026 07:41:00 GMT"
+                },
+                {
+                  "key": "keep-alive",
+                  "value": "timeout=60"
+                },
+                {
+                  "key": "connection",
+                  "value": "keep-alive"
+                }
+              ],
+              "cookie": [],
+              "body": "[\n  {\n    \"id\": \"4312f0b9-2972-4dc7-9458-bf61fb2ee54f\",\n    \"organizationId\": \"6d46a49f-268c-468a-a9ea-a0407db30d6b\",\n    \"orgNodeId\": null,\n    \"version\": 2,\n    \"current\": true,\n    \"levels\": 4,\n    \"likelihoodMode\": \"BOTH\",\n    \"toleranceThreshold\": 20,\n    \"reviewFrequency\": \"MONTHLY\",\n    \"lastReviewedAt\": null,\n    \"approvedByUserId\": \"5f1f0482-6f39-4b79-8a9e-0e5119c4634e\",\n    \"approvedAt\": \"2026-09-05T06:57:23.818623Z\",\n    \"createdByUserId\": \"5f1f0482-6f39-4b79-8a9e-0e5119c4634e\",\n    \"createdAt\": \"2026-09-05T06:56:44.639763Z\",\n    \"appetiteCategories\": [\n      {\n        \"id\": \"b50f2849-56f6-4b01-b1e1-baaec5807db3\",\n        \"name\": \"Underwriting Risk\",\n        \"statement\": \"Low appetite for underwriting risk outside board-approved limits.\",\n        \"sortOrder\": 0\n      },\n      {\n        \"id\": \"8799e1a1-00b0-48e4-a1fa-370553a54f68\",\n        \"name\": \"Financial Risk\",\n        \"statement\": \"Moderate appetite for financial risk within regulatory solvency margins.\",\n        \"sortOrder\": 1\n      },\n      {\n        \"id\": \"47ec8e02-136e-428c-ae80-3075dc58c08f\",\n        \"name\": \"Operational Risk\",\n        \"statement\": \"Low appetite for operational disruptions affecting policyholder service.\",\n        \"sortOrder\": 2\n      },\n      {\n        \"id\": \"71581a90-39a9-479f-92f2-e7d5380f89af\",\n        \"name\": \"Compliance Risk\",\n        \"statement\": \"Zero appetite for regulatory non-compliance with IRA requirements.\",\n        \"sortOrder\": 3\n      }\n    ],\n    \"likelihoodBands\": {\n      \"probability\": [\n        {\n          \"id\": \"595219ba-8647-431f-ac42-f434f9413f7f\",\n          \"position\": 1,\n          \"label\": \"Rare\",\n          \"minValue\": 0,\n          \"maxValue\": 10\n        },\n        {\n          \"id\": \"6d255f3f-825c-4bae-9218-5f46e4bb0758\",\n          \"position\": 2,\n          \"label\": \"Possible\",\n          \"minValue\": 10,\n          \"maxValue\": 50\n        },\n        {\n          \"id\": \"7518c678-6675-4077-8be1-37197acdac97\",\n          \"position\": 3,\n          \"label\": \"Likely\",\n          \"minValue\": 50,\n          \"maxValue\": 100\n        },\n        {\n          \"id\": \"fb6c646b-3910-40f7-a9ef-27a0bd9e829d\",\n          \"position\": 4,\n          \"label\": \"Band 4\",\n          \"minValue\": null,\n          \"maxValue\": null\n        }\n      ],\n      \"timeline\": [\n        {\n          \"id\": \"3f5ec35e-27db-4f20-a03a-f7edd5c07147\",\n          \"position\": 1,\n          \"label\": \"Long-term (>3 years)\",\n          \"minValue\": null,\n          \"maxValue\": null\n        },\n        {\n          \"id\": \"478ae7c9-69a7-4ff7-a070-966f7e186c02\",\n          \"position\": 2,\n          \"label\": \"Medium-term (1-3 years)\",\n          \"minValue\": null,\n          \"maxValue\": null\n        },\n        {\n          \"id\": \"bdbdf218-7f6d-409c-ab7c-b29342648b77\",\n          \"position\": 3,\n          \"label\": \"Short-term (<1 year)\",\n          \"minValue\": null,\n          \"maxValue\": null\n        },\n        {\n          \"id\": \"46d03a80-7edb-453a-86f2-f38d5db44ee5\",\n          \"position\": 4,\n          \"label\": \"Band 4\",\n          \"minValue\": null,\n          \"maxValue\": null\n        }\n      ]\n    },\n    \"impactParameters\": [\n      {\n        \"id\": \"db1a184a-cdd7-43c7-8bda-3dc7cf0be165\",\n        \"name\": \"Financial Impact\",\n        \"enabled\": true,\n        \"mode\": \"QUANTITATIVE\",\n        \"sortOrder\": 0,\n        \"bands\": [\n          {\n            \"id\": \"afb4459b-dca4-4d12-8c3c-99f03879d4de\",\n            \"position\": 1,\n            \"label\": \"Low\",\n            \"minValue\": 0,\n            \"maxValue\": 50000\n          },\n          {\n            \"id\": \"98c68020-95e9-4dd2-b5c2-84ed69f62e79\",\n            \"position\": 2,\n            \"label\": \"Medium\",\n            \"minValue\": 50000,\n            \"maxValue\": 250000\n          },\n          {\n            \"id\": \"5e8896b7-bed2-4b45-abe5-66198babaf64\",\n            \"position\": 3,\n            \"label\": \"High\",\n            \"minValue\": 250000,\n            \"maxValue\": 999999.99\n          },\n          {\n            \"id\": \"b146a701-81f5-4c5b-a19e-f9885c45f88f\",\n            \"position\": 4,\n            \"label\": \"Band 4\",\n            \"minValue\": null,\n            \"maxValue\": null\n          }\n        ]\n      },\n      {\n        \"id\": \"de0d4535-7efc-4caa-ab6b-fe07ed1ef12d\",\n        \"name\": \"Reputational Impact\",\n        \"enabled\": true,\n        \"mode\": \"QUALITATIVE\",\n        \"sortOrder\": 1,\n        \"bands\": [\n          {\n            \"id\": \"eb53eefa-b02b-4c7f-9017-2558f59ece0d\",\n            \"position\": 1,\n            \"label\": \"Localized, no media attention\",\n            \"minValue\": null,\n            \"maxValue\": null\n          },\n          {\n            \"id\": \"441ba5c4-1dc4-4b50-a656-9cd8b109d915\",\n            \"position\": 2,\n            \"label\": \"Regional media attention\",\n            \"minValue\": null,\n            \"maxValue\": null\n          },\n          {\n            \"id\": \"b23e6d9b-3941-42ae-a51d-eb587874d54b\",\n            \"position\": 3,\n            \"label\": \"National media / regulator attention\",\n            \"minValue\": null,\n            \"maxValue\": null\n          },\n          {\n            \"id\": \"f20cd05f-b428-41dd-930c-0ed10ef1dd89\",\n            \"position\": 4,\n            \"label\": \"Band 4\",\n            \"minValue\": null,\n            \"maxValue\": null\n          }\n        ]\n      },\n      {\n        \"id\": \"548de067-8935-43e4-9f51-c4df47a7d053\",\n        \"name\": \"Regulatory Impact\",\n        \"enabled\": true,\n        \"mode\": \"QUALITATIVE\",\n        \"sortOrder\": 2,\n        \"bands\": [\n          {\n            \"id\": \"00d987ec-94a2-42f8-94a4-7f41f37b7362\",\n            \"position\": 1,\n            \"label\": \"Minor observation, no sanction\",\n            \"minValue\": null,\n            \"maxValue\": null\n          },\n          {\n            \"id\": \"b3a9bd8c-0408-44e0-8b43-200b6fb38816\",\n            \"position\": 2,\n            \"label\": \"Formal warning from IRA\",\n            \"minValue\": null,\n            \"maxValue\": null\n          },\n          {\n            \"id\": \"faf18fbd-af79-40a6-b773-bb19fa5ff3dd\",\n            \"position\": 3,\n            \"label\": \"License condition or suspension risk\",\n            \"minValue\": null,\n            \"maxValue\": null\n          },\n          {\n            \"id\": \"c24ecea1-72f6-4c35-a99b-0fd7610c89b6\",\n            \"position\": 4,\n            \"label\": \"Band 4\",\n            \"minValue\": null,\n            \"maxValue\": null\n          }\n        ]\n      },\n      {\n        \"id\": \"f6b00434-d82f-4bc4-8358-4d5680ec5db5\",\n        \"name\": \"Customer Impact\",\n        \"enabled\": false,\n        \"mode\": \"QUALITATIVE\",\n        \"sortOrder\": 3,\n        \"bands\": [\n          {\n            \"id\": \"ba55d851-a957-4e88-a00f-8a52ba772dcf\",\n            \"position\": 1,\n            \"label\": \"Band 1\",\n            \"minValue\": null,\n            \"maxValue\": null\n          },\n          {\n            \"id\": \"6527df4f-2f01-4f24-873d-0edd8862c9c0\",\n            \"position\": 2,\n            \"label\": \"Band 2\",\n            \"minValue\": null,\n            \"maxValue\": null\n          },\n          {\n            \"id\": \"add9cdc1-d15b-42a6-b94d-ee3e614cc01d\",\n            \"position\": 3,\n            \"label\": \"Band 3\",\n            \"minValue\": null,\n            \"maxValue\": null\n          },\n          {\n            \"id\": \"c921e2b3-f117-4ed4-bd2b-cc2787f302d1\",\n            \"position\": 4,\n            \"label\": \"Band 4\",\n            \"minValue\": null,\n            \"maxValue\": null\n          }\n        ]\n      }\n    ]\n  },\n  {\n    \"id\": \"07551f30-a5c2-4b03-92c3-febd1fc761ab\",\n    \"organizationId\": \"6d46a49f-268c-468a-a9ea-a0407db30d6b\",\n    \"orgNodeId\": null,\n    \"version\": 1,\n    \"current\": false,\n    \"levels\": 3,\n    \"likelihoodMode\": \"BOTH\",\n    \"toleranceThreshold\": 15.5,\n    \"reviewFrequency\": \"QUARTERLY\",\n    \"lastReviewedAt\": null,\n    \"approvedByUserId\": null,\n    \"approvedAt\": null,\n    \"createdByUserId\": \"5f1f0482-6f39-4b79-8a9e-0e5119c4634e\",\n    \"createdAt\": \"2026-09-05T06:56:01.168699Z\",\n    \"appetiteCategories\": [\n      {\n        \"id\": \"5337a055-8dd2-4acc-9301-fe600ce4961c\",\n        \"name\": \"Underwriting Risk\",\n        \"statement\": \"Low appetite for underwriting risk outside board-approved limits.\",\n        \"sortOrder\": 0\n      },\n      {\n        \"id\": \"325ac90f-3ce7-4f0d-ac57-693bf3f4affb\",\n        \"name\": \"Financial Risk\",\n        \"statement\": \"Moderate appetite for financial risk within regulatory solvency margins.\",\n        \"sortOrder\": 1\n      },\n      {\n        \"id\": \"5e3ad566-c6d3-4443-aeff-e7265f131f0e\",\n        \"name\": \"Operational Risk\",\n        \"statement\": \"Low appetite for operational disruptions affecting policyholder service.\",\n        \"sortOrder\": 2\n      },\n      {\n        \"id\": \"ed161b86-9651-4939-b529-1475811a6cf3\",\n        \"name\": \"Compliance Risk\",\n        \"statement\": \"Zero appetite for regulatory non-compliance with IRA requirements.\",\n        \"sortOrder\": 3\n      }\n    ],\n    \"likelihoodBands\": {\n      \"probability\": [\n        {\n          \"id\": \"330261bf-1614-4790-a84d-9cb5ca118f6e\",\n          \"position\": 1,\n          \"label\": \"Rare\",\n          \"minValue\": 0,\n          \"maxValue\": 10\n        },\n        {\n          \"id\": \"4f0c2e9f-4c43-41d1-a9f7-e0378dba1802\",\n          \"position\": 2,\n          \"label\": \"Possible\",\n          \"minValue\": 10,\n          \"maxValue\": 50\n        },\n        {\n          \"id\": \"6d0bc531-26d7-49c9-92a8-805f861e228b\",\n          \"position\": 3,\n          \"label\": \"Likely\",\n          \"minValue\": 50,\n          \"maxValue\": 100\n        }\n      ],\n      \"timeline\": [\n        {\n          \"id\": \"3a08866a-408d-42a3-ad24-3a884a77bff4\",\n          \"position\": 1,\n          \"label\": \"Long-term (>3 years)\",\n          \"minValue\": null,\n          \"maxValue\": null\n        },\n        {\n          \"id\": \"3a6d5819-6953-4707-b8b0-e19f519658ba\",\n          \"position\": 2,\n          \"label\": \"Medium-term (1-3 years)\",\n          \"minValue\": null,\n          \"maxValue\": null\n        },\n        {\n          \"id\": \"a2f04ed2-8a11-469d-bce9-5d7f8d0ee291\",\n          \"position\": 3,\n          \"label\": \"Short-term (<1 year)\",\n          \"minValue\": null,\n          \"maxValue\": null\n        }\n      ]\n    },\n    \"impactParameters\": [\n      {\n        \"id\": \"16c00fb9-e7f6-4117-a0eb-18f37aca5912\",\n        \"name\": \"Financial Impact\",\n        \"enabled\": true,\n        \"mode\": \"QUANTITATIVE\",\n        \"sortOrder\": 0,\n        \"bands\": [\n          {\n            \"id\": \"b5fc67bd-0b31-4c4a-829a-36f16446e08a\",\n            \"position\": 1,\n            \"label\": \"Low\",\n            \"minValue\": 0,\n            \"maxValue\": 50000\n          },\n          {\n            \"id\": \"4ff0db37-6b75-40e6-8cc7-f48de0c14d02\",\n            \"position\": 2,\n            \"label\": \"Medium\",\n            \"minValue\": 50000,\n            \"maxValue\": 250000\n          },\n          {\n            \"id\": \"d7a679ee-22bd-40d8-96b9-e6e9ca3fec11\",\n            \"position\": 3,\n            \"label\": \"High\",\n            \"minValue\": 250000,\n            \"maxValue\": 999999.99\n          }\n        ]\n      },\n      {\n        \"id\": \"a460e269-f9e8-407c-9852-1f6bd031f250\",\n        \"name\": \"Reputational Impact\",\n        \"enabled\": true,\n        \"mode\": \"QUALITATIVE\",\n        \"sortOrder\": 1,\n        \"bands\": [\n          {\n            \"id\": \"c9df14d3-668d-4e68-8b71-16e7d494ec32\",\n            \"position\": 1,\n            \"label\": \"Localized, no media attention\",\n            \"minValue\": null,\n            \"maxValue\": null\n          },\n          {\n            \"id\": \"359d67db-ccf2-4e6e-8042-fb77394e1b18\",\n            \"position\": 2,\n            \"label\": \"Regional media attention\",\n            \"minValue\": null,\n            \"maxValue\": null\n          },\n          {\n            \"id\": \"c2d74f27-75a5-4557-952c-fbd1d63ce348\",\n            \"position\": 3,\n            \"label\": \"National media / regulator attention\",\n            \"minValue\": null,\n            \"maxValue\": null\n          }\n        ]\n      },\n      {\n        \"id\": \"031a8aae-4b3c-473f-b3bc-30993d4eb358\",\n        \"name\": \"Regulatory Impact\",\n        \"enabled\": true,\n        \"mode\": \"QUALITATIVE\",\n        \"sortOrder\": 2,\n        \"bands\": [\n          {\n            \"id\": \"f86a8626-b2d9-49a6-a8e9-8a3da629bd3f\",\n            \"position\": 1,\n            \"label\": \"Minor observation, no sanction\",\n            \"minValue\": null,\n            \"maxValue\": null\n          },\n          {\n            \"id\": \"ba1f2a26-5626-4788-823e-2633d877017f\",\n            \"position\": 2,\n            \"label\": \"Formal warning from IRA\",\n            \"minValue\": null,\n            \"maxValue\": null\n          },\n          {\n            \"id\": \"d22da355-859d-41e2-b023-59566437bc9f\",\n            \"position\": 3,\n            \"label\": \"License condition or suspension risk\",\n            \"minValue\": null,\n            \"maxValue\": null\n          }\n        ]\n      },\n      {\n        \"id\": \"fae7879a-c642-4d4e-be7c-40d0c8d24c3b\",\n        \"name\": \"Customer Impact\",\n        \"enabled\": false,\n        \"mode\": \"QUALITATIVE\",\n        \"sortOrder\": 3,\n        \"bands\": []\n      }\n    ]\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "specific version",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwt_access}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url_dev_server}}/api/v1/organizations/{{org_id}}/risk-strategy/{{risk_strategy_config_id}}",
+              "host": [
+                "{{base_url_dev_server}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "organizations",
+                "{{org_id}}",
+                "risk-strategy",
+                "{{risk_strategy_config_id}}"
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "response - specific version",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url_local}}/api/v1/organizations/{{org_id}}/risk-strategy/{{risk_strategy_config_id}}",
+                  "host": [
+                    "{{base_url_local}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "organizations",
+                    "{{org_id}}",
+                    "risk-strategy",
+                    "{{risk_strategy_config_id}}"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "vary",
+                  "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+                },
+                {
+                  "key": "x-content-type-options",
+                  "value": "nosniff"
+                },
+                {
+                  "key": "x-xss-protection",
+                  "value": "0"
+                },
+                {
+                  "key": "cache-control",
+                  "value": "no-cache, no-store, max-age=0, must-revalidate"
+                },
+                {
+                  "key": "pragma",
+                  "value": "no-cache"
+                },
+                {
+                  "key": "expires",
+                  "value": "0"
+                },
+                {
+                  "key": "x-frame-options",
+                  "value": "DENY"
+                },
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "transfer-encoding",
+                  "value": "chunked"
+                },
+                {
+                  "key": "date",
+                  "value": "Sat, 05 Sep 2026 07:45:49 GMT"
+                },
+                {
+                  "key": "keep-alive",
+                  "value": "timeout=60"
+                },
+                {
+                  "key": "connection",
+                  "value": "keep-alive"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"id\": \"4312f0b9-2972-4dc7-9458-bf61fb2ee54f\",\n  \"organizationId\": \"6d46a49f-268c-468a-a9ea-a0407db30d6b\",\n  \"orgNodeId\": null,\n  \"version\": 2,\n  \"current\": true,\n  \"levels\": 4,\n  \"likelihoodMode\": \"BOTH\",\n  \"toleranceThreshold\": 20,\n  \"reviewFrequency\": \"MONTHLY\",\n  \"lastReviewedAt\": null,\n  \"approvedByUserId\": \"5f1f0482-6f39-4b79-8a9e-0e5119c4634e\",\n  \"approvedAt\": \"2026-09-05T06:57:23.818623Z\",\n  \"createdByUserId\": \"5f1f0482-6f39-4b79-8a9e-0e5119c4634e\",\n  \"createdAt\": \"2026-09-05T06:56:44.639763Z\",\n  \"appetiteCategories\": [\n    {\n      \"id\": \"b50f2849-56f6-4b01-b1e1-baaec5807db3\",\n      \"name\": \"Underwriting Risk\",\n      \"statement\": \"Low appetite for underwriting risk outside board-approved limits.\",\n      \"sortOrder\": 0\n    },\n    {\n      \"id\": \"8799e1a1-00b0-48e4-a1fa-370553a54f68\",\n      \"name\": \"Financial Risk\",\n      \"statement\": \"Moderate appetite for financial risk within regulatory solvency margins.\",\n      \"sortOrder\": 1\n    },\n    {\n      \"id\": \"47ec8e02-136e-428c-ae80-3075dc58c08f\",\n      \"name\": \"Operational Risk\",\n      \"statement\": \"Low appetite for operational disruptions affecting policyholder service.\",\n      \"sortOrder\": 2\n    },\n    {\n      \"id\": \"71581a90-39a9-479f-92f2-e7d5380f89af\",\n      \"name\": \"Compliance Risk\",\n      \"statement\": \"Zero appetite for regulatory non-compliance with IRA requirements.\",\n      \"sortOrder\": 3\n    }\n  ],\n  \"likelihoodBands\": {\n    \"probability\": [\n      {\n        \"id\": \"595219ba-8647-431f-ac42-f434f9413f7f\",\n        \"position\": 1,\n        \"label\": \"Rare\",\n        \"minValue\": 0,\n        \"maxValue\": 10\n      },\n      {\n        \"id\": \"6d255f3f-825c-4bae-9218-5f46e4bb0758\",\n        \"position\": 2,\n        \"label\": \"Possible\",\n        \"minValue\": 10,\n        \"maxValue\": 50\n      },\n      {\n        \"id\": \"7518c678-6675-4077-8be1-37197acdac97\",\n        \"position\": 3,\n        \"label\": \"Likely\",\n        \"minValue\": 50,\n        \"maxValue\": 100\n      },\n      {\n        \"id\": \"fb6c646b-3910-40f7-a9ef-27a0bd9e829d\",\n        \"position\": 4,\n        \"label\": \"Band 4\",\n        \"minValue\": null,\n        \"maxValue\": null\n      }\n    ],\n    \"timeline\": [\n      {\n        \"id\": \"3f5ec35e-27db-4f20-a03a-f7edd5c07147\",\n        \"position\": 1,\n        \"label\": \"Long-term (>3 years)\",\n        \"minValue\": null,\n        \"maxValue\": null\n      },\n      {\n        \"id\": \"478ae7c9-69a7-4ff7-a070-966f7e186c02\",\n        \"position\": 2,\n        \"label\": \"Medium-term (1-3 years)\",\n        \"minValue\": null,\n        \"maxValue\": null\n      },\n      {\n        \"id\": \"bdbdf218-7f6d-409c-ab7c-b29342648b77\",\n        \"position\": 3,\n        \"label\": \"Short-term (<1 year)\",\n        \"minValue\": null,\n        \"maxValue\": null\n      },\n      {\n        \"id\": \"46d03a80-7edb-453a-86f2-f38d5db44ee5\",\n        \"position\": 4,\n        \"label\": \"Band 4\",\n        \"minValue\": null,\n        \"maxValue\": null\n      }\n    ]\n  },\n  \"impactParameters\": [\n    {\n      \"id\": \"db1a184a-cdd7-43c7-8bda-3dc7cf0be165\",\n      \"name\": \"Financial Impact\",\n      \"enabled\": true,\n      \"mode\": \"QUANTITATIVE\",\n      \"sortOrder\": 0,\n      \"bands\": [\n        {\n          \"id\": \"afb4459b-dca4-4d12-8c3c-99f03879d4de\",\n          \"position\": 1,\n          \"label\": \"Low\",\n          \"minValue\": 0,\n          \"maxValue\": 50000\n        },\n        {\n          \"id\": \"98c68020-95e9-4dd2-b5c2-84ed69f62e79\",\n          \"position\": 2,\n          \"label\": \"Medium\",\n          \"minValue\": 50000,\n          \"maxValue\": 250000\n        },\n        {\n          \"id\": \"5e8896b7-bed2-4b45-abe5-66198babaf64\",\n          \"position\": 3,\n          \"label\": \"High\",\n          \"minValue\": 250000,\n          \"maxValue\": 999999.99\n        },\n        {\n          \"id\": \"b146a701-81f5-4c5b-a19e-f9885c45f88f\",\n          \"position\": 4,\n          \"label\": \"Band 4\",\n          \"minValue\": null,\n          \"maxValue\": null\n        }\n      ]\n    },\n    {\n      \"id\": \"de0d4535-7efc-4caa-ab6b-fe07ed1ef12d\",\n      \"name\": \"Reputational Impact\",\n      \"enabled\": true,\n      \"mode\": \"QUALITATIVE\",\n      \"sortOrder\": 1,\n      \"bands\": [\n        {\n          \"id\": \"eb53eefa-b02b-4c7f-9017-2558f59ece0d\",\n          \"position\": 1,\n          \"label\": \"Localized, no media attention\",\n          \"minValue\": null,\n          \"maxValue\": null\n        },\n        {\n          \"id\": \"441ba5c4-1dc4-4b50-a656-9cd8b109d915\",\n          \"position\": 2,\n          \"label\": \"Regional media attention\",\n          \"minValue\": null,\n          \"maxValue\": null\n        },\n        {\n          \"id\": \"b23e6d9b-3941-42ae-a51d-eb587874d54b\",\n          \"position\": 3,\n          \"label\": \"National media / regulator attention\",\n          \"minValue\": null,\n          \"maxValue\": null\n        },\n        {\n          \"id\": \"f20cd05f-b428-41dd-930c-0ed10ef1dd89\",\n          \"position\": 4,\n          \"label\": \"Band 4\",\n          \"minValue\": null,\n          \"maxValue\": null\n        }\n      ]\n    },\n    {\n      \"id\": \"548de067-8935-43e4-9f51-c4df47a7d053\",\n      \"name\": \"Regulatory Impact\",\n      \"enabled\": true,\n      \"mode\": \"QUALITATIVE\",\n      \"sortOrder\": 2,\n      \"bands\": [\n        {\n          \"id\": \"00d987ec-94a2-42f8-94a4-7f41f37b7362\",\n          \"position\": 1,\n          \"label\": \"Minor observation, no sanction\",\n          \"minValue\": null,\n          \"maxValue\": null\n        },\n        {\n          \"id\": \"b3a9bd8c-0408-44e0-8b43-200b6fb38816\",\n          \"position\": 2,\n          \"label\": \"Formal warning from IRA\",\n          \"minValue\": null,\n          \"maxValue\": null\n        },\n        {\n          \"id\": \"faf18fbd-af79-40a6-b773-bb19fa5ff3dd\",\n          \"position\": 3,\n          \"label\": \"License condition or suspension risk\",\n          \"minValue\": null,\n          \"maxValue\": null\n        },\n        {\n          \"id\": \"c24ecea1-72f6-4c35-a99b-0fd7610c89b6\",\n          \"position\": 4,\n          \"label\": \"Band 4\",\n          \"minValue\": null,\n          \"maxValue\": null\n        }\n      ]\n    },\n    {\n      \"id\": \"f6b00434-d82f-4bc4-8358-4d5680ec5db5\",\n      \"name\": \"Customer Impact\",\n      \"enabled\": false,\n      \"mode\": \"QUALITATIVE\",\n      \"sortOrder\": 3,\n      \"bands\": [\n        {\n          \"id\": \"ba55d851-a957-4e88-a00f-8a52ba772dcf\",\n          \"position\": 1,\n          \"label\": \"Band 1\",\n          \"minValue\": null,\n          \"maxValue\": null\n        },\n        {\n          \"id\": \"6527df4f-2f01-4f24-873d-0edd8862c9c0\",\n          \"position\": 2,\n          \"label\": \"Band 2\",\n          \"minValue\": null,\n          \"maxValue\": null\n        },\n        {\n          \"id\": \"add9cdc1-d15b-42a6-b94d-ee3e614cc01d\",\n          \"position\": 3,\n          \"label\": \"Band 3\",\n          \"minValue\": null,\n          \"maxValue\": null\n        },\n        {\n          \"id\": \"c921e2b3-f117-4ed4-bd2b-cc2787f302d1\",\n          \"position\": 4,\n          \"label\": \"Band 4\",\n          \"minValue\": null,\n          \"maxValue\": null\n        }\n      ]\n    }\n  ]\n}"
+            }
+          ]
+        }
+      ]
     }
   ],
   "variable": [
@@ -1029,23 +1415,31 @@
     },
     {
       "key": "risk_compliance_division_id",
-      "value": ""
+      "value": "1659f5c6-7798-4fac-b375-9cffd106a4e0"
     },
     {
       "key": "md_office_node_id",
-      "value": ""
+      "value": "98928af4-ac7a-4e83-b1b9-2eac6a9d0ef5"
     },
     {
       "key": "finance_strategy_node_id",
-      "value": ""
+      "value": "a4bc491a-602c-4003-bf39-9bd3a9d0befe"
     },
     {
       "key": "finance_department_id",
-      "value": ""
+      "value": "026e7950-5b5a-4d86-ab7b-87f86bb75039"
     },
     {
       "key": "hr_admin_division_id",
-      "value": ""
+      "value": "c9db5f49-8d28-4082-b377-92175bf24c61"
+    },
+    {
+      "key": "risk_strategy_config_id",
+      "value": "4312f0b9-2972-4dc7-9458-bf61fb2ee54f"
+    },
+    {
+      "key": "base_url_dev_server",
+      "value": "http://74.208.102.119:8082"
     }
   ]
 }
