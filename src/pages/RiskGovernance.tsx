@@ -21,12 +21,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import {
-  loadOrgNodes, saveOrgNodes, uid,
+  uid,
   ORG_TYPE_LABELS, ORG_TYPE_COLORS,
   getOrgDescendantChain,
   LINE_OF_DEFENSE_LABELS, LINE_OF_DEFENSE_SHORT, LINE_OF_DEFENSE_COLORS,
   OFFERING_KIND_LABELS, OFFERING_KIND_COLORS,
   loadOrgTypes, saveOrgTypes,
+  effectiveLod,
   type OrgNode, type OrgNodeType, type OrgOffering, type OfferingKind, type OrgTypeDef,
 } from "@/data/orgStore";
 import { loadDocuments, type PolicyDocument } from "@/data/documentsStore";
@@ -34,8 +35,14 @@ import { loadStrategy, type StrategyConfig } from "@/data/strategyStore";
 import { loadAssessments, type InitiativeAssessment } from "@/data/assessmentStore";
 import { loadUsers, type AppUser } from "@/data/userStore";
 import { useActiveUser } from "@/hooks/use-active-user";
+import { useAuth } from "@/contexts/AuthContext";
 import { can } from "@/data/userStore";
 import { OrgNodeInsightsPanel } from "@/components/grc/OrgNodeInsightsPanel";
+import { OrgMapGraph } from "@/components/grc/OrgMapGraph";
+import {
+  useOrgNodes, useCreateOrgNode, useUpdateOrgNode, useMoveOrgNode, useSoftDeleteOrgNode,
+} from "@/hooks/use-org-nodes";
+import { fromOrgNodeResponse, toCreateOrgNodeRequest, toUpdateOrgNodeRequest } from "@/lib/org-node-mapping";
 
 // Hierarchy types are now admin-managed; see the "Hierarchy Types" card.
 
@@ -61,7 +68,18 @@ const RiskGovernance = () => {
   // everything beneath it, so a staff member in (e.g.) Travel never sees
   // sibling branches like Risk.
   const canSeeAll = isAdmin;
-  const [allNodes, setAllNodes] = useState<OrgNode[]>([]);
+
+  const { organization } = useAuth();
+  const orgId = organization?.id;
+  const { data: orgNodeResponses } = useOrgNodes(orgId);
+  const createNode = useCreateOrgNode(orgId ?? "");
+  const updateNode = useUpdateOrgNode(orgId ?? "");
+  const moveNode = useMoveOrgNode(orgId ?? "");
+  const softDeleteNode = useSoftDeleteOrgNode(orgId ?? "");
+  const allNodes = useMemo(
+    () => (orgNodeResponses ?? []).map(fromOrgNodeResponse),
+    [orgNodeResponses],
+  );
 
   // Scope nodes: privileged roles see everything; everyone else sees only their
   // assigned org unit and everything beneath it.
@@ -99,7 +117,6 @@ const RiskGovernance = () => {
   const TYPE_OPTIONS = useMemo<OrgNodeType[]>(() => orgTypes.map(t => t.key), [orgTypes]);
 
   useEffect(() => {
-    setAllNodes(loadOrgNodes());
     setDocuments(loadDocuments());
     setStrategy(loadStrategy());
     setAssessments(loadAssessments());
@@ -113,11 +130,6 @@ const RiskGovernance = () => {
   const persistOrgTypes = (next: OrgTypeDef[]) => {
     setOrgTypes(next);
     saveOrgTypes(next);
-  };
-
-  const persist = (next: OrgNode[]) => {
-    setAllNodes(next);
-    saveOrgNodes(next);
   };
 
   const childrenOf = useMemo(() => {
@@ -184,54 +196,49 @@ const RiskGovernance = () => {
     setDialogOpen(true);
   };
 
-  const submitForm = () => {
+  const submitForm = async () => {
     if (!form.name.trim()) {
       toast.error("Name is required");
       return;
     }
-    if (form.id) {
-      const next = nodes.map(n => n.id === form.id ? {
-        ...n,
-        name: form.name.trim(),
-        type: form.type,
-        parentId: form.parentId,
-        description: form.description.trim() || undefined,
-        lineOfDefense: form.lineOfDefense,
-        offerings: form.offerings,
-      } : n);
-      persist(next);
-      toast.success("Updated");
-    } else {
-      const newNode: OrgNode = {
-        id: uid("org"),
-        name: form.name.trim(),
-        type: form.type,
-        parentId: form.parentId,
-        description: form.description.trim() || undefined,
-        objectiveIds: [],
-        lineOfDefense: form.lineOfDefense,
-        offerings: form.offerings,
-      };
-      persist([...nodes, newNode]);
-      if (form.parentId) {
-        setExpanded(prev => new Set(prev).add(form.parentId!));
+    const trimmed = {
+      name: form.name.trim(),
+      type: form.type,
+      description: form.description.trim() || undefined,
+      lineOfDefense: form.lineOfDefense,
+      offerings: form.offerings,
+    };
+    try {
+      if (form.id) {
+        const original = nodes.find(n => n.id === form.id);
+        await updateNode.mutateAsync({ nodeId: form.id, body: toUpdateOrgNodeRequest(trimmed) });
+        if (original && original.parentId !== form.parentId) {
+          await moveNode.mutateAsync({ nodeId: form.id, body: { newParentId: form.parentId } });
+        }
+        toast.success("Updated");
+      } else {
+        await createNode.mutateAsync(toCreateOrgNodeRequest({ ...trimmed, parentId: form.parentId }));
+        if (form.parentId) {
+          setExpanded(prev => new Set(prev).add(form.parentId!));
+        }
+        toast.success("Added");
       }
-      toast.success("Added");
+      setDialogOpen(false);
+    } catch {
+      toast.error(form.id ? "Failed to update unit" : "Failed to add unit");
     }
-    setDialogOpen(false);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!deleteId) return;
-    const toRemove = new Set<string>();
-    const walk = (id: string) => {
-      toRemove.add(id);
-      (childrenOf.get(id) ?? []).forEach(c => walk(c.id));
-    };
-    walk(deleteId);
-    persist(nodes.filter(n => !toRemove.has(n.id)));
-    setDeleteId(null);
-    toast.success("Removed");
+    try {
+      // Backend soft-delete cascades to all descendants' effectiveTo in one transaction.
+      await softDeleteNode.mutateAsync(deleteId);
+      setDeleteId(null);
+      toast.success("Removed");
+    } catch {
+      toast.error("Failed to remove unit");
+    }
   };
 
   const toggle = (id: string) => {
@@ -250,24 +257,28 @@ const RiskGovernance = () => {
     setBulkNames("");
   };
 
-  const submitBulk = () => {
+  const submitBulk = async () => {
     const names = bulkNames.split(/\r?\n|,/).map(s => s.trim()).filter(Boolean);
     if (names.length === 0) {
       toast.error("Add at least one name (one per line or comma-separated).");
       return;
     }
-    const created: OrgNode[] = names.map(name => ({
-      id: uid("org"),
-      name,
-      type: bulkType,
-      parentId: bulkParentId,
-      objectiveIds: [],
-    }));
-    persist([...nodes, ...created]);
-    if (bulkParentId) setExpanded(prev => new Set(prev).add(bulkParentId));
-    toast.success(`Added ${created.length} unit${created.length === 1 ? "" : "s"}`);
-    setBulkParentId(null);
-    setBulkNames("");
+    try {
+      // Sequential, not Promise.all: each create call needs to succeed against
+      // the same parent, and keeping requests in order makes a partial failure
+      // easy to reason about (created-so-far vs. not-yet-attempted).
+      for (const name of names) {
+        await createNode.mutateAsync(
+          toCreateOrgNodeRequest({ name, type: bulkType, parentId: bulkParentId, description: undefined }),
+        );
+      }
+      if (bulkParentId) setExpanded(prev => new Set(prev).add(bulkParentId));
+      toast.success(`Added ${names.length} unit${names.length === 1 ? "" : "s"}`);
+      setBulkParentId(null);
+      setBulkNames("");
+    } catch {
+      toast.error("Failed to add all units — some may have been created");
+    }
   };
 
   const totalCount = nodes.length;
@@ -415,9 +426,12 @@ const RiskGovernance = () => {
                 <p className="text-sm text-muted-foreground">Your org map will appear here once you add entities above.</p>
               </div>
             ) : (
-              <div className="overflow-x-auto pb-2">
-                <OrgMapSwimLanes nodes={nodes} childrenOf={childrenOf} users={users} />
-              </div>
+              <OrgMapGraph
+                nodes={nodes}
+                childrenOf={childrenOf}
+                users={users}
+                onNodeSelect={(id) => setInsightNodeId(id)}
+              />
             )}
 
             {/* 3LoD summary table */}
@@ -845,188 +859,6 @@ const TreeRow = ({
   );
 };
 
-// ----- Effective Line of Defense (inherits from nearest classified ancestor) -----
-function effectiveLod(node: OrgNode, byId: Map<string, OrgNode>): 1 | 2 | 3 | undefined {
-  let cur: OrgNode | undefined = node;
-  const seen = new Set<string>();
-  while (cur && !seen.has(cur.id)) {
-    if (cur.lineOfDefense) return cur.lineOfDefense;
-    seen.add(cur.id);
-    cur = cur.parentId ? byId.get(cur.parentId) : undefined;
-  }
-  return undefined;
-}
-
-// ----- Org Map (visual tree) -----
-interface OrgMapNodeProps {
-  node: OrgNode;
-  childrenOf: Map<string | null, OrgNode[]>;
-  users?: AppUser[];
-}
-
-const OrgMapNode = ({ node, childrenOf, users = [] }: OrgMapNodeProps) => {
-  const kids = childrenOf.get(node.id) ?? [];
-  const color = ORG_TYPE_COLORS[node.type];
-  const nodeUsers = users.filter(u => u.orgNodeId === node.id);
-  const offerings = node.offerings ?? [];
-
-  return (
-    <div className="flex flex-col items-center">
-      {/* Node card */}
-      <div
-        className="rounded-lg border bg-card px-3 py-2 min-w-[160px] max-w-[220px] shadow-sm text-center"
-        style={{ borderColor: `hsl(${color} / 0.45)` }}
-      >
-        <div
-          className="text-[9px] font-semibold uppercase tracking-wider mb-1"
-          style={{ color: `hsl(${color})` }}
-        >
-          {ORG_TYPE_LABELS[node.type]}
-        </div>
-        <div className="text-xs font-semibold text-foreground leading-tight break-words">
-          {node.name}
-        </div>
-
-        {offerings.length > 0 && (
-          <div className="mt-1.5 flex flex-wrap gap-1 justify-center">
-            {offerings.map(o => (
-              <span
-                key={o.id}
-                className="text-[9px] font-medium px-1.5 py-0.5 rounded border"
-                style={{
-                  borderColor: `hsl(${OFFERING_KIND_COLORS[o.kind]} / 0.5)`,
-                  color: `hsl(${OFFERING_KIND_COLORS[o.kind]})`,
-                  background: `hsl(${OFFERING_KIND_COLORS[o.kind]} / 0.06)`,
-                }}
-                title={OFFERING_KIND_LABELS[o.kind]}
-              >
-                {o.label || OFFERING_KIND_LABELS[o.kind]}
-              </span>
-            ))}
-          </div>
-        )}
-
-        {nodeUsers.length > 0 && (
-          <div className="mt-1.5 flex flex-wrap gap-1 justify-center">
-            {nodeUsers.map(u => (
-              <span
-                key={u.id}
-                className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-foreground text-background"
-                title={`${u.title || u.role} — ${u.email}`}
-              >
-                {u.title || u.name}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Connector + children */}
-      {kids.length > 0 && (
-        <>
-          <div className="w-px h-5 bg-border" />
-          <div className="relative flex items-start justify-center gap-4">
-            {kids.length > 1 && (
-              <div className="absolute top-0 left-0 right-0 h-px bg-border" />
-            )}
-            {kids.map(child => (
-              <div key={child.id} className="flex flex-col items-center">
-                <div className="w-px h-5 bg-border -mt-5" />
-                <OrgMapNode node={child} childrenOf={childrenOf} users={users} />
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
-};
-
-// ----- Three Lines of Defense swim-lanes wrapper -----
-interface OrgMapSwimLanesProps {
-  nodes: OrgNode[];
-  childrenOf: Map<string | null, OrgNode[]>;
-  users: AppUser[];
-}
-
-const OrgMapSwimLanes = ({ nodes, childrenOf, users }: OrgMapSwimLanesProps) => {
-  const byId = useMemo(() => new Map(nodes.map(n => [n.id, n])), [nodes]);
-  const roots = childrenOf.get(null) ?? [];
-
-  // For each root, decide which lane its sub-tree belongs to. We split a root
-  // by its direct children's effective LoD so e.g. a single Group with Business
-  // + Control + Audit children renders the children into the correct lanes.
-  const lanes: Record<1 | 2 | 3, OrgNode[]> = { 1: [], 2: [], 3: [] };
-  const unclassified: OrgNode[] = [];
-
-  roots.forEach(root => {
-    const rootLod = effectiveLod(root, byId);
-    const directKids = childrenOf.get(root.id) ?? [];
-    const kidLods = new Set(directKids.map(k => effectiveLod(k, byId)).filter(Boolean) as (1 | 2 | 3)[]);
-
-    if (rootLod && kidLods.size <= 1) {
-      lanes[rootLod].push(root);
-    } else if (kidLods.size > 0) {
-      // Split: render each direct child into its own lane.
-      directKids.forEach(k => {
-        const lod = effectiveLod(k, byId);
-        if (lod) lanes[lod].push(k);
-        else unclassified.push(k);
-      });
-    } else {
-      unclassified.push(root);
-    }
-  });
-
-  const orderedLanes: (1 | 2 | 3)[] = [1, 2, 3];
-
-  return (
-    <div className="space-y-3 min-w-full">
-      {unclassified.length > 0 && (
-        <div className="rounded-lg border border-dashed border-border bg-muted/20 p-3">
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-            Unclassified — assign a Line of Defense to these units
-          </div>
-          <div className="flex items-start gap-6 flex-wrap">
-            {unclassified.map(n => (
-              <OrgMapNode key={n.id} node={n} childrenOf={childrenOf} users={users} />
-            ))}
-          </div>
-        </div>
-      )}
-      {orderedLanes.map(l => {
-        const items = lanes[l];
-        if (items.length === 0) return null;
-        return (
-          <div
-            key={l}
-            className="rounded-lg border p-3"
-            style={{
-              borderColor: `hsl(${LINE_OF_DEFENSE_COLORS[l]} / 0.4)`,
-              background: `hsl(${LINE_OF_DEFENSE_COLORS[l]} / 0.05)`,
-            }}
-          >
-            <div
-              className="text-[10px] font-semibold uppercase tracking-wider mb-3 px-2 py-0.5 rounded inline-block"
-              style={{
-                background: `hsl(${LINE_OF_DEFENSE_COLORS[l]} / 0.15)`,
-                color: `hsl(${LINE_OF_DEFENSE_COLORS[l]})`,
-              }}
-            >
-              {LINE_OF_DEFENSE_SHORT[l]}
-            </div>
-            <div className="flex items-start gap-6 flex-wrap">
-              {items.map(n => (
-                <OrgMapNode key={n.id} node={n} childrenOf={childrenOf} users={users} />
-              ))}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-};
-
 // ----- 3LoD summary table -----
 const ThreeLodSummary = ({ nodes, users }: { nodes: OrgNode[]; users: AppUser[] }) => {
   const byId = useMemo(() => new Map(nodes.map(n => [n.id, n])), [nodes]);
@@ -1128,34 +960,11 @@ interface HierarchyTypesCardProps {
 }
 
 const HierarchyTypesCard = ({ types, nodes, onChange }: HierarchyTypesCardProps) => {
-  const [newLabel, setNewLabel] = useState("");
-  const [newColor, setNewColor] = useState(TYPE_COLOR_PALETTE[7].value);
-
   const usageByKey = useMemo(() => {
     const map = new Map<string, number>();
     nodes.forEach(n => map.set(n.type, (map.get(n.type) ?? 0) + 1));
     return map;
   }, [nodes]);
-
-  const addType = () => {
-    const label = newLabel.trim();
-    if (!label) {
-      toast.error("Type name is required");
-      return;
-    }
-    const key = label.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
-    if (!key) {
-      toast.error("Type name must contain letters or numbers");
-      return;
-    }
-    if (types.some(t => t.key === key)) {
-      toast.error("That type already exists");
-      return;
-    }
-    onChange([...types, { key, label, color: newColor }]);
-    setNewLabel("");
-    toast.success(`Added "${label}"`);
-  };
 
   const updateType = (key: string, patch: Partial<OrgTypeDef>) => {
     onChange(types.map(t => t.key === key ? { ...t, ...patch } : t));
@@ -1182,7 +991,7 @@ const HierarchyTypesCard = ({ types, nodes, onChange }: HierarchyTypesCardProps)
         <div>
           <h2 className="text-base font-semibold text-foreground">Hierarchy Types</h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Define the tiers used in your organisation structure (e.g. Group, Branch, Team, Cell). Built-in types can be renamed and recoloured but not deleted.
+            The organisation structure API supports a fixed set of tiers (Group, Company, Department, Division, Section, Process, Sub-process). You can rename and recolour them here, but new custom tiers can't be added — org units are validated against this fixed list server-side.
           </p>
         </div>
       </div>
@@ -1236,38 +1045,6 @@ const HierarchyTypesCard = ({ types, nodes, onChange }: HierarchyTypesCardProps)
         })}
       </div>
 
-      <div className="flex flex-wrap items-end gap-2 pt-3 border-t border-border">
-        <div className="space-y-1.5">
-          <Label htmlFor="new-type-name" className="text-xs">New type name</Label>
-          <Input
-            id="new-type-name"
-            className="h-9 w-[200px]"
-            value={newLabel}
-            onChange={e => setNewLabel(e.target.value)}
-            placeholder="e.g. Branch, Team, Cell"
-            onKeyDown={e => { if (e.key === "Enter") addType(); }}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">Color</Label>
-          <Select value={newColor} onValueChange={setNewColor}>
-            <SelectTrigger className="h-9 w-[160px]"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {TYPE_COLOR_PALETTE.map(p => (
-                <SelectItem key={p.value} value={p.value}>
-                  <span className="inline-flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full" style={{ background: `hsl(${p.value})` }} />
-                    {p.label}
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <Button onClick={addType} className="bg-primary hover:bg-primary/90 h-9">
-          <Plus className="w-4 h-4 mr-1.5" /> Add type
-        </Button>
-      </div>
     </Card>
   );
 };

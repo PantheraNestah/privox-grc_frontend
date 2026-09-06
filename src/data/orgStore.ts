@@ -73,6 +73,18 @@ export const LINE_OF_DEFENSE_COLORS: Record<1 | 2 | 3, string> = {
   3: "352 70% 55%",
 };
 
+/** Effective Line of Defense — inherits from the nearest classified ancestor. */
+export function effectiveLod(node: OrgNode, byId: Map<string, OrgNode>): 1 | 2 | 3 | undefined {
+  let cur: OrgNode | undefined = node;
+  const seen = new Set<string>();
+  while (cur && !seen.has(cur.id)) {
+    if (cur.lineOfDefense) return cur.lineOfDefense;
+    seen.add(cur.id);
+    cur = cur.parentId ? byId.get(cur.parentId) : undefined;
+  }
+  return undefined;
+}
+
 export interface Objective {
   id: string;
   title: string;
