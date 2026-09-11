@@ -1,55 +1,73 @@
 /**
- * Token storage shared between AuthContext and the axios interceptor in api.ts.
+ * Token storage shared between the auth contexts and the axios interceptors
+ * in api.ts.
  *
- * The in-memory access token is read by the request interceptor to attach the
- * Authorization header. The refresh token is persisted in localStorage
- * (remember me) or sessionStorage so a page reload / a background token
- * refresh can restore the session without asking the user to log in again.
+ * Two independent auth scopes coexist:
+ *  - "tenant"   — organization-scoped session (the existing dashboard).
+ *  - "platform" — platform-admin session (token with no `org` claim).
+ *
+ * Each scope owns its own in-memory access token and its own persisted refresh
+ * token, so the two sessions can never clobber one another. Scope defaults to
+ * "tenant" for backward compatibility with existing callers.
  */
 
-let _currentToken: string | null = null;
+export type AuthScope = "tenant" | "platform";
 
-export function setAccessToken(token: string | null) {
-  _currentToken = token;
+const STORAGE_KEYS: Record<AuthScope, { refresh: string; remember: string }> = {
+  tenant: { refresh: "grc_refresh_token", remember: "grc_remember_me" },
+  platform: { refresh: "grc_platform_refresh_token", remember: "grc_platform_remember_me" },
+};
+
+const _currentToken: Record<AuthScope, string | null> = {
+  tenant: null,
+  platform: null,
+};
+
+export function setAccessToken(token: string | null, scope: AuthScope = "tenant") {
+  _currentToken[scope] = token;
 }
 
-export function getAccessToken(): string | null {
-  return _currentToken;
+export function getAccessToken(scope: AuthScope = "tenant"): string | null {
+  return _currentToken[scope];
 }
 
-const REFRESH_KEY = "grc_refresh_token";
-const REMEMBER_KEY = "grc_remember_me";
-
-export function getStoredRefreshToken(): string | null {
-  return localStorage.getItem(REFRESH_KEY) ?? sessionStorage.getItem(REFRESH_KEY);
+export function getStoredRefreshToken(scope: AuthScope = "tenant"): string | null {
+  const { refresh } = STORAGE_KEYS[scope];
+  return localStorage.getItem(refresh) ?? sessionStorage.getItem(refresh);
 }
 
 /** Called at login, when the user's "remember me" choice is known. */
-export function storeRefreshToken(token: string, rememberMe: boolean) {
+export function storeRefreshToken(
+  token: string,
+  rememberMe: boolean,
+  scope: AuthScope = "tenant",
+) {
+  const { refresh, remember } = STORAGE_KEYS[scope];
   if (rememberMe) {
-    localStorage.setItem(REFRESH_KEY, token);
-    localStorage.setItem(REMEMBER_KEY, "true");
-    sessionStorage.removeItem(REFRESH_KEY);
+    localStorage.setItem(refresh, token);
+    localStorage.setItem(remember, "true");
+    sessionStorage.removeItem(refresh);
   } else {
-    sessionStorage.setItem(REFRESH_KEY, token);
-    sessionStorage.setItem(REMEMBER_KEY, "true");
-    localStorage.removeItem(REFRESH_KEY);
-    localStorage.removeItem(REMEMBER_KEY);
+    sessionStorage.setItem(refresh, token);
+    localStorage.removeItem(refresh);
+    localStorage.removeItem(remember);
   }
 }
 
 /** Called after a token refresh — reuses whichever storage already held the token. */
-export function updateStoredRefreshToken(token: string) {
-  if (localStorage.getItem(REFRESH_KEY) !== null) {
-    localStorage.setItem(REFRESH_KEY, token);
+export function updateStoredRefreshToken(token: string, scope: AuthScope = "tenant") {
+  const { refresh } = STORAGE_KEYS[scope];
+  if (localStorage.getItem(refresh) !== null) {
+    localStorage.setItem(refresh, token);
   } else {
-    sessionStorage.setItem(REFRESH_KEY, token);
+    sessionStorage.setItem(refresh, token);
   }
 }
 
-export function clearStoredTokens() {
-  localStorage.removeItem(REFRESH_KEY);
-  localStorage.removeItem(REMEMBER_KEY);
-  sessionStorage.removeItem(REFRESH_KEY);
-  sessionStorage.removeItem(REMEMBER_KEY);
+export function clearStoredTokens(scope: AuthScope = "tenant") {
+  const { refresh, remember } = STORAGE_KEYS[scope];
+  localStorage.removeItem(refresh);
+  localStorage.removeItem(remember);
+  sessionStorage.removeItem(refresh);
+  sessionStorage.removeItem(remember);
 }

@@ -26,7 +26,7 @@ const CATALOGUE_STALE_TIME = 5 * 60_000;
 export function useOrgNodeTemplates() {
   return useQuery({
     queryKey: orgNodeTemplateKeys.list(),
-    queryFn: fetchOrgNodeTemplates,
+    queryFn: () => fetchOrgNodeTemplates(),
     staleTime: CATALOGUE_STALE_TIME,
   });
 }
