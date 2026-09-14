@@ -56,10 +56,23 @@ describe("RegisterTemplateDialog", () => {
     renderDialog();
 
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Broken" } });
-    fireEvent.change(screen.getByLabelText("Root node (JSON)"), { target: { value: "{ not json" } });
+    fireEvent.click(screen.getByRole("button", { name: "JSON" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "" }), { target: { value: "{ not json" } });
     fireEvent.click(screen.getByRole("button", { name: "Register template" }));
 
     expect(await screen.findByText("Root node is not valid JSON")).toBeInTheDocument();
+    expect(orgNodeTemplates.registerOrgNodeTemplate).not.toHaveBeenCalled();
+  });
+
+  it("rejects an empty node name from the visual builder", async () => {
+    renderDialog();
+
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Broken" } });
+    const [rootNameInput] = screen.getAllByPlaceholderText("Node name");
+    fireEvent.change(rootNameInput, { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "Register template" }));
+
+    expect(await screen.findByText("root needs a name")).toBeInTheDocument();
     expect(orgNodeTemplates.registerOrgNodeTemplate).not.toHaveBeenCalled();
   });
 });
