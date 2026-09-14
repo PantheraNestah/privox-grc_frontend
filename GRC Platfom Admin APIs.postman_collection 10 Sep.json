@@ -1,0 +1,1323 @@
+{
+  "info": {
+    "_postman_id": "205cdc0d-ade5-4afe-bfce-1cb051f5eceb",
+    "name": "GRC Platfom Admin APIs",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "28649058",
+    "_collection_link": "https://go.postman.co/collection/28649058-205cdc0d-ade5-4afe-bfce-1cb051f5eceb?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "register org node templates",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const body = pm.response.json();\n\npm.collectionVariables.set(\n    \"org_node_template_id\",\n    body.id\n);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{platform_admin_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Kenya Enterprise Standard Structure\",\n  \"description\": \"A reusable organizational structure for a standard Kenyan private enterprise, covering governance, finance, operations, HR, technology, risk, compliance and commercial functions.\",\n  \"rootNode\": {\n    \"name\": \"Kenya Enterprise Group\",\n    \"type\": \"GROUP\",\n    \"description\": \"Top-level enterprise group structure.\",\n    \"children\": [\n      {\n        \"name\": \"Kenya Enterprise Limited\",\n        \"type\": \"COMPANY\",\n        \"description\": \"Primary operating company.\",\n        \"children\": [\n          {\n            \"name\": \"Board & Governance\",\n            \"type\": \"DIVISION\",\n            \"description\": \"Board governance and corporate oversight functions.\",\n            \"children\": [\n              {\n                \"name\": \"Board Audit & Risk Committee\",\n                \"type\": \"SECTION\",\n                \"description\": \"Board-level oversight of audit, risk and internal controls.\"\n              },\n              {\n                \"name\": \"Company Secretariat\",\n                \"type\": \"DEPARTMENT\",\n                \"description\": \"Company secretarial and governance administration.\"\n              }\n            ]\n          },\n          {\n            \"name\": \"Office of the Managing Director\",\n            \"type\": \"DEPARTMENT\",\n            \"description\": \"Executive leadership and coordination.\"\n          },\n          {\n            \"name\": \"Finance & Strategy Division\",\n            \"type\": \"DIVISION\",\n            \"description\": \"Financial management, planning and corporate strategy.\",\n            \"children\": [\n              {\n                \"name\": \"Finance Department\",\n                \"type\": \"DEPARTMENT\",\n                \"description\": \"Financial operations, treasury and reporting.\",\n                \"children\": [\n                  {\n                    \"name\": \"Accounts Payable\",\n                    \"type\": \"SECTION\",\n                    \"description\": \"Supplier invoice and payment management.\"\n                  },\n                  {\n                    \"name\": \"Accounts Receivable\",\n                    \"type\": \"SECTION\",\n                    \"description\": \"Customer billing and collections.\"\n                  },\n                  {\n                    \"name\": \"Treasury\",\n                    \"type\": \"SECTION\",\n                    \"description\": \"Cash, liquidity and banking management.\"\n                  },\n                  {\n                    \"name\": \"Financial Reporting\",\n                    \"type\": \"SECTION\",\n                    \"description\": \"Management and statutory financial reporting.\"\n                  }\n                ]\n              },\n              {\n                \"name\": \"Strategy & Performance Department\",\n                \"type\": \"DEPARTMENT\",\n                \"description\": \"Corporate strategy, budgeting and performance monitoring.\"\n              }\n            ]\n          },\n          {\n            \"name\": \"Operations Division\",\n            \"type\": \"DIVISION\",\n            \"description\": \"Core operational and service-delivery functions.\",\n            \"children\": [\n              {\n                \"name\": \"Operations Department\",\n                \"type\": \"DEPARTMENT\",\n                \"description\": \"Day-to-day operational delivery.\"\n              },\n              {\n                \"name\": \"Procurement & Supply Chain Department\",\n                \"type\": \"DEPARTMENT\",\n                \"description\": \"Procurement, vendor and supply-chain management.\"\n              },\n              {\n                \"name\": \"Quality & Process Improvement Department\",\n                \"type\": \"DEPARTMENT\",\n                \"description\": \"Quality assurance and business process improvement.\",\n                \"children\": [\n                  {\n                    \"name\": \"Business Process Management\",\n                    \"type\": \"SECTION\",\n                    \"children\": [\n                      {\n                        \"name\": \"Process Review\",\n                        \"type\": \"PROCESS\",\n                        \"children\": [\n                          {\n                            \"name\": \"Process Documentation\",\n                            \"type\": \"SUB_PROCESS\"\n                          }\n                        ]\n                      }\n                    ]\n                  }\n                ]\n              }\n            ]\n          },\n          {\n            \"name\": \"Human Resources & Administration Division\",\n            \"type\": \"DIVISION\",\n            \"description\": \"People management and corporate administration.\",\n            \"children\": [\n              {\n                \"name\": \"Human Resources Department\",\n                \"type\": \"DEPARTMENT\",\n                \"children\": [\n                  {\n                    \"name\": \"Recruitment\",\n                    \"type\": \"SECTION\"\n                  },\n                  {\n                    \"name\": \"Learning & Development\",\n                    \"type\": \"SECTION\"\n                  },\n                  {\n                    \"name\": \"Payroll & Employee Services\",\n                    \"type\": \"SECTION\"\n                  }\n                ]\n              },\n              {\n                \"name\": \"Administration Department\",\n                \"type\": \"DEPARTMENT\"\n              }\n            ]\n          },\n          {\n            \"name\": \"Technology Division\",\n            \"type\": \"DIVISION\",\n            \"description\": \"Technology, information security and data capabilities.\",\n            \"children\": [\n              {\n                \"name\": \"Information Technology Department\",\n                \"type\": \"DEPARTMENT\",\n                \"children\": [\n                  {\n                    \"name\": \"Infrastructure & Support\",\n                    \"type\": \"SECTION\"\n                  },\n                  {\n                    \"name\": \"Applications & Systems\",\n                    \"type\": \"SECTION\"\n                  },\n                  {\n                    \"name\": \"Information Security\",\n                    \"type\": \"SECTION\"\n                  }\n                ]\n              },\n              {\n                \"name\": \"Data & Analytics Department\",\n                \"type\": \"DEPARTMENT\"\n              }\n            ]\n          },\n          {\n            \"name\": \"Risk & Compliance Division\",\n            \"type\": \"DIVISION\",\n            \"description\": \"Independent risk, compliance and internal controls functions.\",\n            \"children\": [\n              {\n                \"name\": \"Enterprise Risk Management Department\",\n                \"type\": \"DEPARTMENT\"\n              },\n              {\n                \"name\": \"Compliance Department\",\n                \"type\": \"DEPARTMENT\"\n              },\n              {\n                \"name\": \"Internal Controls Department\",\n                \"type\": \"DEPARTMENT\"\n              }\n            ]\n          },\n          {\n            \"name\": \"Legal & Corporate Affairs Division\",\n            \"type\": \"DIVISION\",\n            \"children\": [\n              {\n                \"name\": \"Legal Department\",\n                \"type\": \"DEPARTMENT\"\n              },\n              {\n                \"name\": \"Corporate Communications Department\",\n                \"type\": \"DEPARTMENT\"\n              }\n            ]\n          },\n          {\n            \"name\": \"Sales & Customer Experience Division\",\n            \"type\": \"DIVISION\",\n            \"description\": \"Commercial growth and customer management.\",\n            \"children\": [\n              {\n                \"name\": \"Sales Department\",\n                \"type\": \"DEPARTMENT\"\n              },\n              {\n                \"name\": \"Marketing Department\",\n                \"type\": \"DEPARTMENT\"\n              },\n              {\n                \"name\": \"Customer Experience Department\",\n                \"type\": \"DEPARTMENT\"\n              }\n            ]\n          }\n        ]\n      }\n    ]\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url_local}}/api/v1/platform/org-node-templates",
+          "host": [
+            "{{base_url_local}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "platform",
+            "org-node-templates"
+          ]
+        }
+      },
+      "response": [
+        {
+          "name": "response - register org node templates",
+          "originalRequest": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Kenya Enterprise Standard Structure\",\n  \"description\": \"A reusable organizational structure for a standard Kenyan private enterprise, covering governance, finance, operations, HR, technology, risk, compliance and commercial functions.\",\n  \"rootNode\": {\n    \"name\": \"Kenya Enterprise Group\",\n    \"type\": \"GROUP\",\n    \"description\": \"Top-level enterprise group structure.\",\n    \"children\": [\n      {\n        \"name\": \"Kenya Enterprise Limited\",\n        \"type\": \"COMPANY\",\n        \"description\": \"Primary operating company.\",\n        \"children\": [\n          {\n            \"name\": \"Board & Governance\",\n            \"type\": \"DIVISION\",\n            \"description\": \"Board governance and corporate oversight functions.\",\n            \"children\": [\n              {\n                \"name\": \"Board Audit & Risk Committee\",\n                \"type\": \"SECTION\",\n                \"description\": \"Board-level oversight of audit, risk and internal controls.\"\n              },\n              {\n                \"name\": \"Company Secretariat\",\n                \"type\": \"DEPARTMENT\",\n                \"description\": \"Company secretarial and governance administration.\"\n              }\n            ]\n          },\n          {\n            \"name\": \"Office of the Managing Director\",\n            \"type\": \"DEPARTMENT\",\n            \"description\": \"Executive leadership and coordination.\"\n          },\n          {\n            \"name\": \"Finance & Strategy Division\",\n            \"type\": \"DIVISION\",\n            \"description\": \"Financial management, planning and corporate strategy.\",\n            \"children\": [\n              {\n                \"name\": \"Finance Department\",\n                \"type\": \"DEPARTMENT\",\n                \"description\": \"Financial operations, treasury and reporting.\",\n                \"children\": [\n                  {\n                    \"name\": \"Accounts Payable\",\n                    \"type\": \"SECTION\",\n                    \"description\": \"Supplier invoice and payment management.\"\n                  },\n                  {\n                    \"name\": \"Accounts Receivable\",\n                    \"type\": \"SECTION\",\n                    \"description\": \"Customer billing and collections.\"\n                  },\n                  {\n                    \"name\": \"Treasury\",\n                    \"type\": \"SECTION\",\n                    \"description\": \"Cash, liquidity and banking management.\"\n                  },\n                  {\n                    \"name\": \"Financial Reporting\",\n                    \"type\": \"SECTION\",\n                    \"description\": \"Management and statutory financial reporting.\"\n                  }\n                ]\n              },\n              {\n                \"name\": \"Strategy & Performance Department\",\n                \"type\": \"DEPARTMENT\",\n                \"description\": \"Corporate strategy, budgeting and performance monitoring.\"\n              }\n            ]\n          },\n          {\n            \"name\": \"Operations Division\",\n            \"type\": \"DIVISION\",\n            \"description\": \"Core operational and service-delivery functions.\",\n            \"children\": [\n              {\n                \"name\": \"Operations Department\",\n                \"type\": \"DEPARTMENT\",\n                \"description\": \"Day-to-day operational delivery.\"\n              },\n              {\n                \"name\": \"Procurement & Supply Chain Department\",\n                \"type\": \"DEPARTMENT\",\n                \"description\": \"Procurement, vendor and supply-chain management.\"\n              },\n              {\n                \"name\": \"Quality & Process Improvement Department\",\n                \"type\": \"DEPARTMENT\",\n                \"description\": \"Quality assurance and business process improvement.\",\n                \"children\": [\n                  {\n                    \"name\": \"Business Process Management\",\n                    \"type\": \"SECTION\",\n                    \"children\": [\n                      {\n                        \"name\": \"Process Review\",\n                        \"type\": \"PROCESS\",\n                        \"children\": [\n                          {\n                            \"name\": \"Process Documentation\",\n                            \"type\": \"SUB_PROCESS\"\n                          }\n                        ]\n                      }\n                    ]\n                  }\n                ]\n              }\n            ]\n          },\n          {\n            \"name\": \"Human Resources & Administration Division\",\n            \"type\": \"DIVISION\",\n            \"description\": \"People management and corporate administration.\",\n            \"children\": [\n              {\n                \"name\": \"Human Resources Department\",\n                \"type\": \"DEPARTMENT\",\n                \"children\": [\n                  {\n                    \"name\": \"Recruitment\",\n                    \"type\": \"SECTION\"\n                  },\n                  {\n                    \"name\": \"Learning & Development\",\n                    \"type\": \"SECTION\"\n                  },\n                  {\n                    \"name\": \"Payroll & Employee Services\",\n                    \"type\": \"SECTION\"\n                  }\n                ]\n              },\n              {\n                \"name\": \"Administration Department\",\n                \"type\": \"DEPARTMENT\"\n              }\n            ]\n          },\n          {\n            \"name\": \"Technology Division\",\n            \"type\": \"DIVISION\",\n            \"description\": \"Technology, information security and data capabilities.\",\n            \"children\": [\n              {\n                \"name\": \"Information Technology Department\",\n                \"type\": \"DEPARTMENT\",\n                \"children\": [\n                  {\n                    \"name\": \"Infrastructure & Support\",\n                    \"type\": \"SECTION\"\n                  },\n                  {\n                    \"name\": \"Applications & Systems\",\n                    \"type\": \"SECTION\"\n                  },\n                  {\n                    \"name\": \"Information Security\",\n                    \"type\": \"SECTION\"\n                  }\n                ]\n              },\n              {\n                \"name\": \"Data & Analytics Department\",\n                \"type\": \"DEPARTMENT\"\n              }\n            ]\n          },\n          {\n            \"name\": \"Risk & Compliance Division\",\n            \"type\": \"DIVISION\",\n            \"description\": \"Independent risk, compliance and internal controls functions.\",\n            \"children\": [\n              {\n                \"name\": \"Enterprise Risk Management Department\",\n                \"type\": \"DEPARTMENT\"\n              },\n              {\n                \"name\": \"Compliance Department\",\n                \"type\": \"DEPARTMENT\"\n              },\n              {\n                \"name\": \"Internal Controls Department\",\n                \"type\": \"DEPARTMENT\"\n              }\n            ]\n          },\n          {\n            \"name\": \"Legal & Corporate Affairs Division\",\n            \"type\": \"DIVISION\",\n            \"children\": [\n              {\n                \"name\": \"Legal Department\",\n                \"type\": \"DEPARTMENT\"\n              },\n              {\n                \"name\": \"Corporate Communications Department\",\n                \"type\": \"DEPARTMENT\"\n              }\n            ]\n          },\n          {\n            \"name\": \"Sales & Customer Experience Division\",\n            \"type\": \"DIVISION\",\n            \"description\": \"Commercial growth and customer management.\",\n            \"children\": [\n              {\n                \"name\": \"Sales Department\",\n                \"type\": \"DEPARTMENT\"\n              },\n              {\n                \"name\": \"Marketing Department\",\n                \"type\": \"DEPARTMENT\"\n              },\n              {\n                \"name\": \"Customer Experience Department\",\n                \"type\": \"DEPARTMENT\"\n              }\n            ]\n          }\n        ]\n      }\n    ]\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url_local}}/api/v1/platform/org-node-templates",
+              "host": [
+                "{{base_url_local}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "platform",
+                "org-node-templates"
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "vary",
+              "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+            },
+            {
+              "key": "location",
+              "value": "http://localhost:8081/api/v1/platform/org-node-templates/0bd53eeb-1595-438a-afba-a8a9119c106a/preview"
+            },
+            {
+              "key": "x-content-type-options",
+              "value": "nosniff"
+            },
+            {
+              "key": "x-xss-protection",
+              "value": "0"
+            },
+            {
+              "key": "cache-control",
+              "value": "no-cache, no-store, max-age=0, must-revalidate"
+            },
+            {
+              "key": "pragma",
+              "value": "no-cache"
+            },
+            {
+              "key": "expires",
+              "value": "0"
+            },
+            {
+              "key": "x-frame-options",
+              "value": "DENY"
+            },
+            {
+              "key": "content-type",
+              "value": "application/json"
+            },
+            {
+              "key": "transfer-encoding",
+              "value": "chunked"
+            },
+            {
+              "key": "date",
+              "value": "Fri, 04 Sep 2026 15:19:34 GMT"
+            },
+            {
+              "key": "keep-alive",
+              "value": "timeout=60"
+            },
+            {
+              "key": "connection",
+              "value": "keep-alive"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n  \"id\": \"0bd53eeb-1595-438a-afba-a8a9119c106a\",\n  \"name\": \"Kenya Enterprise Standard Structure\",\n  \"description\": \"A reusable organizational structure for a standard Kenyan private enterprise, covering governance, finance, operations, HR, technology, risk, compliance and commercial functions.\",\n  \"rootOrgNodeId\": \"5cb1d34d-03b4-4d1e-b42e-03d1f577e6bf\",\n  \"createdByUserId\": \"d4138b6c-f2fd-4fe8-a6ec-02e75275b5be\",\n  \"createdAt\": \"2026-09-04T15:19:34.007542Z\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "login",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "//pm.collectionVariables.set(\"platform_admin_token\", pm.response.json().accessToken);\n//pm.collectionVariables.set(\"platform_admin_refreshToken\", pm.response.json().refreshToken);\npm.environment.set(\"platform_admin_token\", pm.response.json().accessToken);\npm.environment.set(\"platform_admin_refreshToken\", pm.response.json().refreshToken);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"identifier\": \"giftadmin@privox.io\",\n  \"password\": \"Password@123\",\n  \"rememberMe\": false\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url_02}}/api/v1/auth/login",
+          "host": [
+            "{{base_url_02}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "auth",
+            "login"
+          ]
+        }
+      },
+      "response": [
+        {
+          "name": "response - login",
+          "originalRequest": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"giftadmin@privox.io\",\n  \"password\": \"Password@123\",\n  \"rememberMe\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url_02}}/api/v1/auth/login",
+              "host": [
+                "{{base_url_02}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "server",
+              "value": "nginx/1.18.0 (Ubuntu)"
+            },
+            {
+              "key": "date",
+              "value": "Mon, 07 Sep 2026 12:00:30 GMT"
+            },
+            {
+              "key": "content-type",
+              "value": "application/json"
+            },
+            {
+              "key": "transfer-encoding",
+              "value": "chunked"
+            },
+            {
+              "key": "connection",
+              "value": "keep-alive"
+            },
+            {
+              "key": "vary",
+              "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+            },
+            {
+              "key": "x-content-type-options",
+              "value": "nosniff"
+            },
+            {
+              "key": "x-xss-protection",
+              "value": "0"
+            },
+            {
+              "key": "cache-control",
+              "value": "no-cache, no-store, max-age=0, must-revalidate"
+            },
+            {
+              "key": "pragma",
+              "value": "no-cache"
+            },
+            {
+              "key": "expires",
+              "value": "0"
+            },
+            {
+              "key": "x-frame-options",
+              "value": "DENY"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n  \"accessToken\": \"eyJraWQiOiJBbmJNSmg5TXJaa1JBR2RfS3FPeV9MLUR5TmIyNzdNRXJiMXNuVjB5dFBZIiwidHlwIjoiSldUIiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiJkNDEzOGI2Yy1mMmZkLTRmZTgtYTZlYy0wMmU3NTI3NWI1YmUiLCJwZXJtaXNzaW9ucyI6WyJwbGF0Zm9ybS5tb2R1bGUuYXNzaWduIiwicGxhdGZvcm0ub3JnYW5pemF0aW9uLmFwcHJvdmUiLCJwbGF0Zm9ybS5vcmdhbml6YXRpb24uY3JlYXRlIiwicGxhdGZvcm0ub3JnYW5pemF0aW9uLmRlYWN0aXZhdGUiLCJwbGF0Zm9ybS5vcmdhbml6YXRpb24ucmVqZWN0IiwicGxhdGZvcm0ub3JnYW5pemF0aW9uLnN1c3BlbmQiLCJwbGF0Zm9ybS5vcmdhbml6YXRpb24udmlldyIsInBsYXRmb3JtLm9yZ25vZGUubWFuYWdlIiwidXNlci5pbnZpdGUiXSwiaXNzIjoicHJpdm94LWdyYy1hcGkiLCJleHAiOjE3ODg3ODMzMzAsInRva2VuX3R5cGUiOiJhY2Nlc3MiLCJpYXQiOjE3ODg3ODI0MzAsImp0aSI6IjE4ZWY4YzM0LTQ4MzktNGFkNC1hY2JmLWVjMDljOWZhZTc0ZiIsInNpZCI6IjUzZDYzMWYzLTU3Y2UtNGJiMS1hMmYyLTFmNTQxZmFjNzJkNCJ9.rmmO8DaRiVUxcP4GajKTG670Ehc6PPJP26zr6UdgkUbK7WvW33IypwNkX7nb4B-Va01PoCydh4bXs1kJPeh75-DyfE5CnmUjMvTph8Zx2t_o1cmMtVB1NIA8FeYcfL5K-fVjLriWGNyB_2m6WjraDJMPZNM3uQJpWXc6u3OODpyLDa5md1QDassPuOh0aYL459T9IWPcOTkppdGTCCPo-yTOiC7ntnnDYlghb9Ifn-DyJtNs45nIbD7WbN63RdWeVgvxjRTq_VFIs7IxTa58MCYZZeRrvNRd9Lp-7gnS6xI36_wgfquwC8itSuB6jt5E4LyBv-42qnf7oQWrkh_yIA\",\n  \"refreshToken\": \"k1phluzjhjD3SSzczaactwMOA1OqS_TMIFgW0Cg0RBY\",\n  \"tokenType\": \"Bearer\",\n  \"expiresIn\": 900,\n  \"accessTokenExpiresAt\": \"2026-09-07T12:15:30.417763929Z\",\n  \"user\": {\n    \"id\": \"d4138b6c-f2fd-4fe8-a6ec-02e75275b5be\",\n    \"email\": \"giftadmin@privox.io\",\n    \"username\": \"gift.admin\",\n    \"fullName\": \"Gift Superadmin\"\n  },\n  \"organization\": null,\n  \"permissions\": [\n    \"platform.module.assign\",\n    \"platform.organization.approve\",\n    \"platform.organization.create\",\n    \"platform.organization.deactivate\",\n    \"platform.organization.reject\",\n    \"platform.organization.suspend\",\n    \"platform.organization.view\",\n    \"platform.orgnode.manage\",\n    \"user.invite\"\n  ]\n}"
+        }
+      ]
+    },
+    {
+      "name": "register org",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.collectionVariables.set(\"gnc_org_id\", pm.response.json().id);"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{platform_admin_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"G & Nestahs Co.\",\n  \"code\": \"GNC\",\n  \"slug\": \"g-nestahs-co\",\n  \"countryCode\": \"KE\",\n  \"planTier\": \"STANDARD\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url_local}}/api/v1/platform/organizations",
+          "host": [
+            "{{base_url_local}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "platform",
+            "organizations"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "list orgs - platform reads",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Parse the JSON response body\nconst responseData = pm.response.json();\n\n// Verify the response is an array before iterating\nif (Array.isArray(responseData)) {\n    responseData.forEach(org => {\n        // Ensure both code and id exist to avoid setting undefined variables\n        if (org.code && org.id) {\n            // Set the environment variable using the code as the key and id as the value\n            pm.environment.set(org.code, org.id);\n        }\n    });\n    console.log(\"Organization variables successfully set in the environment.\");\n} else {\n    console.error(\"Expected response to be an array of organizations.\");\n}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{platform_admin_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url_02}}/api/v1/platform/organizations",
+          "host": [
+            "{{base_url_02}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "platform",
+            "organizations"
+          ]
+        }
+      },
+      "response": [
+        {
+          "name": "response - list orgs -  platform reads",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url_02}}/api/v1/platform/organizations",
+              "host": [
+                "{{base_url_02}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "platform",
+                "organizations"
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "server",
+              "value": "nginx/1.18.0 (Ubuntu)"
+            },
+            {
+              "key": "date",
+              "value": "Mon, 07 Sep 2026 12:04:56 GMT"
+            },
+            {
+              "key": "content-type",
+              "value": "application/json"
+            },
+            {
+              "key": "transfer-encoding",
+              "value": "chunked"
+            },
+            {
+              "key": "connection",
+              "value": "keep-alive"
+            },
+            {
+              "key": "vary",
+              "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+            },
+            {
+              "key": "x-content-type-options",
+              "value": "nosniff"
+            },
+            {
+              "key": "x-xss-protection",
+              "value": "0"
+            },
+            {
+              "key": "cache-control",
+              "value": "no-cache, no-store, max-age=0, must-revalidate"
+            },
+            {
+              "key": "pragma",
+              "value": "no-cache"
+            },
+            {
+              "key": "expires",
+              "value": "0"
+            },
+            {
+              "key": "x-frame-options",
+              "value": "DENY"
+            }
+          ],
+          "cookie": [],
+          "body": "[\n  {\n    \"id\": \"632f6b2d-ca4a-4b05-a85e-c83e0de1718b\",\n    \"name\": \"G & Nestahs Co.\",\n    \"code\": \"GNC\",\n    \"slug\": \"g-nestahs-co\",\n    \"planTier\": \"STANDARD\",\n    \"countryCode\": \"KE\",\n    \"status\": \"ACTIVE\",\n    \"validatedByUserId\": \"d4138b6c-f2fd-4fe8-a6ec-02e75275b5be\",\n    \"validatedAt\": \"2026-08-24T09:55:50.805145Z\",\n    \"validationNotes\": \"Documents verified. Approved for onboarding.\",\n    \"createdAt\": \"2026-08-24T08:46:23.188661Z\",\n    \"updatedAt\": \"2026-08-25T08:32:06.717446Z\",\n    \"deactivatedAt\": null\n  },\n  {\n    \"id\": \"534b0e0e-4a85-41c1-9fea-51c82107d57c\",\n    \"name\": \"Privox GRC ltd\",\n    \"code\": \"PRIVOX\",\n    \"slug\": \"privox\",\n    \"planTier\": null,\n    \"countryCode\": \"KE\",\n    \"status\": \"ACTIVE\",\n    \"validatedByUserId\": null,\n    \"validatedAt\": null,\n    \"validationNotes\": null,\n    \"createdAt\": \"2026-08-04T12:22:08.821053Z\",\n    \"updatedAt\": \"2026-08-04T12:22:08.821053Z\",\n    \"deactivatedAt\": null\n  },\n  {\n    \"id\": \"6d46a49f-268c-468a-a9ea-a0407db30d6b\",\n    \"name\": \"Savanna Insurance Co.\",\n    \"code\": \"SIC\",\n    \"slug\": \"savanna-insurance\",\n    \"planTier\": null,\n    \"countryCode\": \"KE\",\n    \"status\": \"ACTIVE\",\n    \"validatedByUserId\": null,\n    \"validatedAt\": null,\n    \"validationNotes\": \"Local authentication demonstration organization.\",\n    \"createdAt\": \"2026-07-21T09:01:25.499466Z\",\n    \"updatedAt\": \"2026-08-05T18:43:03.126078Z\",\n    \"deactivatedAt\": null\n  }\n]"
+        }
+      ]
+    },
+    {
+      "name": "list pending orgs",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{platform_admin_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url_local}}/api/v1/platform/organizations?status=PENDING_VALIDATION",
+          "host": [
+            "{{base_url_local}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "platform",
+            "organizations"
+          ],
+          "query": [
+            {
+              "key": "status",
+              "value": "PENDING_VALIDATION"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "specific org",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{platform_admin_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url_local}}/api/v1/platform/organizations/{{gnc_org_id}}",
+          "host": [
+            "{{base_url_local}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "platform",
+            "organizations",
+            "{{gnc_org_id}}"
+          ]
+        }
+      },
+      "response": [
+        {
+          "name": "response - specific org",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url_local}}/api/v1/platform/organizations/{{gnc_org_id}}",
+              "host": [
+                "{{base_url_local}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "platform",
+                "organizations",
+                "{{gnc_org_id}}"
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": null,
+          "header": [
+            {
+              "key": "Vary",
+              "value": "Origin"
+            },
+            {
+              "key": "Vary",
+              "value": "Access-Control-Request-Method"
+            },
+            {
+              "key": "Vary",
+              "value": "Access-Control-Request-Headers"
+            },
+            {
+              "key": "X-Content-Type-Options",
+              "value": "nosniff"
+            },
+            {
+              "key": "X-XSS-Protection",
+              "value": "0"
+            },
+            {
+              "key": "Cache-Control",
+              "value": "no-cache, no-store, max-age=0, must-revalidate"
+            },
+            {
+              "key": "Pragma",
+              "value": "no-cache"
+            },
+            {
+              "key": "Expires",
+              "value": "0"
+            },
+            {
+              "key": "X-Frame-Options",
+              "value": "DENY"
+            },
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "key": "Transfer-Encoding",
+              "value": "chunked"
+            },
+            {
+              "key": "Date",
+              "value": "Thu, 27 Aug 2026 10:36:46 GMT"
+            },
+            {
+              "key": "Keep-Alive",
+              "value": "timeout=60"
+            },
+            {
+              "key": "Connection",
+              "value": "keep-alive"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n    \"id\": \"632f6b2d-ca4a-4b05-a85e-c83e0de1718b\",\n    \"name\": \"G & Nestahs Co.\",\n    \"code\": \"GNC\",\n    \"slug\": \"g-nestahs-co\",\n    \"planTier\": \"STANDARD\",\n    \"countryCode\": \"KE\",\n    \"status\": \"ACTIVE\",\n    \"validatedByUserId\": \"d4138b6c-f2fd-4fe8-a6ec-02e75275b5be\",\n    \"validatedAt\": \"2026-08-24T09:55:50.805145Z\",\n    \"validationNotes\": \"Documents verified. Approved for onboarding.\",\n    \"createdAt\": \"2026-08-24T08:46:23.188661Z\",\n    \"updatedAt\": \"2026-08-25T08:32:06.717446Z\",\n    \"deactivatedAt\": null\n}"
+        }
+      ]
+    },
+    {
+      "name": "approve org",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{platform_admin_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"adminEmail\": \"pantheranestah@gmail.com\",\n  \"initialGroupId\": \"7df2b1c8-c4b9-4f2e-ac8e-f54330518210\",\n  \"notes\": \"Documents verified. Approved for onboarding.\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url_local}}/api/v1/platform/organizations/{{gnc_org_id}}/approve",
+          "host": [
+            "{{base_url_local}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "platform",
+            "organizations",
+            "{{gnc_org_id}}",
+            "approve"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "list modules",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Parse the JSON response\nconst response = pm.response.json();\n\n// Loop through each object in the array\nresponse.forEach(module => {\n    // Check if both properties exist to avoid errors\n    if (module.code && module.id) {\n        // Set as a collection variable (e.g., key: \"CORE\", value: \"118744f5...\")\n        pm.environment.set(module.code, module.id);\n    }\n});\n\n// Optional: Log confirmation to the Postman console\nconsole.log(\"Modules mapped and saved as collection variables.\");"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{platform_admin_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url_02}}/api/v1/platform/modules",
+          "host": [
+            "{{base_url_02}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "platform",
+            "modules"
+          ]
+        }
+      },
+      "response": [
+        {
+          "name": "list modules - response",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url_local}}/api/v1/platform/modules",
+              "host": [
+                "{{base_url_local}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "platform",
+                "modules"
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": null,
+          "header": [
+            {
+              "key": "Vary",
+              "value": "Origin"
+            },
+            {
+              "key": "Vary",
+              "value": "Access-Control-Request-Method"
+            },
+            {
+              "key": "Vary",
+              "value": "Access-Control-Request-Headers"
+            },
+            {
+              "key": "X-Content-Type-Options",
+              "value": "nosniff"
+            },
+            {
+              "key": "X-XSS-Protection",
+              "value": "0"
+            },
+            {
+              "key": "Cache-Control",
+              "value": "no-cache, no-store, max-age=0, must-revalidate"
+            },
+            {
+              "key": "Pragma",
+              "value": "no-cache"
+            },
+            {
+              "key": "Expires",
+              "value": "0"
+            },
+            {
+              "key": "X-Frame-Options",
+              "value": "DENY"
+            },
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "key": "Transfer-Encoding",
+              "value": "chunked"
+            },
+            {
+              "key": "Date",
+              "value": "Thu, 27 Aug 2026 10:33:38 GMT"
+            },
+            {
+              "key": "Keep-Alive",
+              "value": "timeout=60"
+            },
+            {
+              "key": "Connection",
+              "value": "keep-alive"
+            }
+          ],
+          "cookie": [],
+          "body": "[\n    {\n        \"id\": \"118744f5-056f-4162-88ed-9ed1e799fdf1\",\n        \"code\": \"CORE\",\n        \"name\": \"Core Platform\",\n        \"description\": \"Core platform functionality shared by all organizations.\",\n        \"active\": true,\n        \"sortOrder\": 10,\n        \"createdAt\": \"2026-07-20T08:01:15.135448Z\"\n    },\n    {\n        \"id\": \"4927f0f6-ea21-4dd6-858b-f6eae434ee85\",\n        \"code\": \"USER_MANAGEMENT\",\n        \"name\": \"User Management\",\n        \"description\": \"User accounts, organizations, groups and permissions.\",\n        \"active\": true,\n        \"sortOrder\": 20,\n        \"createdAt\": \"2026-07-20T08:01:15.135448Z\"\n    },\n    {\n        \"id\": \"013fcbe2-ac93-4daf-9f5e-47b02495ad62\",\n        \"code\": \"GOVERNANCE\",\n        \"name\": \"Governance\",\n        \"description\": \"Governance structures and organizational oversight.\",\n        \"active\": true,\n        \"sortOrder\": 30,\n        \"createdAt\": \"2026-07-20T08:01:15.135448Z\"\n    },\n    {\n        \"id\": \"44eb92d5-c4fd-4a56-83d3-2f42cabe5be0\",\n        \"code\": \"RISK_MANAGEMENT\",\n        \"name\": \"Risk Management\",\n        \"description\": \"Risk identification, assessment, treatment and monitoring.\",\n        \"active\": true,\n        \"sortOrder\": 40,\n        \"createdAt\": \"2026-07-20T08:01:15.135448Z\"\n    },\n    {\n        \"id\": \"09b96172-be08-424c-9897-f35432570e1c\",\n        \"code\": \"COMPLIANCE\",\n        \"name\": \"Compliance\",\n        \"description\": \"Compliance requirements and monitoring.\",\n        \"active\": true,\n        \"sortOrder\": 50,\n        \"createdAt\": \"2026-07-20T08:01:15.135448Z\"\n    },\n    {\n        \"id\": \"b125c4bf-e37e-493a-8aaa-2902f808e4d3\",\n        \"code\": \"DATA_PROTECTION\",\n        \"name\": \"Data Protection\",\n        \"description\": \"Privacy and data-protection management.\",\n        \"active\": true,\n        \"sortOrder\": 60,\n        \"createdAt\": \"2026-07-20T08:01:15.135448Z\"\n    },\n    {\n        \"id\": \"64895333-2ec1-403c-bd57-3ebcd50e5008\",\n        \"code\": \"RESILIENCE\",\n        \"name\": \"Resilience\",\n        \"description\": \"Business continuity and operational resilience.\",\n        \"active\": true,\n        \"sortOrder\": 70,\n        \"createdAt\": \"2026-07-20T08:01:15.135448Z\"\n    },\n    {\n        \"id\": \"ad343073-a7c0-4869-95c0-7ecbdf109284\",\n        \"code\": \"CYBER_RISK\",\n        \"name\": \"Cyber Risk\",\n        \"description\": \"Cybersecurity risk and control management.\",\n        \"active\": true,\n        \"sortOrder\": 80,\n        \"createdAt\": \"2026-07-20T08:01:15.135448Z\"\n    },\n    {\n        \"id\": \"692f443d-9c00-4bca-8d23-71d548568c8e\",\n        \"code\": \"REPORTING\",\n        \"name\": \"Reporting\",\n        \"description\": \"Platform reports and dashboards.\",\n        \"active\": true,\n        \"sortOrder\": 90,\n        \"createdAt\": \"2026-07-20T08:01:15.135448Z\"\n    }\n]"
+        }
+      ]
+    },
+    {
+      "name": "enable module for org",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{platform_admin_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{base_url_local}}/api/v1/platform/organizations/{{gnc_org_id}}/modules/{{GOVERNANCE}}/enable",
+          "host": [
+            "{{base_url_local}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "platform",
+            "organizations",
+            "{{gnc_org_id}}",
+            "modules",
+            "{{GOVERNANCE}}",
+            "enable"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "list an org's modules",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{platform_admin_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url_02}}/api/v1/platform/organizations/{{GNC}}/modules",
+          "host": [
+            "{{base_url_02}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "platform",
+            "organizations",
+            "{{GNC}}",
+            "modules"
+          ]
+        }
+      },
+      "response": [
+        {
+          "name": "response - list an org's modules",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url_local}}/api/v1/platform/organizations/{{gnc_org_id}}/modules",
+              "host": [
+                "{{base_url_local}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "platform",
+                "organizations",
+                "{{gnc_org_id}}",
+                "modules"
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": null,
+          "header": [
+            {
+              "key": "Vary",
+              "value": "Origin"
+            },
+            {
+              "key": "Vary",
+              "value": "Access-Control-Request-Method"
+            },
+            {
+              "key": "Vary",
+              "value": "Access-Control-Request-Headers"
+            },
+            {
+              "key": "X-Content-Type-Options",
+              "value": "nosniff"
+            },
+            {
+              "key": "X-XSS-Protection",
+              "value": "0"
+            },
+            {
+              "key": "Cache-Control",
+              "value": "no-cache, no-store, max-age=0, must-revalidate"
+            },
+            {
+              "key": "Pragma",
+              "value": "no-cache"
+            },
+            {
+              "key": "Expires",
+              "value": "0"
+            },
+            {
+              "key": "X-Frame-Options",
+              "value": "DENY"
+            },
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "key": "Transfer-Encoding",
+              "value": "chunked"
+            },
+            {
+              "key": "Date",
+              "value": "Thu, 27 Aug 2026 10:38:05 GMT"
+            },
+            {
+              "key": "Keep-Alive",
+              "value": "timeout=60"
+            },
+            {
+              "key": "Connection",
+              "value": "keep-alive"
+            }
+          ],
+          "cookie": [],
+          "body": "[\n    {\n        \"id\": \"455d7b49-eee2-4f11-8717-b3f8797292ee\",\n        \"moduleId\": \"118744f5-056f-4162-88ed-9ed1e799fdf1\",\n        \"code\": \"CORE\",\n        \"name\": \"Core Platform\",\n        \"description\": \"Core platform functionality shared by all organizations.\",\n        \"sortOrder\": 10,\n        \"enabled\": true,\n        \"enabledAt\": \"2026-08-24T10:06:34.918294Z\",\n        \"disabledAt\": null\n    },\n    {\n        \"id\": \"7c79d320-ed24-4c88-811a-23d16f8d899a\",\n        \"moduleId\": \"4927f0f6-ea21-4dd6-858b-f6eae434ee85\",\n        \"code\": \"USER_MANAGEMENT\",\n        \"name\": \"User Management\",\n        \"description\": \"User accounts, organizations, groups and permissions.\",\n        \"sortOrder\": 20,\n        \"enabled\": true,\n        \"enabledAt\": \"2026-08-24T10:07:14.404240Z\",\n        \"disabledAt\": null\n    },\n    {\n        \"id\": \"17ee2396-5ddd-44bf-9773-3b708a5638d8\",\n        \"moduleId\": \"013fcbe2-ac93-4daf-9f5e-47b02495ad62\",\n        \"code\": \"GOVERNANCE\",\n        \"name\": \"Governance\",\n        \"description\": \"Governance structures and organizational oversight.\",\n        \"sortOrder\": 30,\n        \"enabled\": true,\n        \"enabledAt\": \"2026-08-25T08:00:01.217176Z\",\n        \"disabledAt\": null\n    }\n]"
+        }
+      ]
+    },
+    {
+      "name": "disable module for org",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{platform_admin_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{base_url_02}}/api/v1/platform/organizations/{{SIC}}/modules/{{RESILIENCE}}/disable",
+          "host": [
+            "{{base_url_02}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "platform",
+            "organizations",
+            "{{SIC}}",
+            "modules",
+            "{{RESILIENCE}}",
+            "disable"
+          ]
+        }
+      },
+      "response": [
+        {
+          "name": "response - disable module for org",
+          "originalRequest": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url_02}}/api/v1/platform/organizations/{{SIC}}/modules/{{RESILIENCE}}/disable",
+              "host": [
+                "{{base_url_02}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "platform",
+                "organizations",
+                "{{SIC}}",
+                "modules",
+                "{{RESILIENCE}}",
+                "disable"
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "server",
+              "value": "nginx/1.18.0 (Ubuntu)"
+            },
+            {
+              "key": "date",
+              "value": "Mon, 07 Sep 2026 12:12:30 GMT"
+            },
+            {
+              "key": "content-type",
+              "value": "application/json"
+            },
+            {
+              "key": "transfer-encoding",
+              "value": "chunked"
+            },
+            {
+              "key": "connection",
+              "value": "keep-alive"
+            },
+            {
+              "key": "vary",
+              "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+            },
+            {
+              "key": "x-content-type-options",
+              "value": "nosniff"
+            },
+            {
+              "key": "x-xss-protection",
+              "value": "0"
+            },
+            {
+              "key": "cache-control",
+              "value": "no-cache, no-store, max-age=0, must-revalidate"
+            },
+            {
+              "key": "pragma",
+              "value": "no-cache"
+            },
+            {
+              "key": "expires",
+              "value": "0"
+            },
+            {
+              "key": "x-frame-options",
+              "value": "DENY"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n  \"id\": \"afc52524-b889-4f2c-a129-99450d629652\",\n  \"moduleId\": \"64895333-2ec1-403c-bd57-3ebcd50e5008\",\n  \"code\": \"RESILIENCE\",\n  \"name\": \"Resilience\",\n  \"description\": \"Business continuity and operational resilience.\",\n  \"sortOrder\": 70,\n  \"enabled\": false,\n  \"enabledAt\": \"2026-08-05T18:55:54.225212Z\",\n  \"disabledAt\": \"2026-09-07T12:12:30.247452763Z\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "suspend an org",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{platform_admin_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{base_url_local}}/api/v1/platform/organizations/{{gnc_org_id}}/suspend",
+          "host": [
+            "{{base_url_local}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "platform",
+            "organizations",
+            "{{gnc_org_id}}",
+            "suspend"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "reactivate an org",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{platform_admin_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{base_url_local}}/api/v1/platform/organizations/{{gnc_org_id}}/reactivate",
+          "host": [
+            "{{base_url_local}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "platform",
+            "organizations",
+            "{{gnc_org_id}}",
+            "reactivate"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "list org tree templates",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{platform_admin_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url_02}}/api/v1/platform/org-node-templates",
+          "host": [
+            "{{base_url_02}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "platform",
+            "org-node-templates"
+          ]
+        }
+      },
+      "response": [
+        {
+          "name": "response - list org tree templates",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url_02}}/api/v1/platform/org-node-templates",
+              "host": [
+                "{{base_url_02}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "platform",
+                "org-node-templates"
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "server",
+              "value": "nginx/1.18.0 (Ubuntu)"
+            },
+            {
+              "key": "date",
+              "value": "Mon, 07 Sep 2026 18:38:25 GMT"
+            },
+            {
+              "key": "content-type",
+              "value": "application/json"
+            },
+            {
+              "key": "transfer-encoding",
+              "value": "chunked"
+            },
+            {
+              "key": "connection",
+              "value": "keep-alive"
+            },
+            {
+              "key": "vary",
+              "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+            },
+            {
+              "key": "x-content-type-options",
+              "value": "nosniff"
+            },
+            {
+              "key": "x-xss-protection",
+              "value": "0"
+            },
+            {
+              "key": "cache-control",
+              "value": "no-cache, no-store, max-age=0, must-revalidate"
+            },
+            {
+              "key": "pragma",
+              "value": "no-cache"
+            },
+            {
+              "key": "expires",
+              "value": "0"
+            },
+            {
+              "key": "x-frame-options",
+              "value": "DENY"
+            }
+          ],
+          "cookie": [],
+          "body": "[\n  {\n    \"id\": \"0bd53eeb-1595-438a-afba-a8a9119c106a\",\n    \"name\": \"Kenya Enterprise Standard Structure\",\n    \"description\": \"A reusable organizational structure for a standard Kenyan private enterprise, covering governance, finance, operations, HR, technology, risk, compliance and commercial functions.\",\n    \"rootOrgNodeId\": \"5cb1d34d-03b4-4d1e-b42e-03d1f577e6bf\",\n    \"createdByUserId\": \"d4138b6c-f2fd-4fe8-a6ec-02e75275b5be\",\n    \"createdAt\": \"2026-09-04T15:19:34.007542Z\"\n  }\n]"
+        }
+      ]
+    },
+    {
+      "name": "preview org tree template",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{platform_admin_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url_02}}/api/v1/platform/org-node-templates/{{org_node_template_id}}/preview",
+          "host": [
+            "{{base_url_02}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "platform",
+            "org-node-templates",
+            "{{org_node_template_id}}",
+            "preview"
+          ]
+        }
+      },
+      "response": [
+        {
+          "name": "response - preview org tree template",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url_02}}/api/v1/platform/org-node-templates/{{org_node_template_id}}/preview",
+              "host": [
+                "{{base_url_02}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "platform",
+                "org-node-templates",
+                "{{org_node_template_id}}",
+                "preview"
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "server",
+              "value": "nginx/1.18.0 (Ubuntu)"
+            },
+            {
+              "key": "date",
+              "value": "Mon, 07 Sep 2026 18:35:32 GMT"
+            },
+            {
+              "key": "content-type",
+              "value": "application/json"
+            },
+            {
+              "key": "transfer-encoding",
+              "value": "chunked"
+            },
+            {
+              "key": "connection",
+              "value": "keep-alive"
+            },
+            {
+              "key": "vary",
+              "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+            },
+            {
+              "key": "x-content-type-options",
+              "value": "nosniff"
+            },
+            {
+              "key": "x-xss-protection",
+              "value": "0"
+            },
+            {
+              "key": "cache-control",
+              "value": "no-cache, no-store, max-age=0, must-revalidate"
+            },
+            {
+              "key": "pragma",
+              "value": "no-cache"
+            },
+            {
+              "key": "expires",
+              "value": "0"
+            },
+            {
+              "key": "x-frame-options",
+              "value": "DENY"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n  \"templateId\": \"0bd53eeb-1595-438a-afba-a8a9119c106a\",\n  \"name\": \"Kenya Enterprise Standard Structure\",\n  \"description\": \"A reusable organizational structure for a standard Kenyan private enterprise, covering governance, finance, operations, HR, technology, risk, compliance and commercial functions.\",\n  \"rootNode\": {\n    \"id\": \"5cb1d34d-03b4-4d1e-b42e-03d1f577e6bf\",\n    \"name\": \"Kenya Enterprise Group\",\n    \"type\": \"GROUP\",\n    \"description\": \"Top-level enterprise group structure.\",\n    \"children\": [\n      {\n        \"id\": \"465760e8-1500-4e61-b6cf-09b31e335069\",\n        \"name\": \"Kenya Enterprise Limited\",\n        \"type\": \"COMPANY\",\n        \"description\": \"Primary operating company.\",\n        \"children\": [\n          {\n            \"id\": \"f3ffbca9-42b6-47a3-be5c-26125f3b783b\",\n            \"name\": \"Board & Governance\",\n            \"type\": \"DIVISION\",\n            \"description\": \"Board governance and corporate oversight functions.\",\n            \"children\": [\n              {\n                \"id\": \"3cbd09d6-35a4-4599-a409-3b4dce79e64a\",\n                \"name\": \"Board Audit & Risk Committee\",\n                \"type\": \"SECTION\",\n                \"description\": \"Board-level oversight of audit, risk and internal controls.\",\n                \"children\": []\n              },\n              {\n                \"id\": \"9bb349f4-de8b-4256-9765-2c01a97cc426\",\n                \"name\": \"Company Secretariat\",\n                \"type\": \"DEPARTMENT\",\n                \"description\": \"Company secretarial and governance administration.\",\n                \"children\": []\n              }\n            ]\n          },\n          {\n            \"id\": \"69670c73-e226-42ef-8560-4690830843c9\",\n            \"name\": \"Office of the Managing Director\",\n            \"type\": \"DEPARTMENT\",\n            \"description\": \"Executive leadership and coordination.\",\n            \"children\": []\n          },\n          {\n            \"id\": \"f1dc9b6a-e80c-45fa-a99a-46e0c58b550d\",\n            \"name\": \"Finance & Strategy Division\",\n            \"type\": \"DIVISION\",\n            \"description\": \"Financial management, planning and corporate strategy.\",\n            \"children\": [\n              {\n                \"id\": \"12cdf1f6-34bd-43eb-b953-cfa419443bdf\",\n                \"name\": \"Finance Department\",\n                \"type\": \"DEPARTMENT\",\n                \"description\": \"Financial operations, treasury and reporting.\",\n                \"children\": [\n                  {\n                    \"id\": \"e23b88a3-8e51-4761-af8d-874e6305d1fa\",\n                    \"name\": \"Accounts Payable\",\n                    \"type\": \"SECTION\",\n                    \"description\": \"Supplier invoice and payment management.\",\n                    \"children\": []\n                  },\n                  {\n                    \"id\": \"980a480c-3405-4473-bd83-36cdc20e8180\",\n                    \"name\": \"Accounts Receivable\",\n                    \"type\": \"SECTION\",\n                    \"description\": \"Customer billing and collections.\",\n                    \"children\": []\n                  },\n                  {\n                    \"id\": \"cc80c21b-8384-4232-95b0-fc2ecfd3d0ca\",\n                    \"name\": \"Treasury\",\n                    \"type\": \"SECTION\",\n                    \"description\": \"Cash, liquidity and banking management.\",\n                    \"children\": []\n                  },\n                  {\n                    \"id\": \"888bb099-acf2-40b9-8422-b464977e4178\",\n                    \"name\": \"Financial Reporting\",\n                    \"type\": \"SECTION\",\n                    \"description\": \"Management and statutory financial reporting.\",\n                    \"children\": []\n                  }\n                ]\n              },\n              {\n                \"id\": \"6230a3a5-eb12-498f-8a5f-41ba883fe494\",\n                \"name\": \"Strategy & Performance Department\",\n                \"type\": \"DEPARTMENT\",\n                \"description\": \"Corporate strategy, budgeting and performance monitoring.\",\n                \"children\": []\n              }\n            ]\n          },\n          {\n            \"id\": \"e0575fa4-5064-499d-a900-249b6981521e\",\n            \"name\": \"Operations Division\",\n            \"type\": \"DIVISION\",\n            \"description\": \"Core operational and service-delivery functions.\",\n            \"children\": [\n              {\n                \"id\": \"dad2ae19-29d3-4a69-9e26-50aabac8e8c2\",\n                \"name\": \"Operations Department\",\n                \"type\": \"DEPARTMENT\",\n                \"description\": \"Day-to-day operational delivery.\",\n                \"children\": []\n              },\n              {\n                \"id\": \"34893e42-c448-4f05-927a-fca2615262e6\",\n                \"name\": \"Procurement & Supply Chain Department\",\n                \"type\": \"DEPARTMENT\",\n                \"description\": \"Procurement, vendor and supply-chain management.\",\n                \"children\": []\n              },\n              {\n                \"id\": \"4a730ae9-c54e-4915-b206-1d05f0dedae5\",\n                \"name\": \"Quality & Process Improvement Department\",\n                \"type\": \"DEPARTMENT\",\n                \"description\": \"Quality assurance and business process improvement.\",\n                \"children\": [\n                  {\n                    \"id\": \"fe565646-b407-49ea-8c24-087fa0c50345\",\n                    \"name\": \"Business Process Management\",\n                    \"type\": \"SECTION\",\n                    \"description\": null,\n                    \"children\": [\n                      {\n                        \"id\": \"da483fbd-00f0-4d80-8153-34c856d1b6e9\",\n                        \"name\": \"Process Review\",\n                        \"type\": \"PROCESS\",\n                        \"description\": null,\n                        \"children\": [\n                          {\n                            \"id\": \"4a7cdcd0-8b87-4dab-a140-cb54a41d4e24\",\n                            \"name\": \"Process Documentation\",\n                            \"type\": \"SUB_PROCESS\",\n                            \"description\": null,\n                            \"children\": []\n                          }\n                        ]\n                      }\n                    ]\n                  }\n                ]\n              }\n            ]\n          },\n          {\n            \"id\": \"2f9e793a-113b-489d-b161-7d3ed32a8f08\",\n            \"name\": \"Human Resources & Administration Division\",\n            \"type\": \"DIVISION\",\n            \"description\": \"People management and corporate administration.\",\n            \"children\": [\n              {\n                \"id\": \"922b51f1-e8fa-4271-b75d-41551875aaba\",\n                \"name\": \"Human Resources Department\",\n                \"type\": \"DEPARTMENT\",\n                \"description\": null,\n                \"children\": [\n                  {\n                    \"id\": \"df2735f1-808b-4996-ba3f-e965e520e419\",\n                    \"name\": \"Recruitment\",\n                    \"type\": \"SECTION\",\n                    \"description\": null,\n                    \"children\": []\n                  },\n                  {\n                    \"id\": \"85801e4a-04a9-4e0e-9cc3-7e5ede142b6b\",\n                    \"name\": \"Learning & Development\",\n                    \"type\": \"SECTION\",\n                    \"description\": null,\n                    \"children\": []\n                  },\n                  {\n                    \"id\": \"3c4ba2c5-cfd0-4e86-b675-ac55e5ad0b86\",\n                    \"name\": \"Payroll & Employee Services\",\n                    \"type\": \"SECTION\",\n                    \"description\": null,\n                    \"children\": []\n                  }\n                ]\n              },\n              {\n                \"id\": \"384ce38c-02ee-47d6-8899-98f9aaff8fe9\",\n                \"name\": \"Administration Department\",\n                \"type\": \"DEPARTMENT\",\n                \"description\": null,\n                \"children\": []\n              }\n            ]\n          },\n          {\n            \"id\": \"798ea433-3580-43bd-8424-28865b5d8baa\",\n            \"name\": \"Technology Division\",\n            \"type\": \"DIVISION\",\n            \"description\": \"Technology, information security and data capabilities.\",\n            \"children\": [\n              {\n                \"id\": \"89fc5573-2328-4425-8e57-92de13921e5c\",\n                \"name\": \"Information Technology Department\",\n                \"type\": \"DEPARTMENT\",\n                \"description\": null,\n                \"children\": [\n                  {\n                    \"id\": \"1d51b6a6-1412-46da-8bbd-f122611a74a3\",\n                    \"name\": \"Infrastructure & Support\",\n                    \"type\": \"SECTION\",\n                    \"description\": null,\n                    \"children\": []\n                  },\n                  {\n                    \"id\": \"dda24a5c-6e0b-48c0-b4f3-0985c57af043\",\n                    \"name\": \"Applications & Systems\",\n                    \"type\": \"SECTION\",\n                    \"description\": null,\n                    \"children\": []\n                  },\n                  {\n                    \"id\": \"ce7fe873-3d05-4525-96fd-cb98ab00c643\",\n                    \"name\": \"Information Security\",\n                    \"type\": \"SECTION\",\n                    \"description\": null,\n                    \"children\": []\n                  }\n                ]\n              },\n              {\n                \"id\": \"7fb98c28-0f70-4a00-85e9-413c804cc0a8\",\n                \"name\": \"Data & Analytics Department\",\n                \"type\": \"DEPARTMENT\",\n                \"description\": null,\n                \"children\": []\n              }\n            ]\n          },\n          {\n            \"id\": \"1010f7ce-810d-4003-874b-e878c09cf9a8\",\n            \"name\": \"Risk & Compliance Division\",\n            \"type\": \"DIVISION\",\n            \"description\": \"Independent risk, compliance and internal controls functions.\",\n            \"children\": [\n              {\n                \"id\": \"21d755b8-fb58-45ed-ba5c-ba4aa013d2cd\",\n                \"name\": \"Enterprise Risk Management Department\",\n                \"type\": \"DEPARTMENT\",\n                \"description\": null,\n                \"children\": []\n              },\n              {\n                \"id\": \"a46711fc-cc04-45b1-9237-9dc90d58a015\",\n                \"name\": \"Compliance Department\",\n                \"type\": \"DEPARTMENT\",\n                \"description\": null,\n                \"children\": []\n              },\n              {\n                \"id\": \"7680e601-bc91-484d-80d1-e051949ba4b4\",\n                \"name\": \"Internal Controls Department\",\n                \"type\": \"DEPARTMENT\",\n                \"description\": null,\n                \"children\": []\n              }\n            ]\n          },\n          {\n            \"id\": \"408fbe1d-f358-4080-b433-68cc87c39bb0\",\n            \"name\": \"Legal & Corporate Affairs Division\",\n            \"type\": \"DIVISION\",\n            \"description\": null,\n            \"children\": [\n              {\n                \"id\": \"2d2c84fa-4725-4a32-8040-ecc27f0a1f9e\",\n                \"name\": \"Legal Department\",\n                \"type\": \"DEPARTMENT\",\n                \"description\": null,\n                \"children\": []\n              },\n              {\n                \"id\": \"39d0b338-cc07-4f25-993f-032814d85afe\",\n                \"name\": \"Corporate Communications Department\",\n                \"type\": \"DEPARTMENT\",\n                \"description\": null,\n                \"children\": []\n              }\n            ]\n          },\n          {\n            \"id\": \"999bff47-2c77-4545-b16b-ada878e2f085\",\n            \"name\": \"Sales & Customer Experience Division\",\n            \"type\": \"DIVISION\",\n            \"description\": \"Commercial growth and customer management.\",\n            \"children\": [\n              {\n                \"id\": \"9ca313a5-0784-4b74-9939-6ee12f62c7e0\",\n                \"name\": \"Sales Department\",\n                \"type\": \"DEPARTMENT\",\n                \"description\": null,\n                \"children\": []\n              },\n              {\n                \"id\": \"75e56a97-d890-47d3-8b7b-19b42bd93619\",\n                \"name\": \"Marketing Department\",\n                \"type\": \"DEPARTMENT\",\n                \"description\": null,\n                \"children\": []\n              },\n              {\n                \"id\": \"4966f540-2be1-43c0-8d0c-336757e5391a\",\n                \"name\": \"Customer Experience Department\",\n                \"type\": \"DEPARTMENT\",\n                \"description\": null,\n                \"children\": []\n              }\n            ]\n          }\n        ]\n      }\n    ]\n  }\n}"
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ]
+}
