@@ -66,7 +66,9 @@ function DetailRow({
 
 const OrganizationDetails = () => {
   const { organization: authOrganization } = useAuth();
-  const [organization, setOrganization] = useState<OrganizationDetailDto | null>(authOrganization);
+  const [organization, setOrganization] = useState<OrganizationDetailDto | null>(
+    (authOrganization as OrganizationDetailDto) ?? null,
+  );
   const [state, setState] = useState<LoadState>("idle");
   const [error, setError] = useState<string | null>(null);
 
