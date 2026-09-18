@@ -12,6 +12,7 @@ import {
   Layers,
   LayoutDashboard,
   Mail,
+  MailPlus,
   Pencil,
   Plus,
   ShieldAlert,
@@ -62,13 +63,22 @@ import {
   fetchOrganizationGroup,
   fetchOrganizationGroups,
   fetchOrganizationMembers,
+  fetchOrganizationInvitations,
   fetchPermissionCatalog,
   removeGroupMember,
+  revokeInvitation,
+  resendInvitation,
+  createOrganizationInvitation,
+  updateOrganizationMember,
+  suspendOrganizationMember,
+  reactivateOrganizationMember,
+  deactivateOrganizationMember,
   updateGroupPermissions,
   updateOrganizationGroup,
 } from "@/lib/organization";
 import type {
   GroupMember,
+  Invitation,
   OrganizationGroup,
   OrganizationGroupDetail,
   OrganizationMember,
@@ -180,6 +190,13 @@ function MobileSectionTabs() {
           onClick={() => goTo("users")}
         >
           <Users className="w-3.5 h-3.5" /> Users
+        </TabsTrigger>
+        <TabsTrigger
+          value="invitations"
+          className="flex-1 gap-1.5 text-black data-[state=active]:text-blue-600"
+          onClick={() => goTo("invitations")}
+        >
+          <MailPlus className="w-3.5 h-3.5" /> Invites
         </TabsTrigger>
         <TabsTrigger
           value="groups"
@@ -383,12 +400,45 @@ export const UserManagement = () => {
   const [groupToToggle, setGroupToToggle] = useState<OrganizationGroup | null>(null);
   const requestedTab = searchParams.get("tab");
   const activeTab =
-    requestedTab === "users" || requestedTab === "groups" || requestedTab === "permissions"
+    requestedTab === "users" ||
+    requestedTab === "groups" ||
+    requestedTab === "permissions" ||
+    requestedTab === "invitations"
       ? requestedTab
       : "dashboard";
   const [createOpen, setCreateOpen] = useState(false);
   const [groupName, setGroupName] = useState("");
   const [creatingGroup, setCreatingGroup] = useState(false);
+  const [invitations, setInvitations] = useState<Invitation[]>([]);
+  const [invitationsLoading, setInvitationsLoading] = useState(false);
+  const [invitationsError, setInvitationsError] = useState<string | null>(null);
+  const [invitationStatusFilter, setInvitationStatusFilter] = useState<string>("all");
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteGroupId, setInviteGroupId] = useState("");
+  const [inviting, setInviting] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
+
+  const loadInvitations = async (status?: string) => {
+    if (!orgId) return;
+    setInvitationsLoading(true);
+    setInvitationsError(null);
+    try {
+      const filter =
+        status && status !== "all"
+          ? (status as "PENDING" | "ACCEPTED" | "REVOKED" | "EXPIRED")
+          : undefined;
+      setInvitations(await fetchOrganizationInvitations(orgId, filter));
+    } catch (err) {
+      setInvitationsError(err instanceof Error ? err.message : "Failed to load invitations");
+    } finally {
+      setInvitationsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!orgId) return;
+    void loadInvitations(invitationStatusFilter);
+  }, [orgId, invitationStatusFilter]);
 
   const loadIndexData = async () => {
     if (!orgId) {
@@ -446,6 +496,48 @@ export const UserManagement = () => {
     }
   };
 
+  const handleCreateInvitation = async () => {
+    if (!orgId || !inviteEmail.trim()) return;
+    setInviting(true);
+    try {
+      await createOrganizationInvitation(orgId, {
+        email: inviteEmail.trim(),
+        ...(inviteGroupId ? { initialGroupId: inviteGroupId } : {}),
+      });
+      toast.success("Invitation sent");
+      setInviteEmail("");
+      setInviteGroupId("");
+      setInviteOpen(false);
+      void loadInvitations(invitationStatusFilter);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to send invitation");
+    } finally {
+      setInviting(false);
+    }
+  };
+
+  const handleResendInvitation = async (invitation: Invitation) => {
+    if (!orgId) return;
+    try {
+      await resendInvitation(orgId, invitation.id);
+      toast.success(`Invitation resent to ${invitation.email}`);
+      void loadInvitations(invitationStatusFilter);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to resend invitation");
+    }
+  };
+
+  const handleRevokeInvitation = async (invitation: Invitation) => {
+    if (!orgId) return;
+    try {
+      await revokeInvitation(orgId, invitation.id);
+      toast.success("Invitation revoked");
+      void loadInvitations(invitationStatusFilter);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to revoke invitation");
+    }
+  };
+
   const handleToggleGroup = async () => {
     if (!orgId || !groupToToggle) return;
 
@@ -476,23 +568,39 @@ export const UserManagement = () => {
     }
   };
 
-  const handleToggleMember = () => {
-    if (!memberToToggle) return;
+  const handleToggleMember = async () => {
+    if (!orgId || !memberToToggle) return;
     const target = memberToToggle;
     const nextActive = isInactiveStatus(target.membershipStatus);
+    setMemberToToggle(null);
     setMembers((current) =>
       current.map((member) =>
         member.membershipId === target.membershipId
-          ? { ...member, membershipStatus: nextActive ? "active" : "inactive" }
+          ? { ...member, membershipStatus: nextActive ? "ACTIVE" : "SUSPENDED" }
           : member,
       ),
     );
-    setMemberToToggle(null);
-    toast.info(
-      nextActive
-        ? "User activation is pending backend support"
-        : "User deactivation is pending backend support",
-    );
+
+    // Backend lifecycle (§3.2): suspend (ACTIVE → SUSPENDED) and
+    // reactivate (SUSPENDED → ACTIVE).
+    try {
+      const updated = nextActive
+        ? await reactivateOrganizationMember(orgId, target.userId)
+        : await suspendOrganizationMember(orgId, target.userId);
+      setMembers((current) =>
+        current.map((member) =>
+          member.membershipId === target.membershipId ? updated : member,
+        ),
+      );
+      toast.success(nextActive ? "User reactivated" : "User suspended");
+    } catch (err) {
+      setMembers((current) =>
+        current.map((member) =>
+          member.membershipId === target.membershipId ? target : member,
+        ),
+      );
+      toast.error(err instanceof Error ? err.message : "Failed to update user status");
+    }
   };
 
   return (
@@ -588,6 +696,99 @@ export const UserManagement = () => {
               )}
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="invitations">
+          <Card className="p-0 overflow-hidden">
+            <div className="px-4 py-3 border-b border-border bg-muted/30 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <MailPlus className="w-4 h-4 text-foreground" />
+                <h2 className="text-sm font-semibold text-foreground">Invitations</h2>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Select value={invitationStatusFilter} onValueChange={setInvitationStatusFilter}>
+                  <SelectTrigger className="h-9 w-[160px] text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All statuses</SelectItem>
+                    <SelectItem value="PENDING">Pending</SelectItem>
+                    <SelectItem value="ACCEPTED">Accepted</SelectItem>
+                    <SelectItem value="REVOKED">Revoked</SelectItem>
+                    <SelectItem value="EXPIRED">Expired</SelectItem>
+                  </SelectContent>
+                </Select>
+                {isAdmin && (
+                  <Button size="sm" className="min-h-9 h-auto text-sm gap-1" onClick={() => setInviteOpen(true)}>
+                    <MailPlus className="w-3.5 h-3.5" /> Invite User
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {invitationsLoading ? (
+              <LoadingPanel label="Loading invitations..." />
+            ) : invitationsError ? (
+              <div className="p-4"><ErrorPanel message={invitationsError} /></div>
+            ) : invitations.length === 0 ? (
+              <p className="text-sm text-foreground text-center py-10">No invitations found.</p>
+            ) : (
+              <div className="max-w-full overflow-x-auto [-webkit-overflow-scrolling:touch]">
+                <table className="w-full min-w-[820px] text-sm">
+                  <thead className="text-[11px] uppercase tracking-wider text-foreground border-b border-border">
+                    <tr>
+                      <th className="text-left px-4 py-2 font-semibold">Email</th>
+                      <th className="text-left px-4 py-2 font-semibold">Status</th>
+                      <th className="text-left px-4 py-2 font-semibold">Expires</th>
+                      <th className="text-left px-4 py-2 font-semibold">Created</th>
+                      <th className="text-right px-4 py-2 font-semibold">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {invitations.map((invitation) => (
+                      <tr key={invitation.id} className="border-b border-border last:border-0 hover:bg-muted/20">
+                        <td className="px-4 py-2.5">
+                          <span className="inline-flex items-center gap-1.5 text-foreground">
+                            <Mail className="w-3 h-3" /> {invitation.email}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2.5"><StatusBadge status={invitation.status?.toLowerCase()} /></td>
+                        <td className="px-4 py-2.5 text-xs text-foreground">{formatDate(invitation.expiresAt)}</td>
+                        <td className="px-4 py-2.5 text-xs text-foreground">{formatDate(invitation.createdAt)}</td>
+                        <td className="px-4 py-2.5 text-right">
+                          <div className="flex flex-wrap items-center justify-end gap-1.5">
+                            {invitation.status === "PENDING" && isAdmin && (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="min-h-8 h-auto text-sm gap-1 text-blue-600 hover:text-blue-700"
+                                  onClick={() => handleResendInvitation(invitation)}
+                                >
+                                  <MailPlus className="w-3 h-3" /> Resend
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="min-h-8 h-auto text-sm gap-1 text-destructive hover:text-destructive"
+                                  onClick={() => handleRevokeInvitation(invitation)}
+                                >
+                                  <XCircle className="w-3 h-3" /> Revoke
+                                </Button>
+                              </>
+                            )}
+                            {invitation.status !== "PENDING" && (
+                              <span className="text-xs text-foreground">No actions</span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
         </TabsContent>
 
         <TabsContent value="users">
@@ -810,7 +1011,7 @@ export const UserManagement = () => {
               {isInactiveStatus(memberToToggle?.membershipStatus) ? "Activate user?" : "Deactivate user?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              This updates the table optimistically. The backend endpoint for user activation/deactivation has not been provided yet.
+              This will suspend or reactivate the user via the backend member lifecycle endpoints.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -819,7 +1020,7 @@ export const UserManagement = () => {
               className={isInactiveStatus(memberToToggle?.membershipStatus) ? "" : "bg-destructive hover:bg-destructive/90"}
               onClick={handleToggleMember}
             >
-              {isInactiveStatus(memberToToggle?.membershipStatus) ? "Activate" : "Deactivate"}
+              {isInactiveStatus(memberToToggle?.membershipStatus) ? "Reactivate" : "Suspend"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -865,6 +1066,53 @@ export const UserManagement = () => {
             <AlertDialogCancel disabled={creatingGroup}>Cancel</AlertDialogCancel>
             <AlertDialogAction disabled={!groupName.trim() || creatingGroup} onClick={handleCreateGroup}>
               {creatingGroup ? "Creating..." : "Create"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={inviteOpen} onOpenChange={setInviteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Invite user</AlertDialogTitle>
+            <AlertDialogDescription>
+              Send a 7-day invitation email. The user accepts it to register or join this organization.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="invite-email">Email</Label>
+              <Input
+                id="invite-email"
+                type="email"
+                value={inviteEmail}
+                onChange={(event) => setInviteEmail(event.target.value)}
+                placeholder="e.g. analyst@icea.co.ke"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Initial group (optional)</Label>
+              <Select value={inviteGroupId} onValueChange={setInviteGroupId}>
+                <SelectTrigger className="h-9 text-sm">
+                  <SelectValue placeholder="Defaults to ORG_MEMBER" />
+                </SelectTrigger>
+                <SelectContent>
+                  {groups.map((group) => (
+                    <SelectItem key={group.id} value={group.id}>
+                      {group.name} ({group.code ?? ""})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={inviting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!inviteEmail.trim() || inviting}
+              onClick={handleCreateInvitation}
+            >
+              {inviting ? "Sending..." : "Send invitation"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1040,15 +1288,43 @@ export function UserMemberView() {
 
 export function UserMemberEdit() {
   const { memberId } = useParams();
-  const { member, state, error } = useMember(memberId);
+  const { orgId, member, state, error } = useMember(memberId);
+  const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (member) {
+      setEmail(member.email);
+      setFullName(member.fullName);
+    }
+  }, [member]);
+
+  const handleSave = async () => {
+    if (!orgId || !member) return;
+    setSaving(true);
+    try {
+      await updateOrganizationMember(orgId, member.userId, {
+        email: email.trim(),
+        fullName: fullName.trim(),
+      });
+      toast.success("Member updated");
+      navigate(`/settings/users/members/${member.membershipId}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update member");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <ManagementLayout
       title="Edit User"
-      description="Review user fields before backend editing is available."
+      description="Update member profile details."
       canonical={`/settings/users/members/${memberId ?? ""}/edit`}
     >
-      <PageHeader title="Edit User" description="User editing is prepared as a page and waiting for the backend update endpoint." />
+      <PageHeader title="Edit User" description="Update the member's email and full name via the backend update endpoint. Deactivated members cannot be edited." />
 
       {state === "loading" && <LoadingPanel label="Loading user..." />}
       {state === "error" && <ErrorPanel message={error ?? "Failed to load user"} />}
@@ -1056,12 +1332,21 @@ export function UserMemberEdit() {
         <Card className="p-4">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="edit-name">Name</Label>
-              <Input id="edit-name" value={member.fullName} readOnly disabled />
+              <Label htmlFor="edit-name">Full name</Label>
+              <Input
+                id="edit-name"
+                value={fullName}
+                onChange={(event) => setFullName(event.target.value)}
+              />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="edit-email">Email</Label>
-              <Input id="edit-email" value={member.email} readOnly disabled />
+              <Input
+                id="edit-email"
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+              />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="edit-username">Username</Label>
@@ -1072,12 +1357,14 @@ export function UserMemberEdit() {
               <Input id="edit-status" value={statusLabel(member.membershipStatus)} readOnly disabled />
             </div>
           </div>
-          <div className="mt-5 flex justify-end">
-            <Button disabled>Save changes</Button>
+          <div className="mt-5 flex justify-end gap-2">
+            <Button asChild variant="outline">
+              <Link to={`/settings/users/members/${member.membershipId}`}>Cancel</Link>
+            </Button>
+            <Button onClick={handleSave} disabled={saving || !fullName.trim() || !email.trim()}>
+              {saving ? "Saving..." : "Save changes"}
+            </Button>
           </div>
-          <p className="text-xs text-foreground mt-3">
-            Saving is disabled until the user update endpoint is provided.
-          </p>
         </Card>
       )}
     </ManagementLayout>
@@ -1240,7 +1527,7 @@ export function GroupMembersView() {
     if (!orgId || !groupId) return;
     setBusy(true);
     try {
-      await removeGroupMember(orgId, groupId, member.membershipId ?? member.userId);
+      await removeGroupMember(orgId, groupId, member.userId);
       await loadMembers();
       toast.success("Member removed");
     } catch (err) {

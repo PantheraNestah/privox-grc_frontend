@@ -51,7 +51,7 @@ export function fromBackendOrgNodeType(backendType: BackendOrgNodeType): string 
   return BACKEND_TO_LOCAL_TYPE[backendType];
 }
 
-interface OrgNodeMetadata {
+interface OrgNodeMetadata extends Record<string, unknown> {
   lineOfDefense?: 1 | 2 | 3;
   offerings?: OrgOffering[];
 }

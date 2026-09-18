@@ -134,8 +134,57 @@ export interface GroupMember {
 export interface CreateOrganizationGroupRequest {
   code: string;
   name: string;
+  description?: string;
 }
 
 export interface UpdateOrganizationGroupRequest {
-  description: string;
+  name?: string;
+  description?: string;
+}
+
+export interface UpdateOrganizationRequest {
+  name?: string;
+  slug?: string;
+  planTier?: string;
+  countryCode?: string;
+}
+
+export interface CreateOrganizationMemberRequest {
+  email: string;
+  username?: string;
+  fullName: string;
+  password: string;
+  initialGroupId: string;
+}
+
+/** Backend UserGroupResponse (§3.6) — uses groupId, not id. */
+export interface UserGroupAssignment {
+  groupMembershipId: string;
+  groupId: string;
+  code?: string;
+  name: string;
+  description?: string;
+  scopeType?: string;
+  systemDefault?: boolean;
+  active?: boolean;
+  addedByUserId?: string;
+  assignedAt?: string;
+}
+
+/** Backend InvitationResponse (§3.3). */
+export interface Invitation {
+  id: string;
+  organizationId: string;
+  userId?: string | null;
+  email: string;
+  initialGroupId?: string | null;
+  invitedByUserId?: string;
+  status: "PENDING" | "ACCEPTED" | "REVOKED" | "EXPIRED" | string;
+  expiresAt?: string;
+  createdAt?: string;
+}
+
+export interface CreateInvitationRequest {
+  email: string;
+  initialGroupId?: string;
 }

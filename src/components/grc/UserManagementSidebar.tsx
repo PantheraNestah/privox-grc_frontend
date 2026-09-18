@@ -1,12 +1,18 @@
 import { Link, useLocation, useSearchParams } from "react-router-dom";
-import { LayoutDashboard, Layers, ShieldCheck, Users } from "lucide-react";
+import { LayoutDashboard, Layers, MailPlus, ShieldCheck, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type UserManagementSection = "dashboard" | "users" | "groups" | "permissions";
+export type UserManagementSection =
+  | "dashboard"
+  | "users"
+  | "groups"
+  | "permissions"
+  | "invitations";
 
 const items: { value: UserManagementSection; label: string; icon: typeof LayoutDashboard }[] = [
   { value: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { value: "users", label: "Users", icon: Users },
+  { value: "invitations", label: "Invitations", icon: MailPlus },
   { value: "groups", label: "Groups", icon: Layers },
   { value: "permissions", label: "Permissions", icon: ShieldCheck },
 ];
@@ -17,9 +23,11 @@ export function useUserManagementSection(): UserManagementSection {
   const tab = searchParams.get("tab");
 
   if (location.pathname.startsWith("/settings/users/members")) return "users";
+  if (location.pathname.startsWith("/settings/users/invitations")) return "invitations";
   if (location.pathname.startsWith("/settings/users/groups")) return "groups";
   if (tab === "groups") return "groups";
   if (tab === "permissions") return "permissions";
+  if (tab === "invitations") return "invitations";
   if (tab === "users") return "users";
   return "dashboard";
 }
