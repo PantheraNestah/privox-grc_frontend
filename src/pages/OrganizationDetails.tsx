@@ -10,6 +10,7 @@ import {
   Clock,
   Hash,
   MapPin,
+  Network,
   Pencil,
 } from "lucide-react";
 import { TopNav } from "@/components/grc/TopNav";
@@ -18,7 +19,13 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchOrganization } from "@/lib/organization";
+import { fetchOrgNodes } from "@/lib/orgNodes";
+import {
+  OrgTreeGraph,
+  flatOrgNodesToView,
+} from "@/components/grc/OrgTreeGraph";
 import type { OrganizationDetailDto } from "@/lib/auth-types";
+import type { OrgNodeResponse } from "@/lib/governance-types";
 
 type LoadState = "idle" | "loading" | "ready" | "error";
 
@@ -102,6 +109,24 @@ const OrganizationDetails = () => {
   }, [authOrganization]);
 
   const pageTitle = organization?.name ?? authOrganization?.name ?? "Organization Details";
+  const [orgNodes, setOrgNodes] = useState<OrgNodeResponse[] | null>(null);
+
+  // Best-effort org map — silently hidden when the tree endpoint is
+  // unavailable (e.g. GOVERNANCE module disabled or lacking orgnode.view).
+  useEffect(() => {
+    if (!authOrganization?.id) return;
+    let cancelled = false;
+    fetchOrgNodes(authOrganization.id)
+      .then((nodes) => {
+        if (!cancelled) setOrgNodes(nodes);
+      })
+      .catch(() => {
+        if (!cancelled) setOrgNodes(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [authOrganization]);
 
   return (
     <>
@@ -162,6 +187,21 @@ const OrganizationDetails = () => {
 
           {state === "ready" && organization && (
             <div className="space-y-5">
+              {orgNodes && orgNodes.length > 0 && (
+                <Card className="p-0 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center gap-2">
+                    <Network className="h-4 w-4 text-foreground" />
+                    <h2 className="text-sm font-semibold text-foreground">
+                      Organization map ({orgNodes.length} node{orgNodes.length === 1 ? "" : "s"})
+                    </h2>
+                  </div>
+                  <OrgTreeGraph
+                    roots={flatOrgNodesToView(orgNodes)}
+                    className="h-[420px]"
+                  />
+                </Card>
+              )}
+
               <Card className="p-4">
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                   <DetailRow icon={<Building2 className="h-3.5 w-3.5" />} label="Name" value={organization.name} />
