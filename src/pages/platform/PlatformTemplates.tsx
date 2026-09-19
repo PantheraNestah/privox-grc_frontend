@@ -1,19 +1,7 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Calendar, Eye, Network, Plus, LayoutList, Workflow } from "lucide-react";
-import {
-  ReactFlow,
-  Background,
-  Controls,
-  Handle,
-  Position,
-  type Node as FlowNode,
-  type Edge as FlowEdge,
-  type NodeProps,
-  type NodeTypes,
-} from "@xyflow/react";
-import "@xyflow/react/dist/style.css";
-import dagre from "dagre";
+import { OrgTreeGraph, templatePreviewToView } from "@/components/grc/OrgTreeGraph";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -73,93 +61,15 @@ function PreviewNode({
   );
 }
 
-const HIERARCHY_CARD_WIDTH = 180;
-const HIERARCHY_CARD_HEIGHT = 60;
-
-type HierarchyCardData = { node: OrgNodeTemplatePreviewNode };
-
-const HierarchyCardNode = ({ data }: NodeProps & { data: HierarchyCardData }) => (
-  <div
-    className="rounded-md border border-border bg-card px-3 py-2 text-center shadow-sm"
-    style={{ width: HIERARCHY_CARD_WIDTH }}
-  >
-    <Handle type="target" position={Position.Top} className="opacity-0" />
-    <div className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
-      {data.node.type}
-    </div>
-    <div className="truncate text-xs font-semibold text-foreground" title={data.node.name}>
-      {data.node.name}
-    </div>
-    <Handle type="source" position={Position.Bottom} className="opacity-0" />
-  </div>
-);
-
-const hierarchyNodeTypes: NodeTypes = { hierarchyCard: HierarchyCardNode };
-
-function buildHierarchyLayout(root: OrgNodeTemplatePreviewNode): {
-  nodes: FlowNode[];
-  edges: FlowEdge[];
-} {
-  const g = new dagre.graphlib.Graph();
-  g.setDefaultEdgeLabel(() => ({}));
-  g.setGraph({ rankdir: "TB", nodesep: 24, ranksep: 48 });
-
-  const byId = new Map<string, OrgNodeTemplatePreviewNode>();
-  const edges: FlowEdge[] = [];
-  const stack: OrgNodeTemplatePreviewNode[] = [root];
-  while (stack.length) {
-    const current = stack.pop()!;
-    byId.set(current.id, current);
-    g.setNode(current.id, { width: HIERARCHY_CARD_WIDTH, height: HIERARCHY_CARD_HEIGHT });
-    for (const child of current.children ?? []) {
-      g.setEdge(current.id, child.id);
-      edges.push({
-        id: `${current.id}->${child.id}`,
-        source: current.id,
-        target: child.id,
-        type: "smoothstep",
-      });
-      stack.push(child);
-    }
-  }
-
-  dagre.layout(g);
-
-  const nodes: FlowNode[] = g.nodes().map((id) => {
-    const { x, y } = g.node(id);
-    return {
-      id,
-      type: "hierarchyCard",
-      position: { x: x - HIERARCHY_CARD_WIDTH / 2, y: y - HIERARCHY_CARD_HEIGHT / 2 },
-      data: { node: byId.get(id)! },
-      draggable: false,
-      connectable: false,
-    };
-  });
-
-  return { nodes, edges };
-}
-
+/** "Hierarchy" mode: shared horizontal tree visualiser with collapsible levels,
+ * type accents and metadata chips (headcount / location / cost centre). */
 function PreviewHierarchyView({ root }: { root: OrgNodeTemplatePreviewNode }) {
-  const { nodes, edges } = useMemo(() => buildHierarchyLayout(root), [root]);
-
+  const viewRoot = templatePreviewToView(root);
   return (
-    <div className="h-[50vh] overflow-hidden rounded-md">
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={hierarchyNodeTypes}
-        fitView
-        fitViewOptions={{ padding: 0.2 }}
-        nodesDraggable={false}
-        nodesConnectable={false}
-        elementsSelectable={false}
-        proOptions={{ hideAttribution: true }}
-      >
-        <Background gap={16} />
-        <Controls showInteractive={false} />
-      </ReactFlow>
-    </div>
+    <OrgTreeGraph
+      roots={[viewRoot]}
+      className="h-[55vh] rounded-md border border-border"
+    />
   );
 }
 
