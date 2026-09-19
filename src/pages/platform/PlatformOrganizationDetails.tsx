@@ -250,14 +250,20 @@ const PlatformOrganizationDetails = () => {
             </Card>
 
             <Card className="p-4">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <h2 className="text-sm font-semibold text-navy-deep">Enabled modules</h2>
-                <Link
-                  to="/platform/modules"
-                  className="text-xs font-medium text-blue-600 transition-colors hover:text-blue-700"
-                >
-                  View catalogue
-                </Link>
+              <div className="mb-3">
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="text-sm font-semibold text-navy-deep">Modules</h2>
+                  <Link
+                    to="/platform/modules"
+                    className="text-xs font-medium text-blue-600 transition-colors hover:text-blue-700"
+                  >
+                    View catalogue
+                  </Link>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  All platform modules for {org?.name ?? "this organization"} — toggle to enable or disable via the
+                  module subscription endpoints.
+                </p>
               </div>
 
               {modules.isLoading && (
@@ -270,7 +276,7 @@ const PlatformOrganizationDetails = () => {
               )}
               {!modules.isLoading && !modules.isError && moduleRows.length === 0 && (
                 <p className="py-4 text-sm text-muted-foreground">
-                  No modules are assigned to this organization yet.
+                  No modules are available on the platform catalogue yet.
                 </p>
               )}
               {moduleRows.length > 0 && (
