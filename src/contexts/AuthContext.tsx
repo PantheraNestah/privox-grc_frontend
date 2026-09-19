@@ -23,9 +23,6 @@ import type {
   AuthState,
 } from "@/lib/auth-types";
 
-// Default organisation UUID — hardcoded here, not in .env
-const ORGANIZATION_ID = "6d46a49f-268c-468a-a9ea-a0407db30d6b";
-
 // ─── Context ─────────────────────────────────────────────
 
 interface AuthContextValue extends AuthState {
@@ -139,9 +136,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data } = await api.post<LoginResponse>("/v1/auth/login", {
       identifier: req.identifier,
       password: req.password,
-      organizationId: ORGANIZATION_ID,
       rememberMe: req.rememberMe,
     });
+    // organizationId is intentionally omitted: the backend auto-resolves the
+    // user's primary/active organization (see AUTHENTICATION_LOGIN_FLOW.md §3,
+    // Smart Server-Side Auto-Resolution branch).
 
     storeRefreshToken(data.refreshToken, req.rememberMe);
     setAccessToken(data.accessToken);
