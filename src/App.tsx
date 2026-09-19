@@ -20,6 +20,7 @@ import DocumentManagement from "./pages/DocumentManagement.tsx";
 import SurveyManagement from "./pages/SurveyManagement.tsx";
 import SurveyRespond from "./pages/SurveyRespond.tsx";
 import OrganizationDetails from "./pages/OrganizationDetails.tsx";
+import ModuleSettings from "./pages/ModuleSettings.tsx";
 import UserManagement, {
   GroupEdit,
   GroupMembersView,
@@ -59,6 +60,7 @@ const App = () => (
                   <Route path="/governance/surveys" element={<SurveyManagement />} />
                   <Route path="/surveys/:surveyId/respond" element={<SurveyRespond />} />
                   <Route path="/settings/organization" element={<OrganizationDetails />} />
+                  <Route path="/settings/modules" element={<ModuleSettings />} />
                   <Route path="/settings/users" element={<UserManagement />} />
                   <Route path="/settings/users/members/:memberId" element={<UserMemberView />} />
                   <Route path="/settings/users/members/:memberId/edit" element={<UserMemberEdit />} />
