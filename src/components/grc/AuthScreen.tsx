@@ -11,8 +11,8 @@ import {
   ErrAlert,
   Steps,
 } from "@/components/grc/auth-bits";
+import { CredentialsForm } from "@/components/grc/CredentialsForm";
 import { cn } from "@/lib/utils";
-import { AxiosError } from "axios";
 
 type View = "login" | "fp-email" | "fp-otp" | "fp-newpw" | "fp-done";
 
@@ -47,94 +47,33 @@ export const AuthScreen = () => {
 
 const LoginView = ({ go, onSuccess }: { go: (v: View) => void; onSuccess: () => void }) => {
   const { login } = useAuth();
-  const [identifier, setIdentifier] = useState("");
-  const [p, setP] = useState("");
-  const [showPw, setShowPw] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
-  const [errs, setErrs] = useState<{ id?: boolean; p?: boolean; alert?: string }>({});
-  const [loading, setLoading] = useState(false);
-
-  const submit = async () => {
-    const next: typeof errs = {};
-    if (!identifier.trim()) next.id = true;
-    if (!p) next.p = true;
-    if (next.id || next.p) return setErrs(next);
-
-    setLoading(true);
-    setErrs({});
-    try {
-      await login({
-        identifier: identifier.trim(),
-        password: p,
-        rememberMe,
-      });
-      onSuccess();
-    } catch (err) {
-      const msg =
-        err instanceof AxiosError
-          ? err.response?.data?.message ||
-            err.response?.data?.error ||
-            `Login failed (${err.response?.status ?? "network error"})`
-          : "An unexpected error occurred. Please try again.";
-      setErrs({ alert: msg });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <div>
       <ViewHeader tag="Secure Access" title="Welcome back" sub="Sign in to your organisation's GRC workspace." />
-      <ErrAlert show={!!errs.alert} msg={errs.alert ?? ""} />
 
-      <div className="mb-4">
-        <FieldLabel>Email or Username</FieldLabel>
-        <div className="relative">
-          <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-muted" />
-          <input className={inputCx(errs.id)} placeholder="you@organisation.com" value={identifier}
-            onChange={e => { setIdentifier(e.target.value); setErrs(s => ({ ...s, id: false, alert: undefined })); }}
-            autoComplete="username" />
-        </div>
-        {errs.id && !errs.alert && <p className="text-xs text-destructive mt-1">Email or username is required.</p>}
-      </div>
-
-      <div className="mb-4">
-        <FieldLabel>Password</FieldLabel>
-        <div className="relative">
-          <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-muted" />
-          <input type={showPw ? "text" : "password"} className={inputCx(errs.p)} placeholder="••••••••" value={p}
-            onChange={e => { setP(e.target.value); setErrs(s => ({ ...s, p: false, alert: undefined })); }}
-            onKeyDown={e => e.key === "Enter" && submit()}
-            autoComplete="current-password" />
-          <button type="button" onClick={() => setShowPw(s => !s)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-brand-muted hover:text-brand-accent transition" aria-label="Toggle password">
-            {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-          </button>
-        </div>
-        {errs.p && !errs.alert && <p className="text-xs text-destructive mt-1">Password is required.</p>}
-      </div>
-
-      <div className="flex justify-between items-center mb-5">
-        <label className="flex items-center gap-2 text-[13px] text-brand-muted cursor-pointer select-none">
-          <input type="checkbox" checked={rememberMe}
-            onChange={e => setRememberMe(e.target.checked)}
-            className="w-3.5 h-3.5 accent-brand-accent" /> Remember me
-        </label>
-        <button onClick={() => go("fp-email")} className="text-[13px] font-medium text-brand-accent hover:text-navy transition">
-          Forgot password?
-        </button>
-      </div>
-
-      <PrimaryBtn loading={loading} onClick={submit}>Sign In</PrimaryBtn>
-      <p className="text-center text-xs text-brand-muted mt-4">
-        Don't have access? Contact your <strong className="text-navy-dark font-medium">GRC Administrator</strong>.
-      </p>
-      <p className="text-center text-xs text-brand-muted mt-3">
-        Platform operator?{" "}
-        <Link to="/platform/login" className="text-brand-accent font-medium hover:text-navy transition">
-          Sign in to Platform Admin
-        </Link>
-      </p>
+      <CredentialsForm
+        identifierPlaceholder="you@organisation.com"
+        failureLabel="Login failed"
+        onForgotPassword={() => go("fp-email")}
+        onSubmit={async (credentials) => {
+          await login(credentials);
+          onSuccess();
+        }}
+        footer={
+          <>
+            <p className="text-center text-xs text-brand-muted mt-4">
+              Don't have access? Contact your <strong className="text-navy-dark font-medium">GRC Administrator</strong>.
+            </p>
+            <p className="text-center text-xs text-brand-muted mt-3">
+              Platform operator?{" "}
+              <Link to="/platform/login" className="text-brand-accent font-medium hover:text-navy transition">
+                Sign in to Platform Admin
+              </Link>
+            </p>
+          </>
+        }
+      />
     </div>
   );
 };

@@ -43,7 +43,8 @@ export interface LoginResponse {
   expiresIn: number;
   accessTokenExpiresAt: string;
   user: UserDto;
-  organization: OrganizationDto;
+  /** `null` for platform-admin sessions. */
+  organization: OrganizationDto | null;
   permissions: string[];
 }
 

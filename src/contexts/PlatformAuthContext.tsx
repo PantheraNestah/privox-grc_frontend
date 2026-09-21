@@ -17,6 +17,12 @@ import {
 import { platformApi, refreshAccessToken } from "@/lib/api";
 import { getTokenRefreshDelay } from "@/lib/auth-refresh";
 import {
+  TENANT_ACCOUNT_ON_PLATFORM_PORTAL,
+  PortalMismatchError,
+  isPlatformSession,
+  revokeIssuedSession,
+} from "@/lib/auth-session";
+import {
   getAccessToken,
   setAccessToken,
   getStoredRefreshToken,
@@ -134,6 +140,13 @@ export function PlatformAuthProvider({ children }: { children: ReactNode }) {
   // ── Login ──────────────────────────────────────────────
   const login = useCallback(async (req: PlatformLoginRequest) => {
     const data: PlatformLoginResponse = await loginPlatformAdmin(req);
+
+    // Correct credentials are not enough: a tenant user gets a tenant session
+    // from this same endpoint and must not be admitted to the platform portal.
+    if (!isPlatformSession(data)) {
+      await revokeIssuedSession(platformApi, data);
+      throw new PortalMismatchError(TENANT_ACCOUNT_ON_PLATFORM_PORTAL);
+    }
 
     storeRefreshToken(data.refreshToken, req.rememberMe ?? false, "platform");
     setAccessToken(data.accessToken, "platform");
