@@ -16,6 +16,7 @@
  */
 
 import { platformApi } from "./api";
+import type { OrganizationDto } from "./auth-types";
 
 // ─── Organizations ─────────────────────────────────────────
 
@@ -215,7 +216,8 @@ export interface PlatformLoginResponse {
   expiresIn: number;
   accessTokenExpiresAt: string;
   user: PlatformUser;
-  organization: null;
+  /** Expected `null`; non-null means the account got a tenant session. */
+  organization: OrganizationDto | null;
   permissions: string[];
 }
 

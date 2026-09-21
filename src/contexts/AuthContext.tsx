@@ -9,6 +9,12 @@ import {
 import { api, refreshAccessToken } from "@/lib/api";
 import { getTokenRefreshDelay } from "@/lib/auth-refresh";
 import {
+  PLATFORM_ACCOUNT_ON_TENANT_PORTAL,
+  PortalMismatchError,
+  isTenantSession,
+  revokeIssuedSession,
+} from "@/lib/auth-session";
+import {
   getAccessToken,
   setAccessToken,
   getStoredRefreshToken,
@@ -140,7 +146,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     // organizationId is intentionally omitted: the backend auto-resolves the
     // user's primary/active organization (see AUTHENTICATION_LOGIN_FLOW.md §3,
-    // Smart Server-Side Auto-Resolution branch).
+    // Smart Server-Side Auto-Resolution branch). The same branch mints a
+    // platform session (organization: null) for platform admins, which the
+    // tenant portal must not accept.
+    if (!isTenantSession(data)) {
+      await revokeIssuedSession(api, data);
+      throw new PortalMismatchError(PLATFORM_ACCOUNT_ON_TENANT_PORTAL);
+    }
 
     storeRefreshToken(data.refreshToken, req.rememberMe);
     setAccessToken(data.accessToken);

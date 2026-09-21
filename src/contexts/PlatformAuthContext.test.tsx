@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { act, render, screen } from "@testing-library/react";
 import { PlatformAuthProvider, usePlatformAuth } from "./PlatformAuthContext";
 
@@ -113,5 +114,84 @@ describe("PlatformAuthProvider", () => {
 
     expect(mocks.refreshAccessToken).toHaveBeenCalledWith("platform");
     expect(screen.getByTestId("token")).toHaveTextContent("p-access-2");
+  });
+});
+
+describe("PlatformAuthProvider portal scope", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
+    vi.clearAllMocks();
+    mocks.refreshAccessToken.mockReset();
+    mocks.getStoredRefreshToken.mockReturnValue(null);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function ScopeProbe() {
+    const auth = usePlatformAuth();
+    const [error, setError] = useState("");
+    return (
+      <>
+        <span data-testid="authenticated">{String(auth.isAuthenticated)}</span>
+        <span data-testid="error">{error}</span>
+        <button
+          onClick={() =>
+            auth
+              .login({ identifier: "user@org.com", password: "secret", rememberMe: true })
+              .catch((e: Error) => setError(`${e.name}: ${e.message}`))
+          }
+        >
+          login
+        </button>
+      </>
+    );
+  }
+
+  const tenantResponse = {
+    ...loginResponse,
+    accessToken: "t-access-1",
+    refreshToken: "t-refresh-1",
+    organization: { id: "o1", code: "ORG", name: "Org" },
+    permissions: ["orgnode.view"],
+  };
+
+  it("rejects a tenant session and revokes it instead of storing it", async () => {
+    mocks.loginPlatformAdmin.mockResolvedValue(tenantResponse);
+
+    render(<PlatformAuthProvider><ScopeProbe /></PlatformAuthProvider>);
+    await act(async () => screen.getByText("login").click());
+
+    expect(screen.getByTestId("authenticated")).toHaveTextContent("false");
+    expect(screen.getByTestId("error")).toHaveTextContent("PortalMismatchError");
+    expect(mocks.storeRefreshToken).not.toHaveBeenCalled();
+    expect(mocks.setAccessToken).not.toHaveBeenCalledWith("t-access-1", "platform");
+    expect(mocks.platformApiPost).toHaveBeenCalledWith(
+      "/v1/auth/logout",
+      expect.objectContaining({ accessToken: "t-access-1", refreshToken: "t-refresh-1" }),
+      { headers: { Authorization: "Bearer t-access-1" } },
+    );
+  });
+
+  it("rejects a session with no organisation but no platform permissions", async () => {
+    mocks.loginPlatformAdmin.mockResolvedValue({ ...loginResponse, permissions: [] });
+
+    render(<PlatformAuthProvider><ScopeProbe /></PlatformAuthProvider>);
+    await act(async () => screen.getByText("login").click());
+
+    expect(screen.getByTestId("authenticated")).toHaveTextContent("false");
+    expect(screen.getByTestId("error")).toHaveTextContent("PortalMismatchError");
+  });
+
+  it("accepts a genuine platform session", async () => {
+    mocks.loginPlatformAdmin.mockResolvedValue(loginResponse);
+
+    render(<PlatformAuthProvider><ScopeProbe /></PlatformAuthProvider>);
+    await act(async () => screen.getByText("login").click());
+
+    expect(screen.getByTestId("authenticated")).toHaveTextContent("true");
+    expect(mocks.platformApiPost).not.toHaveBeenCalled();
   });
 });

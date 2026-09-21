@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { act, render, screen } from "@testing-library/react";
 import { useAuth, AuthProvider } from "./AuthContext";
 import { getTokenRefreshDelay } from "@/lib/auth-refresh";
@@ -118,5 +119,83 @@ describe("AuthProvider proactive token refresh", () => {
     expect(mocks.clearStoredTokens).toHaveBeenCalled();
     expect(mocks.setAccessToken).toHaveBeenLastCalledWith(null);
     expect(screen.getByTestId("authenticated")).toHaveTextContent("false");
+  });
+});
+
+describe("AuthProvider portal scope", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
+    vi.clearAllMocks();
+    mocks.refreshAccessToken.mockReset();
+    mocks.getStoredRefreshToken.mockReturnValue(null);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function ScopeProbe() {
+    const auth = useAuth();
+    const [error, setError] = useState("");
+    return (
+      <>
+        <span data-testid="authenticated">{String(auth.isAuthenticated)}</span>
+        <span data-testid="error">{error}</span>
+        <button
+          onClick={() =>
+            auth
+              .login({ identifier: "a", password: "secret", rememberMe: false })
+              .catch((e: Error) => setError(`${e.name}: ${e.message}`))
+          }
+        >
+          login
+        </button>
+      </>
+    );
+  }
+
+  it("rejects a platform-admin session and revokes it instead of storing it", async () => {
+    const platformResponse = {
+      ...loginResponse,
+      organization: null,
+      permissions: ["platform.organization.view"],
+    };
+    mocks.apiPost.mockResolvedValue({ data: platformResponse });
+
+    render(<AuthProvider><ScopeProbe /></AuthProvider>);
+    await act(async () => screen.getByText("login").click());
+
+    expect(screen.getByTestId("authenticated")).toHaveTextContent("false");
+    expect(screen.getByTestId("error")).toHaveTextContent("PortalMismatchError");
+    expect(mocks.storeRefreshToken).not.toHaveBeenCalled();
+    expect(mocks.setAccessToken).not.toHaveBeenCalledWith("access-1");
+    expect(mocks.apiPost).toHaveBeenCalledWith(
+      "/v1/auth/logout",
+      expect.objectContaining({ accessToken: "access-1", refreshToken: "refresh-1" }),
+      { headers: { Authorization: "Bearer access-1" } },
+    );
+  });
+
+  it("still surfaces the mismatch when revoking the session fails", async () => {
+    mocks.apiPost
+      .mockResolvedValueOnce({ data: { ...loginResponse, organization: null, permissions: ["platform.x"] } })
+      .mockRejectedValueOnce(new Error("offline"));
+
+    render(<AuthProvider><ScopeProbe /></AuthProvider>);
+    await act(async () => screen.getByText("login").click());
+
+    expect(screen.getByTestId("error")).toHaveTextContent("PortalMismatchError");
+    expect(screen.getByTestId("authenticated")).toHaveTextContent("false");
+  });
+
+  it("accepts a tenant session bound to an organisation", async () => {
+    mocks.apiPost.mockResolvedValue({ data: loginResponse });
+
+    render(<AuthProvider><ScopeProbe /></AuthProvider>);
+    await act(async () => screen.getByText("login").click());
+
+    expect(screen.getByTestId("authenticated")).toHaveTextContent("true");
+    expect(mocks.apiPost).toHaveBeenCalledTimes(1);
   });
 });
