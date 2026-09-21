@@ -160,7 +160,7 @@ export interface CreateOrganizationMemberRequest {
   initialGroupId: string;
 }
 
-/** Backend UserGroupResponse (§3.6) — uses groupId, not id. */
+/** Backend UserGroupResponse — uses groupId, not id. */
 export interface UserGroupAssignment {
   groupMembershipId: string;
   groupId: string;
@@ -174,7 +174,7 @@ export interface UserGroupAssignment {
   assignedAt?: string;
 }
 
-/** Backend InvitationResponse (§3.3). */
+/** Backend InvitationResponse. */
 export interface Invitation {
   id: string;
   organizationId: string;

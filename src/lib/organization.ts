@@ -179,7 +179,7 @@ export async function removeGroupMember(
   groupId: string,
   userId: string,
 ): Promise<void> {
-  // Backend DELETE path variable is the user id (per §3.5), not the membership id.
+  // Backend DELETE path variable is the user id, not the membership id.
   await api.delete(
     `/v1/organizations/${orgId}/groups/${groupId}/members/${userId}`,
   );
@@ -211,7 +211,7 @@ export async function updateGroupPermissions(
   );
 }
 
-// ─── Member lifecycle (§3.2) ─────────────────────────────
+// ─── Member lifecycle ────────────────────────────────────
 
 async function memberTransition(
   orgId: string,
@@ -248,7 +248,7 @@ export async function updateOrganizationMember(
   return data;
 }
 
-// ─── Invitations (§3.3) ───────────────────────────────────
+// ─── Invitations ──────────────────────────────────────────
 
 export async function fetchOrganizationInvitations(
   orgId: string,

@@ -1,6 +1,5 @@
 /**
- * Maps between the backend `RiskStrategyConfigResponse` shape (§17 of
- * GOVERNANCE_API_ENDPOINTS.md) and the local `RiskStrategyConfig` UI shape
+ * Maps between the backend `RiskStrategyConfigResponse` shape and the local `RiskStrategyConfig` UI shape
  * (src/data/orgStore.ts), which predates the API and carries a couple of
  * client-only cosmetic fields the backend has no column for:
  *  - `ScaleBand.color` — an HSL token used purely for the level badge color;

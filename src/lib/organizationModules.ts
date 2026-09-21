@@ -4,7 +4,7 @@ import { MODULES, type ModuleDef } from "@/data/modules";
 /**
  * Organization module subscription row (backend OrganizationModuleResponse).
  *
- * The listing endpoint (§3.7, GET /v1/organizations/{id}/modules) now returns
+ * The listing endpoint (GET /v1/organizations/{id}/modules) now returns
  * ALL catalogued modules — including disabled ones — with an explicit
  * `enabled` boolean flag.
  */

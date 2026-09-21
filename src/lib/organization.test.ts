@@ -113,7 +113,7 @@ describe("organization group management helpers", () => {
       Promise.resolve({
         data:
           url.includes("/members/")
-            // §3.6 member-group list uses UserGroupResponse (groupId, not id)
+            // member-group list uses UserGroupResponse (groupId, not id)
             ? [{ groupMembershipId: "gm-1", groupId: "group-1", name: "Editors", active: true }]
             : [{ id: "group-1", name: "Editors", active: true }],
       }),
