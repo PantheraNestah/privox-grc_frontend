@@ -103,10 +103,10 @@ const PlatformModules = () => {
                   </p>
 
                   <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
-                    <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-navy-dark">
+                    <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-navy-dark">
                       {module.code}
                     </span>
-                    <span className="font-mono text-[11px] text-muted-foreground">#{module.sortOrder}</span>
+                    <span className="text-[11px] text-muted-foreground">#{module.sortOrder}</span>
                   </div>
                 </Card>
               );

@@ -201,7 +201,7 @@ const PlatformDashboard = () => {
                     <OrgAvatar name={org.name} />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium text-navy-deep">{org.name}</div>
-                      <div className="truncate font-mono text-[11px] text-muted-foreground">
+                      <div className="truncate text-[11px] text-muted-foreground">
                         {org.code} · {formatDateTime(org.createdAt)}
                       </div>
                     </div>
@@ -244,7 +244,7 @@ const PlatformDashboard = () => {
                       <span className={cn("h-2 w-2 rounded-full", d.bar)} aria-hidden />
                       {d.label}
                     </span>
-                    <span className="font-mono text-xs text-muted-foreground">
+                    <span className="text-xs text-muted-foreground">
                       {organizations.isLoading ? "…" : d.value}
                     </span>
                   </li>

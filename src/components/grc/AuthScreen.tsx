@@ -46,7 +46,7 @@ const LoginView = ({ go, onSuccess }: { go: (v: View) => void; onSuccess: () => 
 
   return (
     <div>
-      <ViewHeader tag="Secure Access" title="Welcome back" sub="Sign in to your organisation's GRC workspace." />
+      <ViewHeader title="Welcome back" sub="Sign in to your organisation's GRC workspace." />
 
       <CredentialsForm
         identifierPlaceholder="you@organisation.com"
@@ -262,7 +262,7 @@ const ForgotOtpView = ({ go }: { go: (v: View) => void }) => {
               onKeyDown={(e) => onKey(i, e)}
               onPaste={onPaste}
               className={cn(
-                "h-14 min-w-0 flex-1 rounded-[10px] border-[1.5px] bg-offwhite px-0 text-center font-mono text-xl font-semibold text-navy-deep md:text-xl",
+                "h-14 min-w-0 flex-1 rounded-[10px] border-[1.5px] bg-offwhite px-0 text-center text-xl font-semibold text-navy-deep md:text-xl",
                 "focus-visible:border-brand-accent focus-visible:bg-white focus-visible:ring-[3px] focus-visible:ring-brand-accent/15 focus-visible:ring-offset-0",
                 v && "border-navy bg-white",
               )}
@@ -282,7 +282,7 @@ const ForgotOtpView = ({ go }: { go: (v: View) => void }) => {
           >
             Resend code
           </button>
-          {seconds > 0 && <span className="font-mono text-xs">({seconds}s)</span>}
+          {seconds > 0 && <span className="text-xs">({seconds}s)</span>}
         </div>
       </div>
       <SubmitButton loading={loading}>Verify Code</SubmitButton>
@@ -401,7 +401,7 @@ const ForgotNewPwView = ({ go }: { go: (v: View) => void }) => {
         <div className="mt-2 h-1 overflow-hidden rounded-full bg-muted" aria-hidden>
           <div className={cn("h-full rounded-full transition-all", level.bar)} style={{ width: level.width }} />
         </div>
-        <p className={cn("mt-1 font-mono text-[11.5px]", level.text)}>{level.label}</p>
+        <p className={cn("mt-1 text-[11.5px]", level.text)}>{level.label}</p>
         <FieldError>{errs.pw}</FieldError>
       </PasswordField>
       <PasswordField

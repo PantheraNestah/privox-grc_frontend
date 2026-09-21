@@ -185,7 +185,7 @@ const PlatformOrganizations = () => {
                       <p className="truncate text-sm font-medium text-navy-deep transition-colors group-hover:text-brand-accent">
                         {org.name}
                       </p>
-                      <p className="truncate font-mono text-[11px] text-muted-foreground">{org.slug}</p>
+                      <p className="truncate text-[11px] text-muted-foreground">{org.slug}</p>
                     </div>
                   </div>
 
@@ -194,7 +194,7 @@ const PlatformOrganizations = () => {
                   </div>
 
                   <div className="col-span-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground lg:contents">
-                    <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-navy-dark lg:bg-transparent lg:p-0 lg:text-xs">
+                    <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-navy-dark lg:bg-transparent lg:p-0 lg:text-xs">
                       {org.code}
                     </span>
                     <span className="lg:text-sm lg:text-foreground">{org.planTier ?? "—"}</span>

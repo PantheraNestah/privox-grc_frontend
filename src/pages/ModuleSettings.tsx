@@ -73,7 +73,7 @@ const ModuleSettings = () => {
                     <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
                       {def?.desc ?? row.description ?? "—"}
                     </p>
-                    <p className="mt-1.5 font-mono text-[11px] text-muted-foreground">
+                    <p className="mt-1.5 text-[11px] text-muted-foreground">
                       {row.code}
                       {row.enabled && row.enabledAt && !row.disabledAt && (
                         <> · Enabled since {new Date(row.enabledAt).toLocaleDateString()}</>

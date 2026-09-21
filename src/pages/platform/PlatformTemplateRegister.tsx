@@ -298,7 +298,7 @@ function TemplateRegisterForm() {
                       rows={16}
                       spellCheck={false}
                       aria-label="Template JSON"
-                      className="font-mono text-xs"
+                      className="text-xs"
                     />
                     {jsonUnparseable && (
                       <p className="text-xs text-warn">

@@ -120,7 +120,7 @@ export function AppTopNav({
                     {n.text}
                     {n.highlight && <strong className="font-semibold">{n.highlight}</strong>}
                   </div>
-                  <div className="mt-0.5 font-mono text-[11px] text-brand-muted">{n.meta}</div>
+                  <div className="mt-0.5 text-[11px] text-brand-muted">{n.meta}</div>
                 </div>
               </button>
             ))}

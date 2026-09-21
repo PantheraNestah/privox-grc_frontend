@@ -22,7 +22,7 @@ export function NavLinks({ groups, collapsed = false, onNavigate }: NavLinksProp
             (collapsed ? (
               index > 0 && <div className="mx-3 mb-2 h-px bg-border" aria-hidden />
             ) : (
-              <p className="px-3 pb-1 font-mono text-[10.5px] uppercase tracking-[0.15em] text-brand-muted">
+              <p className="px-3 pb-1 text-[10.5px] uppercase tracking-[0.15em] text-brand-muted">
                 {group.label}
               </p>
             ))}

@@ -82,7 +82,7 @@ const Dashboard = () => {
         description={
           <>
             Here's your GRC platform overview for today.{" "}
-            <span className="font-mono text-xs text-brand-accent">{dateStr}</span>
+            <span className="text-xs text-brand-accent">{dateStr}</span>
           </>
         }
       />

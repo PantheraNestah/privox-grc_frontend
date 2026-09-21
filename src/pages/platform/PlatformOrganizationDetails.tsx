@@ -191,7 +191,7 @@ const PlatformOrganizationDetails = () => {
             eyebrow={<PlatformStatusBadge status={org.status} />}
             title={org.name}
             description={
-              <span className="font-mono text-xs">
+              <span className="text-xs">
                 {org.code} · {org.slug}
               </span>
             }
@@ -267,7 +267,7 @@ const PlatformOrganizationDetails = () => {
                         <span>
                           {enabledCount} of {moduleRows.length} enabled
                         </span>
-                        <span className="font-mono">{Math.round((enabledCount / moduleRows.length) * 100)}%</span>
+                        <span >{Math.round((enabledCount / moduleRows.length) * 100)}%</span>
                       </div>
                       <div className="h-1.5 overflow-hidden rounded-full bg-muted">
                         <div
@@ -349,7 +349,7 @@ const PlatformOrganizationDetails = () => {
                   )}
                   {!canAssignModules && (
                     <p className="mt-3 rounded-md bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
-                      You don't have the <span className="font-mono">platform.module.assign</span> permission.
+                      You don't have the <span >platform.module.assign</span> permission.
                     </p>
                   )}
                 </CardContent>
@@ -372,7 +372,7 @@ const PlatformOrganizationDetails = () => {
                       detail={
                         org.validatedByUserId && (
                           <>
-                            by <span className="break-all font-mono">{org.validatedByUserId}</span>
+                            by <span className="break-all">{org.validatedByUserId}</span>
                           </>
                         )
                       }

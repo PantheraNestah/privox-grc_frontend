@@ -37,10 +37,8 @@ const PlatformLogin = () => {
           </>
         }
         panelSubtitle="Operator console for onboarding organisations, validating tenants and assigning platform modules."
-        panelTags={["Organisations", "Approvals", "Modules", "Templates"]}
       >
         <ViewHeader
-          tag="Platform Access"
           title="Administrator sign in"
           sub="Sign in with your platform operator credentials."
         />

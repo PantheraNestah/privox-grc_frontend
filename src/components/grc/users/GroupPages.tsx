@@ -265,7 +265,7 @@ export function GroupMembersView() {
                 <TableRow key={member.membershipId ?? member.userId}>
                   <TableCell className="font-medium text-navy-deep">{member.fullName}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{member.email}</TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">{member.username}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{member.username}</TableCell>
                   <TableCell>
                     <StatusBadge status={member.membershipStatus} />
                   </TableCell>
@@ -380,7 +380,7 @@ function GroupEditForm({ orgId, group, catalog, initialPermissionIds }: GroupEdi
                         <span className="block text-sm font-medium text-navy-deep">
                           {permission.name || permission.code}
                         </span>
-                        <span className="block font-mono text-xs text-muted-foreground">{permission.code}</span>
+                        <span className="block text-xs text-muted-foreground">{permission.code}</span>
                       </span>
                     </label>
                   ))
@@ -394,7 +394,7 @@ function GroupEditForm({ orgId, group, catalog, initialPermissionIds }: GroupEdi
               <p className="text-sm text-muted-foreground">No permissions selected.</p>
             ) : (
               selectedPermissions.map((permission) => (
-                <Badge key={permission.id} variant="outline" className="font-mono text-[11px] font-normal">
+                <Badge key={permission.id} variant="outline" className="text-[11px] font-normal">
                   {permission.code}
                 </Badge>
               ))
