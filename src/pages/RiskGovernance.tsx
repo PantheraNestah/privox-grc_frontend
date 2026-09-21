@@ -753,6 +753,7 @@ const RiskGovernance = () => {
 
       {/* Insights side panel */}
       <OrgNodeInsightsPanel
+        orgId={orgId}
         node={insightNode}
         open={!!insightNode}
         onClose={() => setInsightNodeId(null)}
@@ -760,7 +761,6 @@ const RiskGovernance = () => {
         documents={documents}
         strategy={strategy}
         assessments={assessments}
-        users={users}
       />
     </>
   );
@@ -1110,7 +1110,7 @@ const HierarchyTypesCard = ({ types, nodes, onChange }: HierarchyTypesCardProps)
                   ))}
                 </SelectContent>
               </Select>
-              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">{t.key}</span>
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{t.key}</span>
               {t.builtin && (
                 <Badge variant="secondary" className="px-1.5 text-[10px] font-normal">Built-in</Badge>
               )}

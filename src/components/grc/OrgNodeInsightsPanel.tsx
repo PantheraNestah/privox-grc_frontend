@@ -1,15 +1,21 @@
 // Side panel showing roll-up insights for a single org node:
 // linked objectives, initiatives, documents (with currency), assessment progress,
-// users assigned to that unit, and per-document approval state.
+// people placed at that unit (live from the API), and per-document approval state.
 //
-// Pure presentation: receives all data via props.
+// Documents/strategy/assessments arrive via props; placed users are fetched (and
+// cached) here so the panel always reflects the real placements.
 
 import { CheckCircle2, AlertTriangle, FileEdit, Target, Rocket, FileText, Users, Layers } from "lucide-react";
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from "@/components/ui/sheet";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useOrgNodeMembers } from "@/hooks/use-org-nodes";
+import { formatDateTime, initials } from "@/lib/format";
+import { isAxiosError } from "axios";
 import { ORG_TYPE_LABELS, ORG_TYPE_COLORS, type OrgNode } from "@/data/orgStore";
 import {
   DOCUMENT_STATUS_LABELS, DOCUMENT_STATUS_COLORS, DOCUMENT_TYPE_LABELS, DOCUMENT_TYPE_COLORS,
@@ -17,10 +23,10 @@ import {
 } from "@/data/documentsStore";
 import { ASSESSMENT_STATUS_LABELS, ASSESSMENT_STATUS_COLORS, type InitiativeAssessment } from "@/data/assessmentStore";
 import type { StrategyConfig } from "@/data/strategyStore";
-import type { AppUser } from "@/data/userStore";
-import { ROLE_LABELS, ROLE_COLORS } from "@/data/userStore";
 
 interface Props {
+  /** Organization the node belongs to (needed to load its members). */
+  orgId?: string;
   node: OrgNode | null;
   open: boolean;
   onClose: () => void;
@@ -29,12 +35,12 @@ interface Props {
   documents: PolicyDocument[];
   strategy: StrategyConfig;
   assessments: InitiativeAssessment[];
-  users: AppUser[];
 }
 
 export const OrgNodeInsightsPanel = ({
-  node, open, onClose, descendantIds, documents, strategy, assessments, users,
+  orgId, node, open, onClose, descendantIds, documents, strategy, assessments,
 }: Props) => {
+  const membersQuery = useOrgNodeMembers(orgId, open ? node?.id : undefined);
   if (!node) return null;
 
   // ---- Documents linked to this node OR any descendant ----
@@ -59,8 +65,7 @@ export const OrgNodeInsightsPanel = ({
   } as Record<string, number>;
   relatedAssessments.forEach(a => { assessmentBuckets[a.status] = (assessmentBuckets[a.status] ?? 0) + 1; });
 
-  // ---- Users assigned ----
-  const assignedUsers = users.filter(u => u.orgNodeId && descendantIds.has(u.orgNodeId));
+  const members = membersQuery.data ?? [];
 
   const color = ORG_TYPE_COLORS[node.type];
 
@@ -90,7 +95,7 @@ export const OrgNodeInsightsPanel = ({
             <MiniStat icon={<Target className="w-3.5 h-3.5" />} label="Objectives" value={linkedObjectives.length} />
             <MiniStat icon={<Rocket className="w-3.5 h-3.5" />} label="Initiatives" value={linkedInitiatives.length} />
             <MiniStat icon={<FileText className="w-3.5 h-3.5" />} label="Documents" value={linkedDocs.length} />
-            <MiniStat icon={<Users className="w-3.5 h-3.5" />} label="Users" value={assignedUsers.length} />
+            <MiniStat icon={<Users className="w-3.5 h-3.5" />} label="People" value={membersQuery.isSuccess ? members.length : "—"} />
           </div>
 
           {/* Document currency */}
@@ -146,26 +151,45 @@ export const OrgNodeInsightsPanel = ({
             )}
           </Section>
 
-          {/* Users */}
-          <Section title="Users assigned" icon={<Users className="w-3.5 h-3.5" />}>
-            {assignedUsers.length === 0 ? (
-              <Empty>No users linked to this unit (or its sub-units).</Empty>
-            ) : (
-              <ul className="space-y-1.5">
-                {assignedUsers.slice(0, 10).map(u => (
-                  <li key={u.id} className="flex items-center gap-2 text-xs">
-                    <Badge
-                      variant="outline"
-                      className="shrink-0 border-transparent px-1.5 py-0 text-[9px] uppercase tracking-wider"
-                      style={{ background: `hsl(${ROLE_COLORS[u.role]} / 0.12)`, color: `hsl(${ROLE_COLORS[u.role]})` }}
-                    >
-                      {ROLE_LABELS[u.role]}
-                    </Badge>
-                    <span className="text-foreground truncate flex-1">{u.name}</span>
-                    <span className="text-muted-foreground text-[10px] truncate">{u.email}</span>
-                  </li>
-                ))}
-                {assignedUsers.length > 10 && <li className="text-[11px] text-muted-foreground italic">+{assignedUsers.length - 10} more</li>}
+          {/* People placed at this unit */}
+          <Section title="People placed here" icon={<Users className="w-3.5 h-3.5" />}>
+            {membersQuery.isLoading && (
+              <div className="space-y-2" role="status">
+                <span className="sr-only">Loading members…</span>
+                {[0, 1, 2].map(i => <Skeleton key={i} className="h-8 w-full" />)}
+              </div>
+            )}
+            {membersQuery.isError && (
+              <p className="text-xs text-destructive">{membersErrorMessage(membersQuery.error)}</p>
+            )}
+            {membersQuery.isSuccess && members.length === 0 && (
+              <Empty>No one is placed at this unit yet.</Empty>
+            )}
+            {members.length > 0 && (
+              <ul className="max-h-72 space-y-2 overflow-y-auto">
+                {members.map(m => {
+                  const ended = !!m.effectiveTo && new Date(m.effectiveTo).getTime() < Date.now();
+                  return (
+                    <li key={m.id} className="flex items-center gap-2.5 text-xs">
+                      <Avatar className="h-7 w-7">
+                        <AvatarFallback className="bg-brand-accent/10 text-[10px] font-semibold text-navy">
+                          {initials(m.userFullName || m.userEmail)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-medium text-foreground">{m.userFullName || m.userEmail}</p>
+                        <p className="truncate text-[11px] text-muted-foreground">{m.userEmail}</p>
+                      </div>
+                      {ended ? (
+                        <Badge variant="secondary" className="shrink-0 text-[10px] font-normal">Ended</Badge>
+                      ) : (
+                        <span className="shrink-0 text-[10px] text-muted-foreground" title={`Placed ${formatDateTime(m.effectiveFrom)}`}>
+                          since {new Date(m.effectiveFrom).toLocaleDateString()}
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </Section>
@@ -174,6 +198,13 @@ export const OrgNodeInsightsPanel = ({
     </Sheet>
   );
 };
+
+function membersErrorMessage(error: unknown): string {
+  if (isAxiosError(error) && error.response?.status === 403) {
+    return "You don't have permission to view the people placed at this unit.";
+  }
+  return "Couldn't load the people placed at this unit.";
+}
 
 const Section = ({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) => (
   <Card className="shadow-none">
@@ -190,7 +221,7 @@ const Empty = ({ children }: { children: React.ReactNode }) => (
   <p className="text-xs italic text-muted-foreground">{children}</p>
 );
 
-const MiniStat = ({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) => (
+const MiniStat = ({ icon, label, value }: { icon: React.ReactNode; label: string; value: number | string }) => (
   <Card className="shadow-none">
     <CardContent className="p-2.5">
       <p className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">{icon}{label}</p>

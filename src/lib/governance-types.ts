@@ -15,6 +15,19 @@ export type OrgNodeType =
 
 export type RiskRating = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 
+/** A user placed at an org node (`GET …/org-nodes/{nodeId}/members`). */
+export interface OrgNodeMemberResponse {
+  id: string;
+  orgNodeId: string;
+  userId: string;
+  userEmail: string;
+  userFullName: string;
+  effectiveFrom: string;
+  /** Null while the placement is still active. */
+  effectiveTo: string | null;
+  createdAt: string;
+}
+
 export interface OrgNodeResponse {
   id: string;
   organizationId: string | null;
