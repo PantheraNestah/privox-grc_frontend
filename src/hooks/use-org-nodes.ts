@@ -8,6 +8,7 @@ import {
   cloneOrgNodeTemplate,
   createOrgNode,
   fetchOrgNode,
+  fetchOrgNodeMembers,
   fetchOrgNodes,
   fetchOrgTreeSettings,
   hardDeleteOrgNode,
@@ -31,6 +32,8 @@ export const orgNodeKeys = {
   detail: (orgId: string, nodeId: string) =>
     [...orgNodeKeys.all(orgId), "detail", nodeId] as const,
   settings: (orgId: string) => [...orgNodeKeys.all(orgId), "settings"] as const,
+  members: (orgId: string, nodeId: string) =>
+    [...orgNodeKeys.all(orgId), "members", nodeId] as const,
 };
 
 // The org tree changes infrequently relative to how often it's read; keep it
@@ -52,6 +55,19 @@ export function useOrgNode(orgId: string | undefined, nodeId: string | undefined
     queryFn: () => fetchOrgNode(orgId!, nodeId!),
     enabled: !!orgId && !!nodeId,
     staleTime: LIST_STALE_TIME,
+  });
+}
+
+/**
+ * Users placed at a node. Placements change when someone is added/removed, so
+ * keep this fresher than the tree itself; any org-node invalidation refreshes it.
+ */
+export function useOrgNodeMembers(orgId: string | undefined, nodeId: string | undefined) {
+  return useQuery({
+    queryKey: orgNodeKeys.members(orgId ?? "", nodeId ?? ""),
+    queryFn: () => fetchOrgNodeMembers(orgId!, nodeId!),
+    enabled: !!orgId && !!nodeId,
+    staleTime: 30_000,
   });
 }
 
