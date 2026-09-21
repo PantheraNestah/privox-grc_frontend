@@ -18,6 +18,8 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import dagre from "dagre";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import {
   ORG_TYPE_LABELS,
   ORG_TYPE_COLORS,
@@ -50,27 +52,28 @@ const OrgCardNode = ({ data }: NodeProps & { data: OrgCardData }) => {
   const offerings = node.offerings ?? [];
 
   return (
-    <div
-      className="rounded-lg border bg-card px-3 py-2 shadow-sm text-center"
+    <Card
+      className="px-3 py-2 text-center shadow-sm"
       style={{ borderColor: `hsl(${color} / 0.45)`, width: CARD_WIDTH }}
     >
       <Handle type="target" position={Position.Top} className="opacity-0 pointer-events-none" />
       <div
-        className="text-[9px] font-semibold uppercase tracking-wider mb-1"
+        className="mb-1 text-[9px] font-semibold uppercase tracking-wider"
         style={{ color: `hsl(${color})` }}
       >
         {ORG_TYPE_LABELS[node.type]}
       </div>
-      <div className="text-xs font-semibold text-foreground leading-tight break-words">
+      <div className="break-words text-xs font-semibold leading-tight text-foreground">
         {node.name}
       </div>
 
       {offerings.length > 0 && (
-        <div className="mt-1.5 flex flex-wrap gap-1 justify-center">
+        <div className="mt-1.5 flex flex-wrap justify-center gap-1">
           {offerings.map(o => (
-            <span
+            <Badge
               key={o.id}
-              className="text-[9px] font-medium px-1.5 py-0.5 rounded border"
+              variant="outline"
+              className="px-1.5 py-0 text-[9px] font-medium"
               style={{
                 borderColor: `hsl(${OFFERING_KIND_COLORS[o.kind]} / 0.5)`,
                 color: `hsl(${OFFERING_KIND_COLORS[o.kind]})`,
@@ -79,26 +82,26 @@ const OrgCardNode = ({ data }: NodeProps & { data: OrgCardData }) => {
               title={OFFERING_KIND_LABELS[o.kind]}
             >
               {o.label || OFFERING_KIND_LABELS[o.kind]}
-            </span>
+            </Badge>
           ))}
         </div>
       )}
 
       {users.length > 0 && (
-        <div className="mt-1.5 flex flex-wrap gap-1 justify-center">
+        <div className="mt-1.5 flex flex-wrap justify-center gap-1">
           {users.map(u => (
-            <span
+            <Badge
               key={u.id}
-              className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-foreground text-background"
+              className="px-1.5 py-0 text-[9px] font-semibold"
               title={`${u.title || u.role} — ${u.email}`}
             >
               {u.title || u.name}
-            </span>
+            </Badge>
           ))}
         </div>
       )}
       <Handle type="source" position={Position.Bottom} className="opacity-0 pointer-events-none" />
-    </div>
+    </Card>
   );
 };
 
@@ -110,19 +113,20 @@ type LaneGroupData = {
 
 const LaneGroupNode = ({ data }: NodeProps & { data: LaneGroupData }) => (
   <div
-    className={`w-full h-full rounded-lg ${data.dashed ? "border border-dashed" : "border"}`}
+    className={`h-full w-full rounded-lg border ${data.dashed ? "border-dashed" : ""}`}
     style={{
       borderColor: `hsl(${data.color} / ${data.dashed ? 0.5 : 0.4})`,
       background: `hsl(${data.color} / ${data.dashed ? 0.03 : 0.05})`,
     }}
   >
     {data.label && (
-      <div
-        className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded inline-block m-2"
+      <Badge
+        variant="outline"
+        className="m-2 border-transparent text-[10px] font-semibold uppercase tracking-wider"
         style={{ background: `hsl(${data.color} / 0.15)`, color: `hsl(${data.color})` }}
       >
         {data.label}
-      </div>
+      </Badge>
     )}
   </div>
 );
@@ -304,7 +308,7 @@ export const OrgMapGraph = ({ nodes, childrenOf, users, onNodeSelect }: OrgMapGr
   );
 
   return (
-    <div className="h-[600px] rounded-lg border border-border overflow-hidden">
+    <div className="h-[420px] overflow-hidden rounded-lg border border-border sm:h-[520px] lg:h-[600px]">
       <ReactFlow
         nodes={flowNodes}
         edges={flowEdges}
@@ -321,7 +325,7 @@ export const OrgMapGraph = ({ nodes, childrenOf, users, onNodeSelect }: OrgMapGr
       >
         <Background gap={20} />
         <Controls showInteractive={false} />
-        <MiniMap pannable zoomable className="!bg-card" maskColor="hsl(var(--muted) / 0.6)" />
+        <MiniMap pannable zoomable className="!bg-card hidden md:block" maskColor="hsl(var(--muted) / 0.6)" />
       </ReactFlow>
     </div>
   );

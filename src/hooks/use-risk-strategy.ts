@@ -17,6 +17,7 @@ import {
 import type {
   ApprovalDecisionRequest,
   CreateRiskStrategyVersionRequest,
+  RiskStrategyConfigResponse,
   UpdateRiskStrategySettingsRequest,
 } from "@/lib/governance-types";
 
@@ -40,13 +41,15 @@ export function useCurrentRiskStrategy(orgId: string | undefined, orgNodeId?: st
     queryFn: () => fetchCurrentRiskStrategy(orgId!, orgNodeId),
     enabled: !!orgId,
     staleTime: STALE_TIME,
-    // No version has ever been approved yet — a real, expected state, not an error.
-    retry: (failureCount, error: unknown) => {
-      const status = (error as { response?: { status?: number } })?.response?.status;
-      if (status === 404) return false;
-      return failureCount < 2;
-    },
+    // A 404 means no version has ever been approved: an expected empty state. The
+    // global retry policy (src/lib/query-client.ts) already fails 4xx fast.
   });
+}
+
+/** True when the query failed for a reason other than "no version approved yet". */
+export function isRealStrategyError(error: unknown): boolean {
+  const status = (error as { response?: { status?: number } } | null)?.response?.status;
+  return !!error && status !== 404;
 }
 
 export function useRiskStrategyHistory(orgId: string | undefined, orgNodeId?: string) {
@@ -82,21 +85,37 @@ function useInvalidateRiskStrategy(orgId: string) {
     queryClient.invalidateQueries({ queryKey: riskStrategyKeys.all(orgId) });
 }
 
-export function useCreateRiskStrategyVersion(orgId: string) {
+/**
+ * Once a version is the active one, write it straight into the "current" cache
+ * entry so the UI shows the saved values immediately, then invalidate so the
+ * server stays the source of truth.
+ */
+function usePrimeCurrentStrategy(orgId: string) {
+  const queryClient = useQueryClient();
   const invalidate = useInvalidateRiskStrategy(orgId);
+  return (version: RiskStrategyConfigResponse) => {
+    if (version.current) {
+      queryClient.setQueryData(riskStrategyKeys.current(orgId), version);
+    }
+    return invalidate();
+  };
+}
+
+export function useCreateRiskStrategyVersion(orgId: string) {
+  const onSaved = usePrimeCurrentStrategy(orgId);
   return useMutation({
     mutationFn: (body: CreateRiskStrategyVersionRequest) =>
       createRiskStrategyVersion(orgId, body),
-    onSuccess: invalidate,
+    onSuccess: onSaved,
   });
 }
 
 export function useDecideRiskStrategyVersion(orgId: string) {
-  const invalidate = useInvalidateRiskStrategy(orgId);
+  const onSaved = usePrimeCurrentStrategy(orgId);
   return useMutation({
     mutationFn: ({ configId, body }: { configId: string; body: ApprovalDecisionRequest }) =>
       decideRiskStrategyVersion(orgId, configId, body),
-    onSuccess: invalidate,
+    onSuccess: onSaved,
   });
 }
 

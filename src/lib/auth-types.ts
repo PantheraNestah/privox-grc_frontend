@@ -68,6 +68,8 @@ export interface RefreshResponse {
   tokenType: string;
   expiresIn: number;
   accessTokenExpiresAt: string;
+  /** Effective permissions at refresh time (re-resolved server-side each rotation). */
+  permissions?: string[];
 }
 
 export interface LogoutRequest {

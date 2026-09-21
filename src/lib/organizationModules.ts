@@ -93,15 +93,19 @@ export async function fetchOrganizationModules(
     .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 }
 
-/** Modules currently enabled for the organization, in dashboard order. */
-export async function getOrganizationEnabledModules(
-  organizationId: string,
-): Promise<ModuleDef[]> {
-  const rows = await fetchOrganizationModules(organizationId);
+/** Pure mapping from subscription rows to the static MODULES catalogue, in dashboard order. */
+export function toEnabledModules(rows: OrganizationModuleStatus[]): ModuleDef[] {
   const enabledIds = new Set(
     rows.filter((row) => row.enabled).map((row) => toStaticModuleId(row.code)),
   );
   return MODULES.filter((module) => enabledIds.has(module.id));
+}
+
+/** Modules currently enabled for the organization, in dashboard order. */
+export async function getOrganizationEnabledModules(
+  organizationId: string,
+): Promise<ModuleDef[]> {
+  return toEnabledModules(await fetchOrganizationModules(organizationId));
 }
 
 /** Fake per-module enable map so callers can render fallback states server-agnostically. */

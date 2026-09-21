@@ -1,12 +1,10 @@
+import type { ReactNode } from "react";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HelmetProvider } from "react-helmet-async";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import UserManagement, { GroupEdit, GroupView, UserMemberView } from "./UserManagement";
 import * as organizationApi from "@/lib/organization";
-
-vi.mock("@/components/grc/TopNav", () => ({
-  TopNav: () => <div data-testid="top-nav" />,
-}));
 
 vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({
@@ -34,6 +32,19 @@ vi.mock("sonner", () => ({
     info: vi.fn(),
   },
 }));
+
+function renderPage(ui: ReactNode, initialEntries?: string[]) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: 0 }, mutations: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <HelmetProvider>
+        <MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter>
+      </HelmetProvider>
+    </QueryClientProvider>,
+  );
+}
 
 const members = [
   {
@@ -86,13 +97,7 @@ describe("UserManagement", () => {
   });
 
   it("renders the users table columns and page action links", async () => {
-    render(
-      <HelmetProvider>
-        <MemoryRouter initialEntries={["/settings/users?tab=users"]}>
-          <UserManagement />
-        </MemoryRouter>
-      </HelmetProvider>,
-    );
+    renderPage(<UserManagement />, ["/settings/users?tab=users"]);
 
     expect(await screen.findByText("Jane Doe")).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Name" })).toBeInTheDocument();
@@ -111,17 +116,11 @@ describe("UserManagement", () => {
   });
 
   it("creates a group using a generated code and entered name", async () => {
-    render(
-      <HelmetProvider>
-        <MemoryRouter>
-          <UserManagement />
-        </MemoryRouter>
-      </HelmetProvider>,
-    );
+    renderPage(<UserManagement />);
 
-    fireEvent.click(await screen.findByRole("tab", { name: /groups/i }));
+    fireEvent.mouseDown(await screen.findByRole("tab", { name: /groups/i }));
     fireEvent.click(await screen.findByRole("button", { name: /create group/i }));
-    const dialog = screen.getByRole("alertdialog");
+    const dialog = await screen.findByRole("dialog");
     fireEvent.change(within(dialog).getByLabelText("Name"), { target: { value: "Risk Owners" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Create" }));
 
@@ -135,13 +134,7 @@ describe("UserManagement", () => {
   });
 
   it("loads and displays the permission catalog in the permissions tab", async () => {
-    render(
-      <HelmetProvider>
-        <MemoryRouter initialEntries={["/settings/users?tab=permissions"]}>
-          <UserManagement />
-        </MemoryRouter>
-      </HelmetProvider>,
-    );
+    renderPage(<UserManagement />, ["/settings/users?tab=permissions"]);
 
     expect(await screen.findByText("View users")).toBeInTheDocument();
     expect(screen.getByText("user.view")).toBeInTheDocument();
@@ -162,14 +155,11 @@ describe("UserMemberView", () => {
     vi.spyOn(organizationApi, "fetchMemberGroups").mockResolvedValue(groups);
     const fetchGroupPermissions = vi.spyOn(organizationApi, "fetchGroupPermissions").mockResolvedValue([]);
 
-    render(
-      <HelmetProvider>
-        <MemoryRouter initialEntries={["/settings/users/members/member-1"]}>
-          <Routes>
-            <Route path="/settings/users/members/:memberId" element={<UserMemberView />} />
-          </Routes>
-        </MemoryRouter>
-      </HelmetProvider>,
+    renderPage(
+      <Routes>
+          <Route path="/settings/users/members/:memberId" element={<UserMemberView />} />
+      </Routes>,
+      ["/settings/users/members/member-1"],
     );
 
     expect(await screen.findByText("Profile Info")).toBeInTheDocument();
@@ -191,14 +181,11 @@ describe("UserMemberView", () => {
     vi.spyOn(organizationApi, "fetchMemberGroups").mockResolvedValue(groups);
     vi.spyOn(organizationApi, "fetchGroupPermissions").mockResolvedValue([]);
 
-    render(
-      <HelmetProvider>
-        <MemoryRouter initialEntries={["/settings/users/members/user-1"]}>
-          <Routes>
-            <Route path="/settings/users/members/:memberId" element={<UserMemberView />} />
-          </Routes>
-        </MemoryRouter>
-      </HelmetProvider>,
+    renderPage(
+      <Routes>
+          <Route path="/settings/users/members/:memberId" element={<UserMemberView />} />
+      </Routes>,
+      ["/settings/users/members/user-1"],
     );
 
     const detailTabs = await screen.findByRole("tablist", { name: /user detail sections/i });
@@ -226,14 +213,11 @@ describe("GroupView", () => {
       ],
     });
 
-    render(
-      <HelmetProvider>
-        <MemoryRouter initialEntries={["/settings/users/groups/group-1"]}>
-          <Routes>
-            <Route path="/settings/users/groups/:groupId" element={<GroupView />} />
-          </Routes>
-        </MemoryRouter>
-      </HelmetProvider>,
+    renderPage(
+      <Routes>
+          <Route path="/settings/users/groups/:groupId" element={<GroupView />} />
+      </Routes>,
+      ["/settings/users/groups/group-1"],
     );
 
     expect((await screen.findAllByText("Group Details")).length).toBeGreaterThan(0);
@@ -278,15 +262,12 @@ describe("GroupEdit", () => {
     });
     vi.spyOn(organizationApi, "updateGroupPermissions").mockResolvedValue();
 
-    render(
-      <HelmetProvider>
-        <MemoryRouter initialEntries={["/settings/users/groups/group-1/edit"]}>
-          <Routes>
-            <Route path="/settings/users/groups/:groupId/edit" element={<GroupEdit />} />
-            <Route path="/settings/users/groups/:groupId" element={<div>Group details page</div>} />
-          </Routes>
-        </MemoryRouter>
-      </HelmetProvider>,
+    renderPage(
+      <Routes>
+          <Route path="/settings/users/groups/:groupId/edit" element={<GroupEdit />} />
+          <Route path="/settings/users/groups/:groupId" element={<div>Group details page</div>} />
+      </Routes>,
+      ["/settings/users/groups/group-1/edit"],
     );
 
     const description = await screen.findByLabelText("Description");

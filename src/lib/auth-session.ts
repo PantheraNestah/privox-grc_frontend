@@ -8,7 +8,7 @@
  * instead of trusting "credentials were correct".
  */
 
-import type { AxiosInstance } from "axios";
+import { isAxiosError, type AxiosInstance } from "axios";
 
 export class PortalMismatchError extends Error {
   constructor(message: string) {
@@ -53,4 +53,13 @@ export async function revokeIssuedSession(
   } catch {
     // The token is never stored client-side, so a failed revoke is not fatal.
   }
+}
+
+/**
+ * Offline / server-side failures say nothing about the stored session, so a
+ * restore that fails this way must keep the refresh token for the next try.
+ * Anything else (401/400/403, a wrong-scope session) means it is unusable.
+ */
+export function isTransientFailure(error: unknown): boolean {
+  return isAxiosError(error) && (!error.response || error.response.status >= 500);
 }

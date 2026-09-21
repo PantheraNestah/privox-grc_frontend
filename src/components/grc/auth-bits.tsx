@@ -2,11 +2,11 @@
  * Shared authentication UI primitives.
  *
  * Extracted from the tenant `AuthScreen` so the platform-admin login can reuse
- * the exact same brand panel, form controls, buttons and alerts.
+ * the exact same brand panel, page shell, headers and step indicator. Form
+ * controls live in shadcn (`CredentialsForm` and the forgot-password views).
  */
 
-import { type ButtonHTMLAttributes, type ReactNode } from "react";
-import { AlertCircle } from "lucide-react";
+import { type ReactNode } from "react";
 import { Logo, BrandName } from "@/components/grc/Logo";
 import { cn } from "@/lib/utils";
 
@@ -117,48 +117,6 @@ export const ViewHeader = ({
     <p className="text-[13.5px] leading-relaxed text-brand-muted">{sub}</p>
   </div>
 );
-
-export const FieldLabel = ({ children }: { children: ReactNode }) => (
-  <label className="block text-[12.5px] font-medium text-navy-dark mb-1.5">{children}</label>
-);
-
-export const inputCx = (err?: boolean) =>
-  cn(
-    "w-full rounded-[10px] border-[1.5px] bg-offwhite py-3 pl-10 pr-3 text-[14.5px] text-navy-deep outline-none transition",
-    "focus:border-brand-accent focus:bg-white focus:ring-[3px] focus:ring-brand-accent/15",
-    err ? "border-destructive ring-[3px] ring-destructive/15" : "border-border",
-  );
-
-export const PrimaryBtn = ({
-  loading,
-  children,
-  ...rest
-}: ButtonHTMLAttributes<HTMLButtonElement> & { loading?: boolean }) => (
-  <button
-    {...rest}
-    disabled={loading || rest.disabled}
-    className={cn(
-      "w-full rounded-[10px] py-3 text-[15px] font-semibold text-white shadow-button transition",
-      "bg-gradient-primary hover:opacity-90 hover:-translate-y-px hover:shadow-card-hover active:translate-y-0",
-      "disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none",
-      rest.className,
-    )}
-  >
-    {loading ? (
-      <span className="inline-block w-[18px] h-[18px] border-2 border-white/40 border-t-white rounded-full animate-spin align-middle" />
-    ) : (
-      children
-    )}
-  </button>
-);
-
-export const ErrAlert = ({ msg, show }: { msg: string; show: boolean }) =>
-  show ? (
-    <div className="flex items-center gap-2 mb-4 px-3.5 py-2.5 rounded-lg bg-destructive/8 border border-destructive/25 text-[13px] text-destructive">
-      <AlertCircle className="w-4 h-4 shrink-0" />
-      <span>{msg}</span>
-    </div>
-  ) : null;
 
 export const Steps = ({ step }: { step: 1 | 2 | 3 }) => {
   const dot = (n: 1 | 2 | 3) =>

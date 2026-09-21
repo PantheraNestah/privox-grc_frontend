@@ -20,12 +20,16 @@ import {
   TENANT_ACCOUNT_ON_PLATFORM_PORTAL,
   PortalMismatchError,
   isPlatformSession,
+  isTransientFailure,
   revokeIssuedSession,
 } from "@/lib/auth-session";
+import { queryClient } from "@/lib/query-client";
 import {
   getAccessToken,
   setAccessToken,
+  getStoredProfile,
   getStoredRefreshToken,
+  storeProfile,
   storeRefreshToken,
   clearStoredTokens,
 } from "@/lib/token";
@@ -74,39 +78,48 @@ export function PlatformAuthProvider({ children }: { children: ReactNode }) {
   const clearSession = useCallback(() => {
     clearStoredTokens("platform");
     setAccessToken(null, "platform");
+    queryClient.clear();
     setState({ ...initialState, isLoading: false });
   }, []);
 
-  // ── Restore session from refresh token ─────────────────
+  // ── Restore session from the stored refresh token ──────
+  // Platform tokens have no `/me` (no `org` claim), so identity comes from the
+  // snapshot saved at login and permissions from the refresh response.
   const refreshSession = useCallback(async () => {
-    const storedRefresh = getStoredRefreshToken("platform");
-    if (!storedRefresh) {
+    if (!getStoredRefreshToken("platform")) {
       setState((s) => ({ ...s, isLoading: false }));
       return;
     }
 
     try {
       const refreshResponse = await refreshAccessToken("platform");
-      setState((s) => ({
-        ...s,
+      const profile = getStoredProfile<PlatformUser>("platform");
+      const permissions = refreshResponse.permissions ?? [];
+      if (!profile || !isPlatformSession({ organization: null, permissions })) {
+        throw new PortalMismatchError(TENANT_ACCOUNT_ON_PLATFORM_PORTAL);
+      }
+
+      setState({
+        user: profile,
+        permissions,
         accessToken: refreshResponse.accessToken,
         refreshToken: getStoredRefreshToken("platform"),
         accessTokenExpiresAt: refreshResponse.accessTokenExpiresAt,
         isAuthenticated: true,
         isLoading: false,
-      }));
-    } catch {
-      clearSession();
+      });
+    } catch (err) {
+      if (isTransientFailure(err)) {
+        setState((s) => ({ ...s, isLoading: false }));
+      } else {
+        clearSession();
+      }
     }
   }, [clearSession]);
 
-  // Always require an explicit platform login when the app starts (mirrors the
-  // tenant context).
   useEffect(() => {
-    clearStoredTokens("platform");
-    setAccessToken(null, "platform");
-    setState((current) => ({ ...current, isLoading: false }));
-  }, []);
+    void refreshSession();
+  }, [refreshSession]);
 
   // Refresh one minute before expiry, then reschedule from the new expiry.
   useEffect(() => {
@@ -125,6 +138,7 @@ export function PlatformAuthProvider({ children }: { children: ReactNode }) {
           accessToken: refreshResponse.accessToken,
           refreshToken: refreshResponse.refreshToken,
           accessTokenExpiresAt: refreshResponse.accessTokenExpiresAt,
+          permissions: refreshResponse.permissions ?? current.permissions,
         }));
       } catch {
         if (active) clearSession();
@@ -148,7 +162,9 @@ export function PlatformAuthProvider({ children }: { children: ReactNode }) {
       throw new PortalMismatchError(TENANT_ACCOUNT_ON_PLATFORM_PORTAL);
     }
 
+    queryClient.clear();
     storeRefreshToken(data.refreshToken, req.rememberMe ?? false, "platform");
+    storeProfile(data.user, "platform");
     setAccessToken(data.accessToken, "platform");
 
     setState({

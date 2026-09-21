@@ -133,7 +133,8 @@ function createApiClient(scope: AuthScope, onAuthFailure: () => void): AxiosInst
 function forceLogout(to: string, scope: AuthScope) {
   clearStoredTokens(scope);
   setAccessToken(null, scope);
-  window.location.href = to;
+  // Router paths are relative to Vite's base (e.g. GitHub Pages sub-path).
+  window.location.href = import.meta.env.BASE_URL.replace(/\/$/, "") + to;
 }
 
 /** Tenant/organization-scoped client (original behavior). */

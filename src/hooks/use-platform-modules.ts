@@ -100,6 +100,10 @@ export function useSetPlatformOrganizationModule(organizationId: string) {
         queryClient.setQueryData(queryKey, context.previous);
       }
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey }),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey });
+      // The tenant workspace caches this organization's enabled modules under its own key.
+      void queryClient.invalidateQueries({ queryKey: ["organization-modules", organizationId] });
+    },
   });
 }
