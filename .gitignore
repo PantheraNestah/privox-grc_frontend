@@ -25,5 +25,13 @@ dist-ssr
 *.sw?
 *.claude
 
-# Local planning docs
+# Local planning docs, API references and Postman exports.
+# These hold internal architecture notes and live credentials/tokens - never commit them.
 PLATFORM_ADMIN_INTEGRATION.md
+ALL_APIs.md
+AUTHENTICATION_LOGIN_FLOW.md
+GOVERNANCE_API_ENDPOINTS.md
+*.postman_collection.json
+*.postman_environment.json
+*.postman_globals.json
+postman/

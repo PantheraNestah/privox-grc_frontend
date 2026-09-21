@@ -1,9 +1,8 @@
 /**
  * Types for the Governance module (Org Tree, Org Node Templates, Risk Strategy).
- * See GOVERNANCE_API_ENDPOINTS.md for the authoritative API reference.
  */
 
-// ─── Org Tree (§15) ────────────────────────────────────────
+// ─── Org Tree ──────────────────────────────────────────────
 
 export type OrgNodeType =
   | "GROUP"
@@ -71,7 +70,7 @@ export interface CloneOrgNodeTemplateRequest {
   targetParentId?: string | null;
 }
 
-// ─── Org Node Templates (§16) ──────────────────────────────
+// ─── Org Node Templates ────────────────────────────────────
 
 export interface OrgNodeTemplateResponse {
   id: string;
@@ -110,7 +109,7 @@ export interface OrgNodeTemplatePreviewResponse {
   rootNode: OrgNodeTemplatePreviewNode;
 }
 
-// ─── Risk Strategy (§17) ────────────────────────────────────
+// ─── Risk Strategy ─────────────────────────────────────────
 
 export type ReviewFrequency = "MONTHLY" | "QUARTERLY" | "ANNUALLY";
 export type LikelihoodMode = "PROBABILITY" | "TIMELINE" | "BOTH";

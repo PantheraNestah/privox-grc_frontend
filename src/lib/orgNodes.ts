@@ -2,7 +2,6 @@
  * Org Tree API service (Governance module — Risk Governance).
  * All endpoints require the signed-in user's access token
  * (automatically attached via the axios interceptor in api.ts).
- * See GOVERNANCE_API_ENDPOINTS.md §15 for the full reference.
  */
 
 import { api } from "./api";

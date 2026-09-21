@@ -154,8 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       rememberMe: req.rememberMe,
     });
     // organizationId is intentionally omitted: the backend auto-resolves the
-    // user's primary/active organization (see AUTHENTICATION_LOGIN_FLOW.md §3,
-    // Smart Server-Side Auto-Resolution branch). The same branch mints a
+    // user's primary/active organization. The same server-side resolution mints a
     // platform session (organization: null) for platform admins, which the
     // tenant portal must not accept.
     if (!isTenantSession(data)) {

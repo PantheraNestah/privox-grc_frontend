@@ -24,7 +24,7 @@ export function UsersTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean }
   const members = membersQuery.data ?? [];
   const reactivating = isInactiveStatus(memberToToggle?.membershipStatus);
 
-  // Backend lifecycle (§3.2): suspend (ACTIVE → SUSPENDED) and reactivate (SUSPENDED → ACTIVE).
+  // Backend lifecycle: suspend (ACTIVE → SUSPENDED) and reactivate (SUSPENDED → ACTIVE).
   const handleToggle = async () => {
     const target = memberToToggle;
     if (!target) return;

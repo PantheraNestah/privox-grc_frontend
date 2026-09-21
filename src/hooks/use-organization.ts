@@ -211,7 +211,7 @@ const memberActions: Record<MemberAction, typeof suspendOrganizationMember> = {
   deactivate: deactivateOrganizationMember,
 };
 
-/** Backend member lifecycle (§3.2): activate / suspend / reactivate / deactivate. */
+/** Backend member lifecycle: activate / suspend / reactivate / deactivate. */
 export function useMemberTransition(orgId: string) {
   const queryClient = useQueryClient();
   return useMutation({

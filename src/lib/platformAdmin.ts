@@ -1,8 +1,7 @@
 /**
  * Platform Admin API service.
  *
- * Covers the platform-scoped (non-org) endpoints from the
- * "GRC Platfom Admin APIs" Postman collection: organization onboarding
+ * Covers the platform-scoped (non-org) endpoints: organization onboarding
  * (create / list / approve / suspend / reactivate) and platform module
  * catalogue / per-organization module assignment.
  *
