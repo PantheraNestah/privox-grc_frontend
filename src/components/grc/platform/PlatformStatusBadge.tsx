@@ -2,12 +2,12 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { OrganizationStatus } from "@/lib/platformAdmin";
 
-const STYLES: Record<string, string> = {
-  ACTIVE: "border-transparent bg-success/15 text-success",
-  PENDING_VALIDATION: "border-transparent bg-warn/15 text-warn",
-  SUSPENDED: "border-transparent bg-destructive/15 text-destructive",
-  DEACTIVATED: "border-transparent bg-muted text-muted-foreground",
-  REJECTED: "border-transparent bg-destructive/15 text-destructive",
+const STYLES: Record<string, { badge: string; dot: string }> = {
+  ACTIVE: { badge: "bg-success/12 text-success", dot: "bg-success" },
+  PENDING_VALIDATION: { badge: "bg-warn/15 text-warn", dot: "bg-warn" },
+  SUSPENDED: { badge: "bg-destructive/12 text-destructive", dot: "bg-destructive" },
+  DEACTIVATED: { badge: "bg-muted text-muted-foreground", dot: "bg-muted-foreground/60" },
+  REJECTED: { badge: "bg-destructive/12 text-destructive", dot: "bg-destructive" },
 };
 
 const LABELS: Record<string, string> = {
@@ -18,10 +18,15 @@ const LABELS: Record<string, string> = {
   REJECTED: "Rejected",
 };
 
-export function PlatformStatusBadge({ status }: { status: OrganizationStatus }) {
+export function PlatformStatusBadge({ status, className }: { status: OrganizationStatus; className?: string }) {
   const key = (status ?? "").toUpperCase();
+  const style = STYLES[key] ?? STYLES.DEACTIVATED;
   return (
-    <Badge variant="outline" className={cn("text-[11px] font-medium", STYLES[key])}>
+    <Badge
+      variant="outline"
+      className={cn("gap-1.5 whitespace-nowrap border-transparent text-[11px] font-medium", style.badge, className)}
+    >
+      <span aria-hidden className={cn("h-1.5 w-1.5 rounded-full", style.dot)} />
       {LABELS[key] ?? status}
     </Badge>
   );

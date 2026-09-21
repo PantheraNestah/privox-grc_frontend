@@ -1,181 +1,175 @@
 import { useEffect, useMemo, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
-import { TopNav } from "@/components/grc/TopNav";
+import { Layers } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { ModuleCard } from "@/components/grc/ModuleCard";
 import { QuickActionsPanel } from "@/components/grc/QuickActionsPanel";
+import { PageHeader, TENANT_HOME } from "@/components/grc/common/PageHeader";
+import { CardGridSkeleton, EmptyState, ErrorState } from "@/components/grc/common/states";
 import { useAuth } from "@/contexts/AuthContext";
-import { getOrganizationEnabledModules } from "@/lib/organizationModules";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { useActiveUser } from "@/hooks/use-active-user";
+import { useEnabledModules } from "@/hooks/use-organization-modules";
 import type { ModuleDef } from "@/data/modules";
 import type { QuickAction } from "@/data/quickActions";
 
 const greetingFor = (h: number) => (h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening");
 
+/** Static module id → route for modules that have a page today. */
+const MODULE_ROUTES: Record<string, string> = {
+  governance: "/governance",
+  settings: "/settings/users",
+};
+
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { organization, isLoading: isAuthLoading } = useAuth();
+  const { organization } = useAuth();
   const activeUser = useActiveUser();
+  const modules = useEnabledModules(organization?.id);
   const [openModule, setOpenModule] = useState<ModuleDef | null>(null);
   const [openAction, setOpenAction] = useState<QuickAction | null>(null);
   const [now, setNow] = useState(() => new Date());
-  const [enabledModules, setEnabledModules] = useState<ModuleDef[]>([]);
-  const [isModulesLoading, setIsModulesLoading] = useState(true);
-  const [modulesError, setModulesError] = useState<string | null>(null);
-
-  const handleModuleClick = (m: ModuleDef) => {
-    if (m.id === "governance") {
-      navigate("/governance");
-      return;
-    }
-    if (m.id === "settings") {
-      navigate("/settings/users");
-      return;
-    }
-    setOpenModule(m);
-  };
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(t);
   }, []);
 
-  useEffect(() => {
-    if (isAuthLoading) return;
-
-    if (!organization?.id) {
-      setEnabledModules([]);
-      setIsModulesLoading(false);
-      setModulesError("No organization is linked to the signed-in user.");
-      return;
-    }
-
-    let cancelled = false;
-    setIsModulesLoading(true);
-    setModulesError(null);
-
-    getOrganizationEnabledModules(organization.id)
-      .then((modules) => {
-        if (cancelled) return;
-        setEnabledModules(modules);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setEnabledModules([]);
-        setModulesError("Unable to load enabled modules for your organization.");
-      })
-      .finally(() => {
-        if (!cancelled) setIsModulesLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isAuthLoading, organization?.id]);
-
+  const enabledModules = modules.data ?? [];
+  const firstName = activeUser?.name?.split(" ")[0] ?? "User";
   const greeting = useMemo(() => greetingFor(now.getHours()), [now]);
   const dateStr = useMemo(
     () => now.toLocaleDateString("en-ZA", { weekday: "long", year: "numeric", month: "long", day: "numeric" }),
-    [now]
+    [now],
   );
+  const linkedModule = openAction?.moduleId ? enabledModules.find((m) => m.id === openAction.moduleId) : null;
 
-  const handleAction = (a: QuickAction) => setOpenAction(a);
-  const linkedModule = openAction?.moduleId ? enabledModules.find(m => m.id === openAction.moduleId) : null;
+  const handleModuleClick = (m: ModuleDef) => {
+    const route = MODULE_ROUTES[m.id];
+    if (route) navigate(route);
+    else setOpenModule(m);
+  };
+
+  const modulesError = !organization?.id
+    ? "No organization is linked to the signed-in user."
+    : modules.isError
+      ? "Unable to load enabled modules for your organization."
+      : null;
 
   return (
     <>
       <Helmet>
         <title>Dashboard · Rsolve GRC Platform</title>
-        <meta name="description" content="Unified Governance, Risk and Compliance workspace — modules, notifications and customisable quick actions." />
+        <meta
+          name="description"
+          content="Unified Governance, Risk and Compliance workspace — modules, notifications and customisable quick actions."
+        />
         <link rel="canonical" href="/dashboard" />
       </Helmet>
 
-      <div className="flex flex-col min-h-screen">
-        <TopNav />
+      <PageHeader
+        home={TENANT_HOME}
+        crumbs={[{ label: "Dashboard" }]}
+        title={`${greeting}, ${firstName}`}
+        description={
+          <>
+            Here's your GRC platform overview for today.{" "}
+            <span className="font-mono text-xs text-brand-accent">{dateStr}</span>
+          </>
+        }
+      />
 
-        <main className="flex-1 px-5 md:px-10 py-8 md:py-9">
-          <header className="mb-8">
-            <h1 className="text-[25px] font-semibold tracking-tight text-navy-deep">{greeting}, {activeUser?.name?.split(" ")[0] ?? "User"} 👋</h1>
-            <p className="text-[13.5px] text-brand-muted mt-0.5">Here's your GRC platform overview for today.</p>
-            <p className="text-[11px] text-brand-accent font-mono mt-1">{dateStr}</p>
-          </header>
-
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr,340px] gap-6 lg:gap-8">
-            {/* Left: Modules */}
-            <section>
-              <div className="flex items-baseline justify-between mb-4">
-                <h2 className="text-base font-semibold tracking-tight text-navy-deep">Modules</h2>
-                <span className="text-xs text-brand-muted">Select a module to get started</span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                {isModulesLoading && (
-                  <div className="sm:col-span-2 xl:col-span-3 rounded-2xl border border-brand-accent/10 bg-card p-6 text-sm text-brand-muted shadow-card">
-                    Loading enabled modules...
-                  </div>
-                )}
-                {!isModulesLoading && modulesError && (
-                  <div className="sm:col-span-2 xl:col-span-3 rounded-2xl border border-destructive/20 bg-destructive/5 p-6 text-sm text-destructive">
-                    {modulesError}
-                  </div>
-                )}
-                {!isModulesLoading && !modulesError && enabledModules.length === 0 && (
-                  <div className="sm:col-span-2 xl:col-span-3 rounded-2xl border border-brand-accent/10 bg-card p-6 text-sm text-brand-muted shadow-card">
-                    No modules are enabled for your organization.
-                  </div>
-                )}
-                {!isModulesLoading && !modulesError && enabledModules.map((m, i) => (
-                  <ModuleCard key={m.id} module={m} index={i} onClick={() => handleModuleClick(m)} />
-                ))}
-              </div>
-            </section>
-
-            {/* Right: Quick actions */}
-            <QuickActionsPanel modules={enabledModules} onActionClick={handleAction} />
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <section className="min-w-0">
+          <div className="mb-4 flex items-baseline justify-between gap-3">
+            <h2 className="text-base font-semibold tracking-tight text-navy-deep">Modules</h2>
+            <span className="text-xs text-muted-foreground">Select a module to get started</span>
           </div>
-        </main>
+
+          {modulesError ? (
+            <ErrorState title="Couldn't load modules" message={modulesError} />
+          ) : modules.isLoading ? (
+            <CardGridSkeleton count={6} label="Loading enabled modules…" />
+          ) : enabledModules.length === 0 ? (
+            <EmptyState
+              icon={Layers}
+              title="No modules enabled"
+              description="No modules are enabled for your organization."
+            />
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {enabledModules.map((m) => (
+                <ModuleCard key={m.id} module={m} onClick={() => handleModuleClick(m)} />
+              ))}
+            </div>
+          )}
+        </section>
+
+        <QuickActionsPanel modules={enabledModules} onActionClick={setOpenAction} />
       </div>
 
-      {/* Module modal */}
-      <Dialog open={!!openModule} onOpenChange={o => !o && setOpenModule(null)}>
-        <DialogContent className="sm:max-w-[420px] text-center">
+      <Dialog open={!!openModule} onOpenChange={(o) => !o && setOpenModule(null)}>
+        <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-[420px]">
           {openModule && (
             <>
-              <div className="w-14 h-14 rounded-full mx-auto mb-3 flex items-center justify-center"
-                   style={{ background: `hsl(${openModule.color} / 0.12)` }}>
-                <openModule.icon className="w-7 h-7" style={{ color: `hsl(${openModule.color})` }} strokeWidth={1.6} />
-              </div>
-              <DialogHeader>
-                <DialogTitle className="text-center">{openModule.name}</DialogTitle>
-                <DialogDescription className="text-center">
+              <span
+                className="mx-auto flex h-14 w-14 items-center justify-center rounded-full"
+                style={{ background: `hsl(${openModule.color} / 0.12)` }}
+              >
+                <openModule.icon
+                  className="h-7 w-7"
+                  style={{ color: `hsl(${openModule.color})` }}
+                  strokeWidth={1.6}
+                />
+              </span>
+              <DialogHeader className="items-center text-center sm:text-center">
+                <DialogTitle>{openModule.name}</DialogTitle>
+                <DialogDescription>
                   {openModule.desc}
-                  <br /><br />
+                  <br />
+                  <br />
                   Full functionality will be available in the next release.
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter className="sm:justify-center">
-                <Button onClick={() => setOpenModule(null)} className="bg-navy-deep hover:bg-navy text-white">Close</Button>
+                <Button variant="brand" onClick={() => setOpenModule(null)}>
+                  Close
+                </Button>
               </DialogFooter>
             </>
           )}
         </DialogContent>
       </Dialog>
 
-      {/* Quick action modal */}
-      <Dialog open={!!openAction} onOpenChange={o => !o && setOpenAction(null)}>
-        <DialogContent className="sm:max-w-[400px] text-center">
+      <Dialog open={!!openAction} onOpenChange={(o) => !o && setOpenAction(null)}>
+        <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-[400px]">
           {openAction && (
             <>
-              <DialogHeader>
-                <DialogTitle className="text-center">{openAction.title}</DialogTitle>
-                <DialogDescription className="text-center">
+              <DialogHeader className="items-center text-center sm:text-center">
+                <DialogTitle>{openAction.title}</DialogTitle>
+                <DialogDescription>
                   {openAction.description || "Quick action triggered."}
-                  {linkedModule && <><br /><br />Routing to <strong className="text-navy-dark">{linkedModule.name}</strong>…</>}
+                  {linkedModule && (
+                    <>
+                      <br />
+                      <br />
+                      Routing to <strong className="text-navy-dark">{linkedModule.name}</strong>…
+                    </>
+                  )}
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter className="sm:justify-center">
-                <Button onClick={() => setOpenAction(null)} className="bg-navy-deep hover:bg-navy text-white">Close</Button>
+                <Button variant="brand" onClick={() => setOpenAction(null)}>
+                  Close
+                </Button>
               </DialogFooter>
             </>
           )}

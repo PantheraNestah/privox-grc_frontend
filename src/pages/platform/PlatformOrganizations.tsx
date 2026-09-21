@@ -1,21 +1,16 @@
 import { useMemo, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
-import { ArrowRight, Building2, Plus, Search } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { Building2, Calendar, ChevronRight, MapPin, Plus, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { PlatformStatusBadge } from "@/components/grc/platform/PlatformStatusBadge";
 import { CreateOrganizationDialog } from "@/components/grc/platform/CreateOrganizationDialog";
-import { usePlatformOrganizations } from "@/hooks/use-platform-organizations";
+import { OrgAvatar } from "@/components/grc/common/OrgAvatar";
+import { PageHeader } from "@/components/grc/common/PageHeader";
+import { PlatformStatusBadge } from "@/components/grc/platform/PlatformStatusBadge";
+import { EmptyState, ErrorState, ListSkeleton } from "@/components/grc/common/states";
+import { usePlatformOrganizations, usePrefetchPlatformOrganization } from "@/hooks/use-platform-organizations";
 import { usePlatformAuth } from "@/contexts/PlatformAuthContext";
 import { canPlatform, PLATFORM_PERMISSIONS } from "@/lib/platformPermissions";
 import { formatDateTime } from "@/lib/format";
@@ -30,12 +25,17 @@ const STATUS_FILTERS: { value: OrganizationStatus | "ALL"; label: string }[] = [
   { value: "DEACTIVATED", label: "Deactivated" },
 ];
 
+// Shared by the header row and every data row so columns line up on desktop.
+const DESKTOP_COLUMNS = "lg:grid-cols-[minmax(0,2.6fr)_9.5rem_5rem_7rem_4.5rem_minmax(0,9rem)_1.25rem]";
+
 const PlatformOrganizations = () => {
   const [statusFilter, setStatusFilter] = useState<OrganizationStatus | "ALL">("ALL");
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const { permissions } = usePlatformAuth();
   const canCreate = canPlatform(permissions, PLATFORM_PERMISSIONS.organizationCreate);
+
+  const prefetchOrganization = usePrefetchPlatformOrganization();
 
   const { data, isLoading, isError, error } = usePlatformOrganizations(
     statusFilter === "ALL" ? undefined : statusFilter,
@@ -60,132 +60,159 @@ const PlatformOrganizations = () => {
         <link rel="canonical" href="/platform/organizations" />
       </Helmet>
 
-      <nav aria-label="Breadcrumb" className="mb-4 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-        <span className="font-medium text-foreground">Platform Admin</span>
-        <span>/</span>
-        <span>Organizations</span>
-      </nav>
-
-      <header className="mb-6 flex flex-col items-stretch justify-between gap-4 sm:flex-row sm:items-start">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">Organizations</h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Every tenant on the platform and its onboarding status.
-          </p>
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          {canCreate && (
-            <Button
-              size="sm"
-              onClick={() => setCreateOpen(true)}
-              className="bg-navy-deep text-white hover:bg-navy"
-            >
-              <Plus className="h-4 w-4" /> New organization
+      <PageHeader
+        crumbs={[{ label: "Organizations" }]}
+        title="Organizations"
+        description="Every tenant on the platform and its onboarding status."
+        actions={
+          canCreate && (
+            <Button variant="brand" onClick={() => setCreateOpen(true)}>
+              <Plus /> New organization
             </Button>
-          )}
-          <div className="relative w-full sm:w-72">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search name, code or slug…"
-              className="pl-9"
-              aria-label="Search organizations"
-            />
-          </div>
-        </div>
-      </header>
+          )
+        }
+      />
 
-      <div className="mb-4 flex flex-wrap gap-2">
-        {STATUS_FILTERS.map((filter) => {
-          const active = statusFilter === filter.value;
-          return (
+      <Card className="mb-4 space-y-3 p-3 sm:p-4">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search name, code or slug…"
+            className="pl-9 pr-9"
+            aria-label="Search organizations"
+          />
+          {search && (
             <button
-              key={filter.value}
               type="button"
-              onClick={() => setStatusFilter(filter.value)}
-              className={cn(
-                "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                active
-                  ? "border-blue-600 bg-blue-100 text-blue-600"
-                  : "border-border text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-              )}
+              onClick={() => setSearch("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:text-foreground"
+              aria-label="Clear search"
             >
-              {filter.label}
+              <X className="h-4 w-4" />
             </button>
-          );
-        })}
-      </div>
-
-      {isLoading && (
-        <div className="py-12 text-center">
-          <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
-          <p className="mt-2 text-sm text-muted-foreground">Loading organizations…</p>
+          )}
         </div>
-      )}
+
+        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+          {STATUS_FILTERS.map((filter) => {
+            const active = statusFilter === filter.value;
+            return (
+              <Button
+                key={filter.value}
+                type="button"
+                size="sm"
+                variant={active ? "default" : "outline"}
+                aria-pressed={active}
+                onClick={() => setStatusFilter(filter.value)}
+                className={cn(
+                  "h-8 shrink-0 rounded-full px-3.5 text-xs",
+                  !active && "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {filter.label}
+              </Button>
+            );
+          })}
+        </div>
+      </Card>
+
+      {isLoading && <ListSkeleton label="Loading organizations…" />}
 
       {isError && (
-        <Card className="border-destructive/40 bg-destructive/5 p-4">
-          <p className="text-sm text-destructive">
-            {error instanceof Error ? error.message : "Failed to load organizations."}
-          </p>
-        </Card>
+        <ErrorState
+          title="Couldn't load organizations"
+          message={error instanceof Error ? error.message : "Failed to load organizations."}
+        />
       )}
 
       {!isLoading && !isError && organizations.length === 0 && (
-        <Card className="p-8 text-center">
-          <Building2 className="mx-auto h-8 w-8 text-muted-foreground" />
-          <p className="mt-3 text-sm text-muted-foreground">
-            No organizations match the current filters.
-          </p>
-        </Card>
+        <EmptyState
+          icon={Building2}
+          title="No organizations found"
+          description="No organizations match the current filters."
+          action={
+            (search || statusFilter !== "ALL") && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSearch("");
+                  setStatusFilter("ALL");
+                }}
+              >
+                Clear filters
+              </Button>
+            )
+          }
+        />
       )}
 
       {!isLoading && !isError && organizations.length > 0 && (
-        <Card className="overflow-hidden p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Organization</TableHead>
-                <TableHead>Code</TableHead>
-                <TableHead>Plan</TableHead>
-                <TableHead>Country</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead className="w-10" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {organizations.map((org) => (
-                <TableRow key={org.id}>
-                  <TableCell className="font-medium text-foreground">
-                    <Link to={`/platform/organizations/${org.id}`} className="hover:text-blue-600 transition-colors">
-                      {org.name}
-                    </Link>
-                    <span className="block font-mono text-[11px] text-muted-foreground">{org.slug}</span>
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">{org.code}</TableCell>
-                  <TableCell className="text-sm">{org.planTier ?? "—"}</TableCell>
-                  <TableCell className="text-sm">{org.countryCode ?? "—"}</TableCell>
-                  <TableCell>
+        <Card className="overflow-hidden">
+          <div
+            className={cn(
+              "hidden grid-cols-1 items-center gap-x-4 border-b border-border bg-muted/50 px-5 py-2.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground lg:grid",
+              DESKTOP_COLUMNS,
+            )}
+          >
+            <span>Organization</span>
+            <span>Status</span>
+            <span>Code</span>
+            <span>Plan</span>
+            <span>Country</span>
+            <span>Created</span>
+            <span />
+          </div>
+
+          <ul className="divide-y divide-border">
+            {organizations.map((org) => (
+              <li key={org.id}>
+                <Link
+                  to={`/platform/organizations/${org.id}`}
+                  aria-label={`View ${org.name}`}
+                  onMouseEnter={() => void prefetchOrganization(org.id)}
+                  onFocus={() => void prefetchOrganization(org.id)}
+                  className={cn(
+                    "group grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2.5 px-4 py-3.5 transition-colors hover:bg-surface/60 sm:px-5",
+                    DESKTOP_COLUMNS,
+                  )}
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <OrgAvatar name={org.name} />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-navy-deep transition-colors group-hover:text-brand-accent">
+                        {org.name}
+                      </p>
+                      <p className="truncate font-mono text-[11px] text-muted-foreground">{org.slug}</p>
+                    </div>
+                  </div>
+
+                  <div className="justify-self-end lg:justify-self-start">
                     <PlatformStatusBadge status={org.status} />
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {formatDateTime(org.createdAt)}
-                  </TableCell>
-                  <TableCell>
-                    <Link
-                      to={`/platform/organizations/${org.id}`}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                      aria-label={`View ${org.name}`}
-                    >
-                      <ArrowRight className="h-4 w-4" />
-                    </Link>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                  </div>
+
+                  <div className="col-span-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground lg:contents">
+                    <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-navy-dark lg:bg-transparent lg:p-0 lg:text-xs">
+                      {org.code}
+                    </span>
+                    <span className="lg:text-sm lg:text-foreground">{org.planTier ?? "—"}</span>
+                    <span className="inline-flex items-center gap-1 lg:text-sm lg:text-foreground">
+                      <MapPin className="h-3 w-3 lg:hidden" />
+                      {org.countryCode ?? "—"}
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <Calendar className="h-3 w-3 lg:hidden" />
+                      {formatDateTime(org.createdAt)}
+                    </span>
+                  </div>
+
+                  <ChevronRight className="hidden h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 lg:block" />
+                </Link>
+              </li>
+            ))}
+          </ul>
         </Card>
       )}
 

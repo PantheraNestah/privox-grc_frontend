@@ -9,7 +9,7 @@ import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ORG_TYPE_LABELS, ORG_TYPE_COLORS, type OrgNode } from "@/data/orgStore";
 import {
   DOCUMENT_STATUS_LABELS, DOCUMENT_STATUS_COLORS, DOCUMENT_TYPE_LABELS, DOCUMENT_TYPE_COLORS,
@@ -66,18 +66,19 @@ export const OrgNodeInsightsPanel = ({
 
   return (
     <Sheet open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <SheetContent className="w-full sm:max-w-[480px] overflow-y-auto">
+      <SheetContent className="w-full overflow-y-auto sm:max-w-[480px]">
         <SheetHeader className="space-y-2">
           <div className="flex items-center gap-2">
-            <span
-              className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded"
+            <Badge
+              variant="outline"
+              className="border-transparent text-[10px] font-semibold uppercase tracking-wider"
               style={{ background: `hsl(${color} / 0.12)`, color: `hsl(${color})` }}
             >
               {ORG_TYPE_LABELS[node.type]}
-            </span>
-            <Badge variant="secondary" className="text-[10px]">{descendantIds.size - 1} child unit{descendantIds.size === 2 ? "" : "s"}</Badge>
+            </Badge>
+            <Badge variant="secondary" className="text-[10px] font-normal">{descendantIds.size - 1} child unit{descendantIds.size === 2 ? "" : "s"}</Badge>
           </div>
-          <SheetTitle className="text-xl">{node.name}</SheetTitle>
+          <SheetTitle className="text-xl text-navy-deep">{node.name}</SheetTitle>
           {node.description && (
             <SheetDescription className="text-xs">{node.description}</SheetDescription>
           )}
@@ -108,15 +109,16 @@ export const OrgNodeInsightsPanel = ({
                     const s = computeDocumentStatus(d);
                     return (
                       <li key={d.id} className="flex items-center gap-2 text-xs">
-                        <span
-                          className="text-[9px] uppercase tracking-wider px-1 py-0.5 rounded shrink-0"
+                        <Badge
+                          variant="outline"
+                          className="shrink-0 border-transparent px-1.5 py-0 text-[9px] uppercase tracking-wider"
                           style={{
                             background: `hsl(${DOCUMENT_TYPE_COLORS[d.type]} / 0.12)`,
                             color: `hsl(${DOCUMENT_TYPE_COLORS[d.type]})`,
                           }}
                         >
                           {DOCUMENT_TYPE_LABELS[d.type]}
-                        </span>
+                        </Badge>
                         <span className="text-foreground truncate flex-1">{d.title}</span>
                         <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: `hsl(${DOCUMENT_STATUS_COLORS[s]})` }} title={DOCUMENT_STATUS_LABELS[s]} />
                       </li>
@@ -152,12 +154,13 @@ export const OrgNodeInsightsPanel = ({
               <ul className="space-y-1.5">
                 {assignedUsers.slice(0, 10).map(u => (
                   <li key={u.id} className="flex items-center gap-2 text-xs">
-                    <span
-                      className="text-[9px] uppercase tracking-wider px-1 py-0.5 rounded shrink-0"
+                    <Badge
+                      variant="outline"
+                      className="shrink-0 border-transparent px-1.5 py-0 text-[9px] uppercase tracking-wider"
                       style={{ background: `hsl(${ROLE_COLORS[u.role]} / 0.12)`, color: `hsl(${ROLE_COLORS[u.role]})` }}
                     >
                       {ROLE_LABELS[u.role]}
-                    </span>
+                    </Badge>
                     <span className="text-foreground truncate flex-1">{u.name}</span>
                     <span className="text-muted-foreground text-[10px] truncate">{u.email}</span>
                   </li>
@@ -173,28 +176,32 @@ export const OrgNodeInsightsPanel = ({
 };
 
 const Section = ({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) => (
-  <Card className="p-3">
-    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 inline-flex items-center gap-1.5">
-      {icon}{title}
-    </p>
-    {children}
+  <Card className="shadow-none">
+    <CardHeader className="p-3 pb-2">
+      <CardTitle className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {icon}{title}
+      </CardTitle>
+    </CardHeader>
+    <CardContent className="p-3 pt-0">{children}</CardContent>
   </Card>
 );
 
 const Empty = ({ children }: { children: React.ReactNode }) => (
-  <p className="text-xs text-muted-foreground italic">{children}</p>
+  <p className="text-xs italic text-muted-foreground">{children}</p>
 );
 
 const MiniStat = ({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) => (
-  <div className="border border-border rounded-md p-2.5">
-    <p className="text-[10px] text-muted-foreground inline-flex items-center gap-1">{icon}{label}</p>
-    <p className="text-lg font-semibold text-foreground leading-tight mt-0.5">{value}</p>
-  </div>
+  <Card className="shadow-none">
+    <CardContent className="p-2.5">
+      <p className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">{icon}{label}</p>
+      <p className="mt-0.5 text-lg font-semibold leading-tight text-navy-deep">{value}</p>
+    </CardContent>
+  </Card>
 );
 
 const CurrencyPill = ({ icon, label, count, color }: { icon: React.ReactNode; label: string; count: number; color: string }) => (
   <div
-    className="rounded-md border px-2 py-1.5 flex flex-col items-start gap-0.5"
+    className="flex flex-col items-start gap-0.5 rounded-md border px-2 py-1.5"
     style={{ borderColor: `hsl(${color} / 0.4)`, background: `hsl(${color} / 0.08)` }}
   >
     <span className="inline-flex items-center gap-1 text-[10px] font-medium" style={{ color: `hsl(${color})` }}>

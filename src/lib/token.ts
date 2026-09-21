@@ -18,6 +18,11 @@ const STORAGE_KEYS: Record<AuthScope, { refresh: string; remember: string }> = {
   platform: { refresh: "grc_platform_refresh_token", remember: "grc_platform_remember_me" },
 };
 
+const PROFILE_KEYS: Record<AuthScope, string> = {
+  tenant: "grc_profile",
+  platform: "grc_platform_profile",
+};
+
 const _currentToken: Record<AuthScope, string | null> = {
   tenant: null,
   platform: null,
@@ -64,10 +69,32 @@ export function updateStoredRefreshToken(token: string, scope: AuthScope = "tena
   }
 }
 
+/**
+ * Persists a small, non-secret identity snapshot beside the refresh token (same
+ * storage, so it shares its "remember me" lifetime). Needed where the server
+ * cannot re-supply the profile on restore (platform sessions have no `/me`).
+ */
+export function storeProfile(profile: unknown, scope: AuthScope = "tenant") {
+  const target = localStorage.getItem(STORAGE_KEYS[scope].refresh) !== null ? localStorage : sessionStorage;
+  target.setItem(PROFILE_KEYS[scope], JSON.stringify(profile));
+}
+
+export function getStoredProfile<T>(scope: AuthScope = "tenant"): T | null {
+  const raw = localStorage.getItem(PROFILE_KEYS[scope]) ?? sessionStorage.getItem(PROFILE_KEYS[scope]);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
+
 export function clearStoredTokens(scope: AuthScope = "tenant") {
   const { refresh, remember } = STORAGE_KEYS[scope];
   localStorage.removeItem(refresh);
   localStorage.removeItem(remember);
+  localStorage.removeItem(PROFILE_KEYS[scope]);
   sessionStorage.removeItem(refresh);
   sessionStorage.removeItem(remember);
+  sessionStorage.removeItem(PROFILE_KEYS[scope]);
 }

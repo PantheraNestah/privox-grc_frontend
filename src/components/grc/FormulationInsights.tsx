@@ -5,10 +5,12 @@
 // bar opens a side panel listing the matching objectives / initiatives.
 
 import { useMemo, useState } from "react";
-import { Compass, Target, Rocket, Gauge, ListChecks, Clock, AlertTriangle, MousePointerClick } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { Compass, Target, Rocket, Gauge, ListChecks, Clock, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { EmptyState } from "@/components/grc/common/states";
 import { ORG_TYPE_LABELS, type OrgNode, type OrgNodeType } from "@/data/orgStore";
 import {
   INITIATIVE_STATUS_COLORS, INITIATIVE_STATUS_LABELS,
@@ -146,131 +148,154 @@ export const FormulationInsights = ({ cfg, orgNodes }: Props) => {
     });
   };
 
-  if (cfg.pillars.length === 0) return null;
+  if (cfg.pillars.length === 0) {
+    return (
+      <EmptyState
+        icon={Gauge}
+        title="No insights yet"
+        description="Insights appear once an Administrator has defined strategic pillars."
+      />
+    );
+  }
 
   return (
-    <Card className="p-5 mb-5">
-      <div className="flex items-center gap-2 mb-4">
-        <Gauge className="w-4 h-4 text-primary" />
-        <h2 className="text-base font-semibold text-foreground">Plan insights</h2>
-        <Badge variant="secondary" className="text-[10px]">read-only roll-up</Badge>
-        <span className="ml-auto text-[10px] text-muted-foreground inline-flex items-center gap-1">
-          <MousePointerClick className="w-3 h-3" /> click any chart to drill in
-        </span>
-      </div>
-
-      {/* Per-pillar KPI cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
-        {pillarMetrics.map(m => (
-          <button
-            key={m.pillar.id}
-            onClick={() => drillPillar(m.pillar.id, "all")}
-            className="text-left border border-border rounded-lg p-3 bg-card hover:border-primary/50 hover:shadow-sm transition-all"
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <Compass className="w-3.5 h-3.5 text-primary" />
-              <p className="text-sm font-semibold text-foreground truncate flex-1">{m.pillar.name}</p>
-            </div>
-            <div className="grid grid-cols-4 gap-1.5 text-center">
-              <Stat icon={<Target className="w-3 h-3" />} value={m.objectives} label="Obj" />
-              <Stat icon={<Rocket className="w-3 h-3" />} value={m.initiatives} label="Init" />
-              <Stat icon={<ListChecks className="w-3 h-3" />} value={m.activities} label="Act" />
-              <Stat icon={<Gauge className="w-3 h-3" />} value={m.kpis} label="KPI" />
-            </div>
-            <div className="mt-2 flex items-center gap-2 text-[10px]">
-              <span className="inline-flex items-center gap-1 text-muted-foreground">
-                <Target className="w-3 h-3" />{m.owners} owner{m.owners === 1 ? "" : "s"}
-              </span>
-              {m.dueSoon.length > 0 && (
-                <span
-                  onClick={(e) => { e.stopPropagation(); drillPillar(m.pillar.id, "due-soon"); }}
-                  className="inline-flex items-center gap-1 text-[hsl(34_89%_45%)] hover:underline cursor-pointer"
-                >
-                  <Clock className="w-3 h-3" />{m.dueSoon.length} due&lt;30d
-                </span>
-              )}
-              {m.overdue.length > 0 && (
-                <span
-                  onClick={(e) => { e.stopPropagation(); drillPillar(m.pillar.id, "overdue"); }}
-                  className="inline-flex items-center gap-1 text-destructive hover:underline cursor-pointer"
-                >
-                  <AlertTriangle className="w-3 h-3" />{m.overdue.length} overdue
-                </span>
-              )}
-            </div>
-          </button>
-        ))}
-      </div>
-
-      {/* Coverage heatmap */}
-      {presentLevels.length > 0 && (
-        <div className="mb-5">
-          <p className="text-xs font-semibold text-foreground mb-2 flex items-center gap-2">
-            <span>Pillar × Org-unit coverage</span>
-            <span className="text-[10px] font-normal text-muted-foreground">
-              How many org units of each level have objectives under each pillar (click a cell to see them).
-            </span>
-          </p>
-          <div className="overflow-x-auto rounded-md border border-border">
-            <table className="w-full text-xs">
-              <thead className="bg-muted/40">
-                <tr>
-                  <th className="text-left px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Pillar</th>
-                  {presentLevels.map(l => (
-                    <th key={l} className="text-center px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">
-                      {ORG_TYPE_LABELS[l]}
-                      <div className="text-[9px] font-normal normal-case">of {totalsByLevel[l]}</div>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {pillarMetrics.map(m => (
-                  <tr key={m.pillar.id} className="border-t border-border">
-                    <td className="px-3 py-2 font-medium text-foreground">{m.pillar.name}</td>
-                    {presentLevels.map(l => {
-                      const covered = m.coverageByLevel[l] ?? 0;
-                      const total = totalsByLevel[l] || 1;
-                      const intensity = Math.min(1, covered / total);
-                      const clickable = covered > 0;
-                      return (
-                        <td key={l} className="px-2 py-1.5 text-center">
-                          <button
-                            disabled={!clickable}
-                            onClick={() => drillHeatCell(m.pillar.id, l)}
-                            className={`inline-flex items-center justify-center rounded min-w-[42px] h-7 text-[11px] font-semibold transition-transform ${clickable ? "hover:scale-105 cursor-pointer" : "cursor-default"}`}
-                            style={{
-                              background: covered === 0
-                                ? "hsl(var(--muted))"
-                                : `hsl(var(--primary) / ${0.12 + intensity * 0.55})`,
-                              color: covered === 0 ? "hsl(var(--muted-foreground))" : "hsl(var(--primary-foreground))",
-                            }}
-                            title={`${covered} of ${total} ${ORG_TYPE_LABELS[l]} units covered${clickable ? " — click to drill in" : ""}`}
-                          >
-                            {covered}/{total}
-                          </button>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+    <Card>
+      <CardHeader className="flex-col gap-2 space-y-0 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1.5">
+          <CardTitle className="flex items-center gap-2 text-base text-navy-deep">
+            Plan insights
+            <Badge variant="secondary" className="text-[10px] font-normal">
+              read-only roll-up
+            </Badge>
+          </CardTitle>
+          <CardDescription className="text-xs">Select any card, cell or bar to drill in.</CardDescription>
         </div>
-      )}
+      </CardHeader>
 
-      {/* Timeline */}
-      <div>
-        <p className="text-xs font-semibold text-foreground mb-2">Initiative timeline</p>
-        {!timelineData ? (
-          <p className="text-xs text-muted-foreground italic border border-dashed border-border rounded p-3">
-            No initiatives have start/expected dates yet — add dates in Initiative details to see the timeline.
-          </p>
-        ) : (
-          <TimelineStrip items={timelineData.items} min={timelineData.min} max={timelineData.max} onSelect={drillInitiative} />
+      <CardContent className="space-y-6">
+        {/* Per-pillar KPI cards */}
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+          {pillarMetrics.map((m) => (
+            <div key={m.pillar.id} className="rounded-lg border border-border p-3 transition-colors hover:border-brand-accent/50">
+              <button
+                type="button"
+                onClick={() => drillPillar(m.pillar.id, "all")}
+                className="block w-full text-left"
+                aria-label={`${m.pillar.name} summary`}
+              >
+                <span className="mb-2 flex items-center gap-2">
+                  <Compass className="h-3.5 w-3.5 text-brand-accent" />
+                  <span className="flex-1 truncate text-sm font-semibold text-navy-deep">{m.pillar.name}</span>
+                </span>
+                <span className="grid grid-cols-4 gap-1.5 text-center">
+                  <Stat icon={<Target className="h-3 w-3" />} value={m.objectives} label="Obj" />
+                  <Stat icon={<Rocket className="h-3 w-3" />} value={m.initiatives} label="Init" />
+                  <Stat icon={<ListChecks className="h-3 w-3" />} value={m.activities} label="Act" />
+                  <Stat icon={<Gauge className="h-3 w-3" />} value={m.kpis} label="KPI" />
+                </span>
+              </button>
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
+                <span className="inline-flex items-center gap-1 text-muted-foreground">
+                  <Target className="h-3 w-3" />
+                  {m.owners} owner{m.owners === 1 ? "" : "s"}
+                </span>
+                {m.dueSoon.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => drillPillar(m.pillar.id, "due-soon")}
+                    className="inline-flex items-center gap-1 text-warn hover:underline"
+                  >
+                    <Clock className="h-3 w-3" />
+                    {m.dueSoon.length} due &lt;30d
+                  </button>
+                )}
+                {m.overdue.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => drillPillar(m.pillar.id, "overdue")}
+                    className="inline-flex items-center gap-1 text-destructive hover:underline"
+                  >
+                    <AlertTriangle className="h-3 w-3" />
+                    {m.overdue.length} overdue
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Coverage heatmap */}
+        {presentLevels.length > 0 && (
+          <div className="space-y-2">
+            <div>
+              <h3 className="text-sm font-semibold text-navy-deep">Pillar × org-unit coverage</h3>
+              <p className="text-xs text-muted-foreground">
+                How many org units of each level have objectives under each pillar.
+              </p>
+            </div>
+            <div className="overflow-hidden rounded-md border border-border">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="h-10 text-[11px] uppercase tracking-wide">Pillar</TableHead>
+                    {presentLevels.map((level) => (
+                      <TableHead key={level} className="h-10 text-center text-[11px] uppercase tracking-wide">
+                        {ORG_TYPE_LABELS[level]}
+                        <span className="block text-[10px] font-normal normal-case">of {totalsByLevel[level]}</span>
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pillarMetrics.map((m) => (
+                    <TableRow key={m.pillar.id}>
+                      <TableCell className="py-2 text-sm font-medium text-navy-deep">{m.pillar.name}</TableCell>
+                      {presentLevels.map((level) => {
+                        const covered = m.coverageByLevel[level] ?? 0;
+                        const total = totalsByLevel[level] || 1;
+                        const intensity = Math.min(1, covered / total);
+                        const clickable = covered > 0;
+                        return (
+                          <TableCell key={level} className="px-2 py-1.5 text-center">
+                            <button
+                              type="button"
+                              disabled={!clickable}
+                              onClick={() => drillHeatCell(m.pillar.id, level)}
+                              className={`inline-flex h-7 min-w-[42px] items-center justify-center rounded text-[11px] font-semibold transition-transform ${
+                                clickable ? "cursor-pointer hover:scale-105" : "cursor-default"
+                              }`}
+                              style={{
+                                background:
+                                  covered === 0 ? "hsl(var(--muted))" : `hsl(var(--primary) / ${0.12 + intensity * 0.55})`,
+                                color: covered === 0 ? "hsl(var(--muted-foreground))" : "hsl(var(--primary-foreground))",
+                              }}
+                              title={`${covered} of ${total} ${ORG_TYPE_LABELS[level]} units covered`}
+                            >
+                              {covered}/{total}
+                            </button>
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
         )}
-      </div>
+
+        {/* Timeline */}
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold text-navy-deep">Initiative timeline</h3>
+          {!timelineData ? (
+            <p className="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
+              No initiatives have start/expected dates yet — add dates in the initiative details to see the timeline.
+            </p>
+          ) : (
+            <TimelineStrip items={timelineData.items} min={timelineData.min} max={timelineData.max} onSelect={drillInitiative} />
+          )}
+        </div>
+      </CardContent>
 
       <DrillSheet drill={drill} onClose={() => setDrill(null)} />
     </Card>
@@ -278,11 +303,11 @@ export const FormulationInsights = ({ cfg, orgNodes }: Props) => {
 };
 
 const Stat = ({ icon, value, label }: { icon: React.ReactNode; value: number; label: string }) => (
-  <div className="flex flex-col items-center gap-0.5 py-1 rounded bg-muted/40">
+  <span className="flex flex-col items-center gap-0.5 rounded bg-muted/50 py-1">
     <span className="text-muted-foreground">{icon}</span>
-    <span className="text-sm font-semibold text-foreground leading-none">{value}</span>
+    <span className="text-sm font-semibold leading-none text-navy-deep">{value}</span>
     <span className="text-[9px] uppercase tracking-wider text-muted-foreground">{label}</span>
-  </div>
+  </span>
 );
 
 interface TimelineItem {
@@ -324,7 +349,7 @@ const TimelineStrip = ({ items, min, max, onSelect }: { items: TimelineItem[]; m
   const todayPct = ((Date.now() - min) / range) * 100;
 
   return (
-    <div className="border border-border rounded-md overflow-hidden">
+    <div className="overflow-hidden rounded-md border border-border">
       <div className="relative h-6 bg-muted/30 border-b border-border">
         {ticks.map((t, idx) => (
           <span key={idx} className="absolute top-1 text-[9px] text-muted-foreground -translate-x-1/2" style={{ left: `${t.pct}%` }}>
@@ -350,7 +375,7 @@ const TimelineStrip = ({ items, min, max, onSelect }: { items: TimelineItem[]; m
                   <div className="absolute inset-y-0 left-0 right-0 bg-muted/20 rounded" />
                   <button
                     onClick={() => onSelect(item)}
-                    className="absolute inset-y-0 rounded flex items-center px-1.5 overflow-hidden hover:ring-2 hover:ring-primary/40 transition-shadow"
+                    className="absolute inset-y-0 rounded flex items-center px-1.5 overflow-hidden hover:ring-2 hover:ring-brand-accent/40 transition-shadow"
                     style={{
                       left: `${left}%`,
                       width: `${width}%`,
@@ -391,9 +416,9 @@ const DrillSheet = ({ drill, onClose }: { drill: Drill | null; onClose: () => vo
           ) : drill.rows.map((row, idx) => {
             if (row.kind === "objective") {
               return (
-                <div key={`o-${row.objective.id}-${idx}`} className="border border-border rounded-md p-2.5 bg-card">
+                <Card key={`o-${row.objective.id}-${idx}`} className="p-3 shadow-none">
                   <div className="flex items-start gap-2">
-                    <Target className="w-3.5 h-3.5 text-[hsl(158_53%_49%)] mt-0.5 shrink-0" />
+                    <Target className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">{row.objective.title}</p>
                       <p className="text-[11px] text-muted-foreground truncate">
@@ -406,15 +431,15 @@ const DrillSheet = ({ drill, onClose }: { drill: Drill | null; onClose: () => vo
                       </div>
                     </div>
                   </div>
-                </div>
+                </Card>
               );
             }
             const init = row.initiative;
             const sColor = INITIATIVE_STATUS_COLORS[init.status];
             return (
-              <div key={`i-${init.id}-${idx}`} className="border border-border rounded-md p-2.5 bg-card">
+              <Card key={`i-${init.id}-${idx}`} className="p-3 shadow-none">
                 <div className="flex items-start gap-2">
-                  <Rocket className="w-3.5 h-3.5 text-[hsl(265_88%_66%)] mt-0.5 shrink-0" />
+                  <Rocket className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-foreground truncate">{init.name || "(unnamed initiative)"}</p>
                     <p className="text-[11px] text-muted-foreground truncate">
@@ -443,7 +468,7 @@ const DrillSheet = ({ drill, onClose }: { drill: Drill | null; onClose: () => vo
                     <Gauge className="inline w-3 h-3 mr-1" />{init.kpis.length} KPI · {init.activities.length} activities
                   </p>
                 )}
-              </div>
+              </Card>
             );
           })}
         </div>

@@ -3,28 +3,24 @@
 // under any pillar. The new objective is auto-linked to the user's orgNodeId so descendant
 // scoping continues to work without extra picking.
 
-import { useEffect, useMemo, useState } from "react";
-import {
-  Card,
-} from "@/components/ui/card";
+import { useId, useMemo, useState, type ReactNode } from "react";
+import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { EmptyState } from "@/components/grc/common/states";
 import { toast } from "sonner";
-import {
-  Compass, Target, Rocket, Gauge, Calendar as CalendarIcon, ListChecks, CheckCircle2, Send, RotateCcw,
-} from "lucide-react";
+import { Compass, Target, Rocket, Gauge, Calendar as CalendarIcon, ListChecks, CheckCircle2, Send, RotateCcw } from "lucide-react";
 import {
   loadStrategy, saveStrategy,
   newObjective, newInitiative, newActivity, newOutcome, newKpi,
-  type StrategicPillar, type StrategicObjective, type Initiative, type KpiType,
+  type Initiative, type KpiType,
 } from "@/data/strategyStore";
-import { loadOrgNodes, type OrgNode } from "@/data/orgStore";
+import { loadOrgNodes } from "@/data/orgStore";
 import { useActiveUser } from "@/hooks/use-active-user";
 
 type Tab = "basic" | "kpi" | "timeline";
@@ -84,22 +80,14 @@ interface Props {
 
 export const StrategyEntryForm = ({ onSubmitted }: Props) => {
   const activeUser = useActiveUser();
-  const [orgNodes, setOrgNodes] = useState<OrgNode[]>([]);
-  const [pillars, setPillars] = useState<StrategicPillar[]>([]);
-  const [objectives, setObjectives] = useState<StrategicObjective[]>([]);
+  const uid = useId();
+  // Synchronous localStorage reads: load once instead of syncing through an effect.
+  const [orgNodes] = useState(() => loadOrgNodes());
+  const [{ pillars, objectives }] = useState(() => loadStrategy());
   const [tab, setTab] = useState<Tab>("basic");
   const [state, setState] = useState<FormState>(() => emptyState(activeUser.orgNodeId));
 
-  useEffect(() => {
-    setOrgNodes(loadOrgNodes());
-    const cfg = loadStrategy();
-    setPillars(cfg.pillars);
-    setObjectives(cfg.objectives);
-  }, []);
-
-  useEffect(() => {
-    setState(s => ({ ...s, responsibleUnitId: s.responsibleUnitId || activeUser.orgNodeId || "" }));
-  }, [activeUser.orgNodeId]);
+  const id = (name: string) => `${uid}-${name}`;
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setState(s => ({ ...s, [key]: value }));
@@ -188,208 +176,229 @@ export const StrategyEntryForm = ({ onSubmitted }: Props) => {
     onSubmitted?.();
   };
 
-  const TabButton = ({ id, label }: { id: Tab; label: string }) => (
-    <button
-      onClick={() => setTab(id)}
-      className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-        tab === id
-          ? "border-primary text-primary"
-          : "border-transparent text-muted-foreground hover:text-foreground"
-      }`}
-      type="button"
-    >
-      {label}
-    </button>
-  );
-
   if (pillars.length === 0) {
     return (
-      <Card className="p-10 text-center border-2 border-dashed">
-        <Compass className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
-        <p className="text-sm font-semibold text-foreground">No strategic pillars defined yet</p>
-        <p className="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
-          Only Administrators can create the organisation's strategic pillars.
-          Once a pillar exists you'll be able to log your objectives, initiatives, activities and KPIs against it.
-        </p>
-      </Card>
+      <EmptyState
+        icon={Compass}
+        title="No strategic pillars defined yet"
+        description="Only Administrators can create the organisation's strategic pillars. Once a pillar exists you'll be able to log your objectives, initiatives, activities and KPIs against it."
+      />
     );
   }
 
   return (
-    <Card className="p-0 overflow-hidden">
-      <div className="px-5 pt-4 border-b border-border flex items-center gap-1">
-        <TabButton id="basic" label="Basic Info" />
-        <TabButton id="kpi" label="KPIs & Outcomes" />
-        <TabButton id="timeline" label="Timeline" />
-        <div className="ml-auto pb-1">
-          <Badge variant="outline" className="text-[10px]">
-            Logging as <strong className="ml-1">{activeUser.name}</strong>
+    <Card>
+      <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)}>
+        <CardHeader className="flex-col gap-3 space-y-0 sm:flex-row sm:items-center sm:justify-between">
+          <TabsList className="w-full sm:w-auto">
+            <TabsTrigger value="basic" className="flex-1 sm:flex-none">Basic info</TabsTrigger>
+            <TabsTrigger value="kpi" className="flex-1 sm:flex-none">KPIs &amp; outcomes</TabsTrigger>
+            <TabsTrigger value="timeline" className="flex-1 sm:flex-none">Timeline</TabsTrigger>
+          </TabsList>
+          <Badge variant="outline" className="w-fit text-[10px] font-normal">
+            Logging as <strong className="ml-1 font-medium">{activeUser.name}</strong>
           </Badge>
-        </div>
-      </div>
+        </CardHeader>
 
-      <div className="p-5">
-        {tab === "basic" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Field label="Strategic Pillar *" icon={<Compass className="w-3.5 h-3.5" />}>
-              <Select value={state.pillarId} onValueChange={(v) => { set("pillarId", v); set("objectiveId", "__new__"); set("newObjectiveTitle", ""); }}>
-                <SelectTrigger><SelectValue placeholder="Select pillar..." /></SelectTrigger>
-                <SelectContent>
-                  {pillars.map(p => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
+        <CardContent>
+          {tab === "basic" && (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <Field label="Strategic pillar *" htmlFor={id("pillar")} icon={<Compass className="h-3.5 w-3.5" />}>
+                <Select
+                  value={state.pillarId}
+                  onValueChange={(v) => setState((s) => ({ ...s, pillarId: v, objectiveId: "__new__", newObjectiveTitle: "" }))}
+                >
+                  <SelectTrigger id={id("pillar")}><SelectValue placeholder="Select pillar..." /></SelectTrigger>
+                  <SelectContent>
+                    {pillars.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
 
-            <Field label="Strategic Objective *" icon={<Target className="w-3.5 h-3.5" />}>
-              <Select value={state.objectiveId} onValueChange={(v) => set("objectiveId", v)} disabled={!state.pillarId}>
-                <SelectTrigger><SelectValue placeholder="Select objective..." /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__new__">+ Add new objective</SelectItem>
-                  {objectivesForPillar.map(o => (
-                    <SelectItem key={o.id} value={o.id}>{o.title}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
+              <Field label="Strategic objective *" htmlFor={id("objective")} icon={<Target className="h-3.5 w-3.5" />}>
+                <Select value={state.objectiveId} onValueChange={(v) => set("objectiveId", v)} disabled={!state.pillarId}>
+                  <SelectTrigger id={id("objective")}><SelectValue placeholder="Select objective..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__new__">+ Add new objective</SelectItem>
+                    {objectivesForPillar.map((o) => (
+                      <SelectItem key={o.id} value={o.id}>{o.title}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
 
-            {state.objectiveId === "__new__" && (
-              <div className="md:col-span-2">
-                <Field label="New objective title *">
-                  <Input value={state.newObjectiveTitle} onChange={(e) => set("newObjectiveTitle", e.target.value)} placeholder="e.g. Improve customer experience" />
+              {state.objectiveId === "__new__" && (
+                <Field label="New objective title *" htmlFor={id("new-objective")} className="md:col-span-2">
+                  <Input
+                    id={id("new-objective")}
+                    value={state.newObjectiveTitle}
+                    onChange={(e) => set("newObjectiveTitle", e.target.value)}
+                    placeholder="e.g. Improve customer experience"
+                  />
                 </Field>
-              </div>
-            )}
+              )}
 
-            <Field label="Strategic Initiative *" icon={<Rocket className="w-3.5 h-3.5" />}>
-              <Input value={state.initiativeName} onChange={(e) => set("initiativeName", e.target.value)} placeholder="e.g. Digital onboarding programme" />
-            </Field>
+              <Field label="Strategic initiative *" htmlFor={id("initiative")} icon={<Rocket className="h-3.5 w-3.5" />}>
+                <Input
+                  id={id("initiative")}
+                  value={state.initiativeName}
+                  onChange={(e) => set("initiativeName", e.target.value)}
+                  placeholder="e.g. Digital onboarding programme"
+                />
+              </Field>
 
-            <Field label="Responsible Unit">
-              <Select value={state.responsibleUnitId || "__none__"} onValueChange={(v) => set("responsibleUnitId", v === "__none__" ? "" : v)}>
-                <SelectTrigger><SelectValue placeholder="Pick org unit..." /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">— Not specified —</SelectItem>
-                  {orgNodes.map(n => (
-                    <SelectItem key={n.id} value={n.id}>{n.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
+              <Field label="Responsible unit" htmlFor={id("unit")}>
+                <Select
+                  value={state.responsibleUnitId || "__none__"}
+                  onValueChange={(v) => set("responsibleUnitId", v === "__none__" ? "" : v)}
+                >
+                  <SelectTrigger id={id("unit")}><SelectValue placeholder="Pick org unit..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">— Not specified —</SelectItem>
+                    {orgNodes.map((n) => (
+                      <SelectItem key={n.id} value={n.id}>{n.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
 
-            <div className="md:col-span-2">
-              <Field label="Initiative description">
-                <Textarea rows={2} value={state.initiativeDescription} onChange={(e) => set("initiativeDescription", e.target.value)} placeholder="What is this initiative about?" />
+              <Field label="Initiative description" htmlFor={id("initiative-desc")} className="md:col-span-2">
+                <Textarea
+                  id={id("initiative-desc")}
+                  rows={2}
+                  value={state.initiativeDescription}
+                  onChange={(e) => set("initiativeDescription", e.target.value)}
+                  placeholder="What is this initiative about?"
+                />
+              </Field>
+
+              <Field label="Strategic activity *" htmlFor={id("activity")} icon={<ListChecks className="h-3.5 w-3.5" />} className="md:col-span-2">
+                <Input
+                  id={id("activity")}
+                  value={state.activityDescription}
+                  onChange={(e) => set("activityDescription", e.target.value)}
+                  placeholder="Describe the specific activity..."
+                />
+              </Field>
+
+              <Field label="Expected outcome" htmlFor={id("outcome")} icon={<CheckCircle2 className="h-3.5 w-3.5" />} className="md:col-span-2">
+                <Textarea
+                  id={id("outcome")}
+                  rows={2}
+                  value={state.expectedOutcome}
+                  onChange={(e) => set("expectedOutcome", e.target.value)}
+                  placeholder="Describe the expected outcome of this activity..."
+                />
               </Field>
             </div>
+          )}
 
-            <div className="md:col-span-2">
-              <Field label="Strategic Activity *" icon={<ListChecks className="w-3.5 h-3.5" />}>
-                <Input value={state.activityDescription} onChange={(e) => set("activityDescription", e.target.value)} placeholder="Describe the specific activity..." />
+          {tab === "kpi" && (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <Field label="KPI name *" htmlFor={id("kpi-name")} icon={<Gauge className="h-3.5 w-3.5" />}>
+                <Input id={id("kpi-name")} value={state.kpiName} onChange={(e) => set("kpiName", e.target.value)} placeholder="e.g. Customer satisfaction score" />
+              </Field>
+              <Field label="KPI type" htmlFor={id("kpi-type")}>
+                <Select value={state.kpiType} onValueChange={(v) => set("kpiType", v as KpiType)}>
+                  <SelectTrigger id={id("kpi-type")}><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="quantitative">Quantitative</SelectItem>
+                    <SelectItem value="qualitative">Qualitative</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="KPI unit" htmlFor={id("kpi-unit")}>
+                <Input id={id("kpi-unit")} value={state.kpiUnit} onChange={(e) => set("kpiUnit", e.target.value)} placeholder="e.g. %, KES, count" />
+              </Field>
+              <Field label="Measurement frequency" htmlFor={id("kpi-frequency")}>
+                <Select value={state.kpiFrequency} onValueChange={(v) => set("kpiFrequency", v as FormState["kpiFrequency"])}>
+                  <SelectTrigger id={id("kpi-frequency")}><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Monthly">Monthly</SelectItem>
+                    <SelectItem value="Quarterly">Quarterly</SelectItem>
+                    <SelectItem value="Semi-Annual">Semi-Annual</SelectItem>
+                    <SelectItem value="Annual">Annual</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Baseline value" htmlFor={id("kpi-baseline")}>
+                <Input id={id("kpi-baseline")} value={state.kpiBaseline} onChange={(e) => set("kpiBaseline", e.target.value)} placeholder="0" />
+              </Field>
+              <Field label="Target value *" htmlFor={id("kpi-target")}>
+                <Input id={id("kpi-target")} value={state.kpiTarget} onChange={(e) => set("kpiTarget", e.target.value)} placeholder="100" />
+              </Field>
+              <Field label="Current value" htmlFor={id("kpi-current")}>
+                <Input id={id("kpi-current")} value={state.kpiCurrent} onChange={(e) => set("kpiCurrent", e.target.value)} placeholder="0" />
               </Field>
             </div>
+          )}
 
-            <div className="md:col-span-2">
-              <Field label="Expected Outcome" icon={<CheckCircle2 className="w-3.5 h-3.5" />}>
-                <Textarea rows={2} value={state.expectedOutcome} onChange={(e) => set("expectedOutcome", e.target.value)} placeholder="Describe the expected outcome of this activity..." />
+          {tab === "timeline" && (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <Field label="Start date *" htmlFor={id("start")} icon={<CalendarIcon className="h-3.5 w-3.5" />}>
+                <Input id={id("start")} type="date" value={state.startDate} onChange={(e) => set("startDate", e.target.value)} />
+              </Field>
+              <Field label="End date *" htmlFor={id("end")}>
+                <Input id={id("end")} type="date" value={state.endDate} onChange={(e) => set("endDate", e.target.value)} />
+              </Field>
+              <Field label="Priority" htmlFor={id("priority")}>
+                <Select value={state.priority} onValueChange={(v) => set("priority", v as FormState["priority"])}>
+                  <SelectTrigger id={id("priority")}><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="High">High</SelectItem>
+                    <SelectItem value="Medium">Medium</SelectItem>
+                    <SelectItem value="Low">Low</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Budget" htmlFor={id("budget")}>
+                <Input id={id("budget")} value={state.budget} onChange={(e) => set("budget", e.target.value)} placeholder="0" />
+              </Field>
+              <Field label="Remarks / notes" htmlFor={id("remarks")} className="md:col-span-2">
+                <Textarea id={id("remarks")} rows={3} value={state.remarks} onChange={(e) => set("remarks", e.target.value)} placeholder="Any additional context..." />
               </Field>
             </div>
-          </div>
-        )}
+          )}
+        </CardContent>
 
-        {tab === "kpi" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Field label="KPI Name *" icon={<Gauge className="w-3.5 h-3.5" />}>
-              <Input value={state.kpiName} onChange={(e) => set("kpiName", e.target.value)} placeholder="e.g. Customer satisfaction score" />
-            </Field>
-            <Field label="KPI Type">
-              <Select value={state.kpiType} onValueChange={(v) => set("kpiType", v as KpiType)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="quantitative">Quantitative</SelectItem>
-                  <SelectItem value="qualitative">Qualitative</SelectItem>
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field label="KPI Unit">
-              <Input value={state.kpiUnit} onChange={(e) => set("kpiUnit", e.target.value)} placeholder="e.g. %, KES, count" />
-            </Field>
-            <Field label="Measurement Frequency">
-              <Select value={state.kpiFrequency} onValueChange={(v) => set("kpiFrequency", v as FormState["kpiFrequency"])}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Monthly">Monthly</SelectItem>
-                  <SelectItem value="Quarterly">Quarterly</SelectItem>
-                  <SelectItem value="Semi-Annual">Semi-Annual</SelectItem>
-                  <SelectItem value="Annual">Annual</SelectItem>
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field label="Baseline Value">
-              <Input value={state.kpiBaseline} onChange={(e) => set("kpiBaseline", e.target.value)} placeholder="0" />
-            </Field>
-            <Field label="Target Value *">
-              <Input value={state.kpiTarget} onChange={(e) => set("kpiTarget", e.target.value)} placeholder="100" />
-            </Field>
-            <Field label="Current Value">
-              <Input value={state.kpiCurrent} onChange={(e) => set("kpiCurrent", e.target.value)} placeholder="0" />
-            </Field>
-          </div>
-        )}
-
-        {tab === "timeline" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Field label="Start Date *" icon={<CalendarIcon className="w-3.5 h-3.5" />}>
-              <Input type="date" value={state.startDate} onChange={(e) => set("startDate", e.target.value)} />
-            </Field>
-            <Field label="End Date *">
-              <Input type="date" value={state.endDate} onChange={(e) => set("endDate", e.target.value)} />
-            </Field>
-            <Field label="Priority">
-              <Select value={state.priority} onValueChange={(v) => set("priority", v as FormState["priority"])}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="High">High</SelectItem>
-                  <SelectItem value="Medium">Medium</SelectItem>
-                  <SelectItem value="Low">Low</SelectItem>
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field label="Budget">
-              <Input value={state.budget} onChange={(e) => set("budget", e.target.value)} placeholder="0" />
-            </Field>
-            <div className="md:col-span-2">
-              <Field label="Remarks / Notes">
-                <Textarea rows={3} value={state.remarks} onChange={(e) => set("remarks", e.target.value)} placeholder="Any additional context..." />
-              </Field>
-            </div>
-          </div>
-        )}
-
-        <div className="border-t border-border mt-6 pt-4 flex items-center justify-end gap-2">
+        <CardFooter className="justify-end gap-2 border-t border-border pt-4">
           <Button variant="outline" size="sm" onClick={reset} type="button">
-            <RotateCcw className="w-3.5 h-3.5 mr-1.5" /> Clear
+            <RotateCcw /> Clear
           </Button>
           {tab !== "timeline" ? (
             <Button size="sm" onClick={() => setTab(tab === "basic" ? "kpi" : "timeline")} type="button">
               Next →
             </Button>
           ) : (
-            <Button size="sm" onClick={submit} type="button">
-              <Send className="w-3.5 h-3.5 mr-1.5" /> Submit Entry
+            <Button variant="brand" size="sm" onClick={submit} type="button">
+              <Send /> Submit entry
             </Button>
           )}
-        </div>
-      </div>
+        </CardFooter>
+      </Tabs>
     </Card>
   );
 };
 
-const Field = ({ label, icon, children }: { label: string; icon?: React.ReactNode; children: React.ReactNode }) => (
-  <div className="space-y-1.5">
-    <Label className="text-[11px] uppercase tracking-wider text-muted-foreground inline-flex items-center gap-1.5">
-      {icon}{label}
+const Field = ({
+  label,
+  htmlFor,
+  icon,
+  children,
+  className,
+}: {
+  label: string;
+  htmlFor: string;
+  icon?: ReactNode;
+  children: ReactNode;
+  className?: string;
+}) => (
+  <div className={`space-y-1.5 ${className ?? ""}`}>
+    <Label htmlFor={htmlFor} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+      {icon}
+      {label}
     </Label>
     {children}
   </div>

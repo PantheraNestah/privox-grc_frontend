@@ -4,6 +4,7 @@ import { Helmet } from "react-helmet-async";
 import { usePlatformAuth } from "@/contexts/PlatformAuthContext";
 import { AuthShell, ViewHeader } from "@/components/grc/auth-bits";
 import { CredentialsForm } from "@/components/grc/CredentialsForm";
+import { AuthLoading } from "@/components/grc/AuthLoading";
 
 const PlatformLogin = () => {
   const navigate = useNavigate();
@@ -14,6 +15,8 @@ const PlatformLogin = () => {
       navigate("/platform/dashboard", { replace: true });
     }
   }, [isLoading, isAuthenticated, navigate]);
+
+  if (isLoading || isAuthenticated) return <AuthLoading />;
 
   return (
     <>

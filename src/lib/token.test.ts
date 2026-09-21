@@ -5,6 +5,8 @@ import {
   storeRefreshToken,
   updateStoredRefreshToken,
   clearStoredTokens,
+  storeProfile,
+  getStoredProfile,
 } from "./token";
 
 describe("scope-aware token storage", () => {
@@ -52,5 +54,28 @@ describe("scope-aware token storage", () => {
 
     expect(getStoredRefreshToken("platform")).toBeNull();
     expect(getStoredRefreshToken()).toBe("t-refresh");
+  });
+
+  it("keeps the profile snapshot in the same storage as its refresh token", () => {
+    storeRefreshToken("p-refresh", true, "platform");
+    storeProfile({ id: "1", fullName: "Gift" }, "platform");
+    expect(localStorage.getItem("grc_platform_profile")).toContain("Gift");
+    expect(getStoredProfile("platform")).toEqual({ id: "1", fullName: "Gift" });
+
+    localStorage.clear();
+    storeRefreshToken("p-refresh", false, "platform");
+    storeProfile({ id: "1" }, "platform");
+    expect(sessionStorage.getItem("grc_platform_profile")).not.toBeNull();
+    expect(localStorage.getItem("grc_platform_profile")).toBeNull();
+  });
+
+  it("clears the profile with the tokens and ignores corrupt data", () => {
+    storeRefreshToken("t", true, "tenant");
+    storeProfile({ id: "1" }, "tenant");
+    clearStoredTokens("tenant");
+    expect(getStoredProfile("tenant")).toBeNull();
+
+    localStorage.setItem("grc_profile", "{not json");
+    expect(getStoredProfile("tenant")).toBeNull();
   });
 });

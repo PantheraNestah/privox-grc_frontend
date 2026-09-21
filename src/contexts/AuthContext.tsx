@@ -12,8 +12,10 @@ import {
   PLATFORM_ACCOUNT_ON_TENANT_PORTAL,
   PortalMismatchError,
   isTenantSession,
+  isTransientFailure,
   revokeIssuedSession,
 } from "@/lib/auth-session";
+import { queryClient } from "@/lib/query-client";
 import {
   getAccessToken,
   setAccessToken,
@@ -56,6 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const clearSession = useCallback(() => {
     clearStoredTokens();
     setAccessToken(null);
+    queryClient.clear();
     setState({
       user: null,
       organization: null,
@@ -68,10 +71,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  // ── Restore session from refresh token ─────────────────
+  // ── Restore session from the stored refresh token ──────
+  // The access token only lives in memory, so after a reload we exchange the
+  // persisted refresh token for a new one and re-read the profile from /me.
   const refreshSession = useCallback(async () => {
-    const storedRefresh = getStoredRefreshToken();
-    if (!storedRefresh) {
+    if (!getStoredRefreshToken()) {
       setState((s) => ({ ...s, isLoading: false }));
       return;
     }
@@ -79,6 +83,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const refreshResponse = await refreshAccessToken();
       const { data } = await api.get<MeResponse>("/v1/me");
+      if (!data.organization) {
+        throw new PortalMismatchError(PLATFORM_ACCOUNT_ON_TENANT_PORTAL);
+      }
 
       setState({
         user: {
@@ -88,25 +95,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           fullName: data.fullName,
         },
         organization: data.organization,
-        permissions: data.permissions,
+        permissions: refreshResponse.permissions ?? data.permissions,
         accessToken: refreshResponse.accessToken,
         refreshToken: getStoredRefreshToken(),
         accessTokenExpiresAt: refreshResponse.accessTokenExpiresAt,
         isAuthenticated: true,
         isLoading: false,
       });
-    } catch {
-      clearSession();
+    } catch (err) {
+      // Offline/5xx says nothing about the session: keep the token for the next load.
+      if (isTransientFailure(err)) {
+        setState((s) => ({ ...s, isLoading: false }));
+      } else {
+        clearSession();
+      }
     }
   }, [clearSession]);
 
-  // Always require an explicit login when the application starts.
-  // Proactive refresh still keeps the session alive after login.
   useEffect(() => {
-    clearStoredTokens();
-    setAccessToken(null);
-    setState((current) => ({ ...current, isLoading: false }));
-  }, []);
+    void refreshSession();
+  }, [refreshSession]);
 
   // Refresh one minute before expiry, then reschedule from the new expiry.
   useEffect(() => {
@@ -125,6 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           accessToken: refreshResponse.accessToken,
           refreshToken: refreshResponse.refreshToken,
           accessTokenExpiresAt: refreshResponse.accessTokenExpiresAt,
+          permissions: refreshResponse.permissions ?? current.permissions,
         }));
       } catch {
         if (active) clearSession();
@@ -154,6 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new PortalMismatchError(PLATFORM_ACCOUNT_ON_TENANT_PORTAL);
     }
 
+    queryClient.clear();
     storeRefreshToken(data.refreshToken, req.rememberMe);
     setAccessToken(data.accessToken);
 
