@@ -37,7 +37,7 @@ const GOVERNANCE_ITEMS = [
   { label: "Risk Governance", href: "/governance/risk-governance", icon: ShieldAlert },
   { label: "Strategy Formulation", href: "/governance/strategy-formulation", icon: Compass },
   { label: "Strategy Assessment", href: "/governance/strategy-assessment", icon: ClipboardCheck },
-  { label: "Risk Appetite", href: "/governance/risk-strategy", icon: LineChart },
+  { label: "Risk Strategy", href: "/governance/risk-strategy", icon: LineChart },
   { label: "Documents", href: "/governance/documents", icon: FileText },
   { label: "Surveys", href: "/governance/surveys", icon: ClipboardList },
 ];

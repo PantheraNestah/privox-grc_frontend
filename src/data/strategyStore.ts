@@ -1,4 +1,4 @@
-// Local-storage backed store for Organization Strategy Formulation.
+// Local-storage backed store for Strategy Formulation.
 // Hierarchy: Pillar -> Objective -> Initiative -> (Activities, Outcomes, KPIs)
 
 import { uid } from "./orgStore";
