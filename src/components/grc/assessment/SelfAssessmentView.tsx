@@ -75,8 +75,8 @@ export function SelfAssessmentView({ rows, assessments, users, orgNodes, canSelf
                   <p className="text-xs">{r.pillarName}</p>
                   <p>{r.objectiveTitle}</p>
                 </TableCell>
-                <TableCell className="font-mono text-xs">{r.init.kpis.length}</TableCell>
-                <TableCell className="font-mono text-xs font-semibold">{scored ? `${score}%` : "—"}</TableCell>
+                <TableCell className="text-xs">{r.init.kpis.length}</TableCell>
+                <TableCell className="text-xs font-semibold">{scored ? `${score}%` : "—"}</TableCell>
                 <TableCell>
                   {scored ? <RagBadge rag={ragFromPercent(score)} /> : <span className="text-xs text-muted-foreground">—</span>}
                 </TableCell>

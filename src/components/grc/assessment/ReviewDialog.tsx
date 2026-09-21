@@ -108,11 +108,11 @@ export function ReviewDialog({
                       return (
                         <TableRow key={k.id}>
                           <TableCell className="py-2 text-foreground">{k.name}</TableCell>
-                          <TableCell className="py-2 font-mono">
+                          <TableCell className="py-2">
                             {k.target} {k.unit}
                           </TableCell>
-                          <TableCell className="py-2 font-mono">{ka?.actual ?? "—"}</TableCell>
-                          <TableCell className="py-2 text-right font-mono">{ka?.percentAchievement ?? "—"}</TableCell>
+                          <TableCell className="py-2">{ka?.actual ?? "—"}</TableCell>
+                          <TableCell className="py-2 text-right">{ka?.percentAchievement ?? "—"}</TableCell>
                           <TableCell className="py-2 text-right">{rag ? <RagDot rag={rag} /> : "—"}</TableCell>
                         </TableRow>
                       );

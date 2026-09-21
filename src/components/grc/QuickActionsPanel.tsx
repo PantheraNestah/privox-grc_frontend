@@ -176,7 +176,7 @@ const QuickActionRow = ({
             <span className="mt-0.5 line-clamp-2 block text-xs text-muted-foreground">{action.description}</span>
           )}
           {moduleLabel && (
-            <span className="mt-1 inline-block rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+            <span className="mt-1 inline-block rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
               {moduleLabel}
             </span>
           )}

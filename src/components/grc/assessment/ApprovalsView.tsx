@@ -91,14 +91,14 @@ export function ApprovalsView({ queue, cfg, users, orgNodes, activeUser, allAsse
                   </p>
                 </TableCell>
                 <TableCell>
-                  <span className="inline-flex items-center gap-1.5 font-mono text-xs font-semibold">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold">
                     {score}%
                     <RagDot rag={ragFromPercent(score)} />
                   </span>
                 </TableCell>
                 <TableCell className="text-foreground">{submitter?.name ?? "—"}</TableCell>
                 <TableCell className="text-muted-foreground">{unit?.name ?? "—"}</TableCell>
-                <TableCell className="font-mono text-xs text-muted-foreground">
+                <TableCell className="text-xs text-muted-foreground">
                   {a.submittedAt ? new Date(a.submittedAt).toLocaleDateString() : "—"}
                 </TableCell>
                 <TableCell className="text-right">

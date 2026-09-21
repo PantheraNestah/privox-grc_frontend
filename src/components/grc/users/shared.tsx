@@ -100,7 +100,7 @@ export function PermissionsList({
         >
           <span className="font-medium">{permissionName(permission)}</span>
           {showCode && permissionName(permission) !== permissionCode(permission) && (
-            <span className="break-all font-mono text-muted-foreground">{permissionCode(permission)}</span>
+            <span className="break-all text-muted-foreground">{permissionCode(permission)}</span>
           )}
           {permissionScope(permission) && (
             <span className="text-muted-foreground">({permissionScope(permission)})</span>

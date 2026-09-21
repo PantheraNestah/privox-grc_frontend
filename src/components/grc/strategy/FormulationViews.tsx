@@ -97,7 +97,7 @@ export const PillarsView = ({
           return (
             <Card key={pillar.id} className="flex flex-col">
               <CardHeader className="flex-row items-start justify-between gap-2 space-y-0 pb-2">
-                <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                <span className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
                   Pillar {String(idx + 1).padStart(2, "0")}
                 </span>
                 {canEditPillars && (

@@ -47,7 +47,7 @@ export function MembersTable({ members, manage = false, isAdmin = false, pending
               </div>
             </TableCell>
             <TableCell className="text-xs text-muted-foreground">{member.email}</TableCell>
-            <TableCell className="font-mono text-xs text-muted-foreground">{member.username}</TableCell>
+            <TableCell className="text-xs text-muted-foreground">{member.username}</TableCell>
             <TableCell>
               <StatusBadge status={member.membershipStatus} />
             </TableCell>

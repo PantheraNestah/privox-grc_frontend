@@ -65,7 +65,7 @@ export function KpiScoreCard({ kpi, value, disabled, onChange }: KpiScoreCardPro
               type="number"
               min={0}
               max={100}
-              className="h-9 font-mono"
+              className="h-9"
               value={value.percentAchievement ?? ""}
               onChange={(e) => handlePct(e.target.value)}
               disabled={disabled}

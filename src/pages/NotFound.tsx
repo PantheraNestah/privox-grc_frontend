@@ -13,7 +13,7 @@ const NotFound = () => {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <Card className="w-full max-w-sm space-y-4 p-8 text-center">
-        <p className="font-mono text-sm text-brand-accent">404</p>
+        <p className="text-sm text-brand-accent">404</p>
         <h1 className="text-xl font-semibold tracking-tight text-navy-deep">Page not found</h1>
         <p className="text-sm text-muted-foreground">
           The page you're looking for doesn't exist or has moved.

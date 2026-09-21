@@ -7,6 +7,7 @@
  */
 
 import { type ReactNode } from "react";
+import { AuthBackdrop } from "@/components/grc/AuthBackdrop";
 import { Logo, BrandName } from "@/components/grc/Logo";
 import { cn } from "@/lib/utils";
 
@@ -24,15 +25,6 @@ const DEFAULT_PANEL_TITLE = (
 const DEFAULT_PANEL_SUBTITLE =
   "A centralised GRC solution empowering organisations to manage risk, ensure compliance, and maintain operational continuity.";
 
-const DEFAULT_PANEL_TAGS = [
-  "Governance",
-  "Risk Management",
-  "Compliance",
-  "Data Protection",
-  "Resilience",
-  "Cyber Risk",
-];
-
 interface AuthShellProps {
   children: ReactNode;
   /** When false, plays the slide-in animation (matches AuthScreen's view transitions). */
@@ -41,7 +33,6 @@ interface AuthShellProps {
   formKey?: string;
   panelTitle?: ReactNode;
   panelSubtitle?: string;
-  panelTags?: string[];
 }
 
 export function AuthShell({
@@ -50,50 +41,48 @@ export function AuthShell({
   formKey,
   panelTitle = DEFAULT_PANEL_TITLE,
   panelSubtitle = DEFAULT_PANEL_SUBTITLE,
-  panelTags = DEFAULT_PANEL_TAGS,
 }: AuthShellProps) {
   return (
-    <div className="flex min-h-screen flex-col md:flex-row bg-offwhite">
-      {/* Left brand panel */}
-      <aside className="relative hidden md:flex md:w-[44%] flex-col justify-between overflow-hidden bg-navy-deep p-14 text-white shrink-0">
-        <div className="absolute inset-0 auth-radial" />
-        <div className="absolute inset-0 dot-grid" />
-        <div className="absolute -top-32 -right-36 w-[420px] h-[420px] rounded-full border border-accent/20" />
-        <div className="absolute top-10 -right-16 w-60 h-60 rounded-full border border-accent/30" />
-        <div className="absolute -bottom-20 -left-20 w-[300px] h-[300px] rounded-full border border-accent/20" />
-        <div className="absolute bottom-16 left-10 w-40 h-40 rounded-full border border-accent/30" />
+    <div className="relative min-h-screen overflow-hidden bg-navy-deep text-white auth-radial">
+      <AuthBackdrop />
 
-        <div className="relative z-10">
-          <div className="flex items-center gap-2.5 mb-12">
-            <Logo />
-            <BrandName className="text-2xl font-semibold tracking-tight" />
+      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-7xl flex-col px-6 py-8 md:px-10 lg:px-14">
+        <header className="flex items-center gap-2.5 lg:hidden">
+          <Logo />
+          <BrandName className="text-2xl font-semibold tracking-tight" />
+        </header>
+
+        <div className="grid flex-1 items-center gap-12 py-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,28rem)] lg:gap-16">
+          {/* Brand message (large screens) */}
+          <div className="hidden lg:block">
+            <div className="mb-10 flex items-center gap-3">
+              <Logo size={44} />
+              <BrandName className="text-3xl font-semibold tracking-tight" />
+            </div>
+            <h1 className="mb-6 text-5xl font-light leading-[1.08] tracking-tight xl:text-6xl 2xl:text-7xl">
+              {panelTitle}
+            </h1>
+            <p className="max-w-lg text-lg leading-relaxed text-brand-muted">{panelSubtitle}</p>
           </div>
-          <h1 className="text-4xl font-light leading-tight tracking-tight mb-4">{panelTitle}</h1>
-          <p className="text-sm leading-relaxed text-brand-muted max-w-xs">{panelSubtitle}</p>
+
+          {/* Floating credentials card */}
+          <main className="flex justify-center lg:justify-end">
+            <div
+              className={cn(
+                "w-full max-w-md rounded-2xl bg-white p-6 text-foreground shadow-2xl sm:p-10",
+                !animating && "animate-slide-in",
+              )}
+              key={formKey}
+            >
+              {children}
+            </div>
+          </main>
         </div>
 
-        <div className="relative z-10">
-          <div className="flex flex-wrap gap-2 mb-7">
-            {panelTags.map((c) => (
-              <span
-                key={c}
-                className="font-mono text-[10.5px] font-medium tracking-wider px-2.5 py-1 rounded-full bg-accent/15 border border-accent/30 text-sky"
-              >
-                {c}
-              </span>
-            ))}
-          </div>
-          <p className="text-[11px] text-brand-muted/40">© 2026 Rsolve. All rights reserved.</p>
-        </div>
-      </aside>
-
-      {/* Right form panel */}
-      <main className="relative flex-1 flex items-center justify-center bg-white px-6 py-12 md:px-10 md:py-12">
-        <div className="absolute inset-x-0 top-0 h-1 top-stripe" />
-        <div className={cn("w-full max-w-md", !animating && "animate-slide-in")} key={formKey}>
-          {children}
-        </div>
-      </main>
+        <footer>
+          <p className="text-center text-[11px] text-brand-muted/60">© First Advantage 2026. All rights reserved.</p>
+        </footer>
+      </div>
     </div>
   );
 }
@@ -106,13 +95,13 @@ export const ViewHeader = ({
   sub,
   center,
 }: {
-  tag: string;
+  tag?: string;
   title: string;
   sub: string;
   center?: boolean;
 }) => (
   <div className={cn("mb-7", center && "text-center")}>
-    <p className="font-mono text-[10.5px] tracking-[0.15em] uppercase text-brand-accent mb-2">{tag}</p>
+    {tag && <p className="text-[10.5px] tracking-[0.15em] uppercase text-brand-accent mb-2">{tag}</p>}
     <h2 className="text-[27px] font-semibold tracking-tight text-navy-deep mb-1.5">{title}</h2>
     <p className="text-[13.5px] leading-relaxed text-brand-muted">{sub}</p>
   </div>
@@ -132,7 +121,7 @@ export const Steps = ({ step }: { step: 1 | 2 | 3 }) => {
         <div key={n} className="flex items-center">
           <div
             className={cn(
-              "w-7 h-7 rounded-full flex items-center justify-center text-xs font-mono font-semibold transition",
+              "w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition",
               dot(n as 1 | 2 | 3),
             )}
           >

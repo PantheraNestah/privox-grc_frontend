@@ -39,7 +39,7 @@ export function PermissionsTab({ isAdmin }: { isAdmin: boolean }) {
             {permissions.map((permission) => (
               <TableRow key={permission.id || permission.code}>
                 <TableCell className="font-medium text-navy-deep">{permission.name || permission.code}</TableCell>
-                <TableCell className="font-mono text-xs text-muted-foreground">{permission.code}</TableCell>
+                <TableCell className="text-xs text-muted-foreground">{permission.code}</TableCell>
                 <TableCell className="text-xs text-muted-foreground">
                   {permission.description || FALLBACK_TEXT}
                 </TableCell>

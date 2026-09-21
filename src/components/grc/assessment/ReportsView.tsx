@@ -41,7 +41,7 @@ export function ReportsView({ rows, assessments, cfg, orgNodes }: ReportsViewPro
                   <li key={p.id} className="space-y-1.5">
                     <div className="flex items-center justify-between gap-3 text-sm">
                       <span className="font-medium text-foreground">{p.name}</span>
-                      <span className="font-mono text-xs text-muted-foreground">
+                      <span className="text-xs text-muted-foreground">
                         {p.count > 0 ? `${p.avg}%` : "no data"}
                         <span className="ml-1.5">({p.count} assessed)</span>
                       </span>
