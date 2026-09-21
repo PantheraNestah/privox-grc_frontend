@@ -1,4 +1,4 @@
-// Organization Strategy Formulation.
+// Strategy Formulation.
 //
 // Tabs:
 //   • Pillars                  — admin-only create/edit; everyone else sees a read-only catalogue
@@ -191,7 +191,7 @@ const StrategyFormulation = () => {
   return (
     <>
       <Helmet>
-        <title>Organization Strategy Formulation · Rsolve GRC Platform</title>
+        <title>Strategy Formulation · Rsolve GRC Platform</title>
         <meta
           name="description"
           content="Define strategic pillars, objectives, initiatives, activities, expected outcomes and KPIs."

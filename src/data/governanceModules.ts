@@ -11,7 +11,7 @@ export const GOVERNANCE_MODULES: ModuleDef[] = [
   },
   {
     id: "strategy-formulation",
-    name: "Organization Strategy Formulation",
+    name: "Strategy Formulation",
     desc: "Set up strategic pillars, objectives, initiatives, activities, outcomes and KPIs (plan setup only).",
     icon: Compass,
     color: "158 53% 49%",
@@ -39,8 +39,8 @@ export const GOVERNANCE_MODULES: ModuleDef[] = [
   },
   {
     id: "risk-strategy",
-    name: "Risk Appetite",
-    desc: "Define risk appetite, likelihood and impact scales and quantitative thresholds.",
+    name: "Risk Strategy",
+    desc: "Define risk strategy, appetite, likelihood and impact scales and quantitative thresholds.",
     icon: LineChart,
     color: "265 88% 66%",
   },
