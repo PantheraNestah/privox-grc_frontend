@@ -5,10 +5,6 @@ import {
   ArrowLeft,
   BadgeCheck,
   Ban,
-  Building2,
-  Calendar,
-  ChevronRight,
-  Clock,
   Globe2,
   Hash,
   Layers,
@@ -16,9 +12,9 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import {
   AlertDialog,
@@ -30,7 +26,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { OrgAvatar } from "@/components/grc/common/OrgAvatar";
+import { PageHeader } from "@/components/grc/common/PageHeader";
 import { PlatformStatusBadge } from "@/components/grc/platform/PlatformStatusBadge";
+import { ErrorState } from "@/components/grc/common/states";
 import { ApproveOrganizationDialog } from "@/components/grc/platform/ApproveOrganizationDialog";
 import {
   usePlatformOrganization,
@@ -45,24 +44,47 @@ import { usePlatformAuth } from "@/contexts/PlatformAuthContext";
 import { canPlatform, PLATFORM_PERMISSIONS } from "@/lib/platformPermissions";
 import { platformModuleStyle } from "@/data/platformModules";
 import { formatDateTime } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
-function DetailRow({
-  icon,
-  label,
-  value,
-}: {
-  icon: ReactNode;
-  label: string;
-  value: ReactNode;
-}) {
+function Field({ icon, label, value }: { icon: ReactNode; label: string; value: ReactNode }) {
   return (
-    <div className="rounded-md border border-border bg-muted/20 p-3">
-      <div className="flex items-center gap-1.5 text-[11px] uppercase text-muted-foreground">
+    <div className="rounded-lg border border-border bg-offwhite/60 p-3.5">
+      <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
         {icon}
         <span>{label}</span>
       </div>
-      <div className="mt-1 break-words text-sm font-medium text-foreground">{value}</div>
+      <div className="mt-1.5 break-words text-sm font-medium text-navy-deep">{value}</div>
     </div>
+  );
+}
+
+function TimelineItem({
+  label,
+  value,
+  detail,
+  done,
+  last,
+}: {
+  label: string;
+  value: string;
+  detail?: ReactNode;
+  done: boolean;
+  last?: boolean;
+}) {
+  return (
+    <li className={cn("relative pl-6", last ? "pb-0" : "pb-5")}>
+      {!last && <span aria-hidden className="absolute bottom-0 left-[5px] top-4 w-px bg-border" />}
+      <span
+        aria-hidden
+        className={cn(
+          "absolute left-0 top-1.5 h-[11px] w-[11px] rounded-full border-2",
+          done ? "border-brand-accent bg-brand-accent" : "border-border bg-card",
+        )}
+      />
+      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="mt-0.5 text-sm font-medium text-navy-deep">{value}</p>
+      {detail && <div className="mt-0.5 text-xs text-muted-foreground">{detail}</div>}
+    </li>
   );
 }
 
@@ -89,6 +111,7 @@ const PlatformOrganizationDetails = () => {
   const org = organization.data;
   const moduleRows = modules.data ?? [];
   const status = (org?.status ?? "").toUpperCase();
+  const enabledCount = moduleRows.filter((row) => row.enabled).length;
   const statusActionPending = suspend.isPending || reactivate.isPending;
 
   const handleConfirm = async () => {
@@ -130,197 +153,252 @@ const PlatformOrganizationDetails = () => {
         <link rel="canonical" href={`/platform/organizations/${orgId ?? ""}`} />
       </Helmet>
 
-      <nav aria-label="Breadcrumb" className="mb-4 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-        <Link to="/platform/organizations" className="text-blue-600 transition-colors hover:text-blue-700">
-          Organizations
-        </Link>
-        <ChevronRight className="h-3.5 w-3.5" />
-        <span className="font-medium text-foreground">{org?.name ?? "Organization"}</span>
-      </nav>
-
       {organization.isLoading && (
-        <div className="py-12 text-center">
-          <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
-          <p className="mt-2 text-sm text-muted-foreground">Loading organization…</p>
+        <div className="space-y-6" role="status">
+          <span className="sr-only">Loading organization…</span>
+          <Skeleton className="h-4 w-48" />
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-14 w-14 rounded-2xl" />
+            <div className="space-y-2">
+              <Skeleton className="h-6 w-64" />
+              <Skeleton className="h-3.5 w-40" />
+            </div>
+          </div>
+          <div className="grid gap-6 lg:grid-cols-3">
+            <Skeleton className="h-64 lg:col-span-2" />
+            <Skeleton className="h-64" />
+          </div>
         </div>
       )}
 
       {organization.isError && (
-        <Card className="border-destructive/40 bg-destructive/5 p-4">
-          <p className="text-sm text-destructive">
-            {organization.error instanceof Error
-              ? organization.error.message
-              : "Failed to load organization."}
-          </p>
-        </Card>
+        <>
+          <PageHeader crumbs={[{ label: "Organizations", to: "/platform/organizations" }, { label: "Not found" }]} title="Organization" />
+          <ErrorState
+            title="Couldn't load organization"
+            message={
+              organization.error instanceof Error ? organization.error.message : "Failed to load organization."
+            }
+          />
+        </>
       )}
 
       {org && (
         <>
-          <header className="mb-6 flex flex-col items-stretch justify-between gap-4 sm:flex-row sm:items-start">
-            <div className="min-w-0">
-              <div className="mb-2 flex flex-wrap items-center gap-2">
-                <Badge variant="outline" className="gap-1.5 text-[11px]">
-                  <Building2 className="h-3.5 w-3.5" />
-                  Organization
-                </Badge>
-                <PlatformStatusBadge status={org.status} />
-              </div>
-              <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">{org.name}</h1>
-              <p className="mt-1 font-mono text-xs text-muted-foreground">
+          <PageHeader
+            crumbs={[{ label: "Organizations", to: "/platform/organizations" }, { label: org.name }]}
+            leading={<OrgAvatar name={org.name} className="h-14 w-14 rounded-2xl text-lg" />}
+            eyebrow={<PlatformStatusBadge status={org.status} />}
+            title={org.name}
+            description={
+              <span className="text-xs">
                 {org.code} · {org.slug}
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {status === "PENDING_VALIDATION" && canApprove && (
-                <Button
-                  size="sm"
-                  onClick={() => setApproveOpen(true)}
-                  className="bg-navy-deep text-white hover:bg-navy"
-                >
-                  <BadgeCheck className="h-4 w-4" /> Approve
+              </span>
+            }
+            actions={
+              <>
+                {status === "PENDING_VALIDATION" && canApprove && (
+                  <Button variant="brand" onClick={() => setApproveOpen(true)}>
+                    <BadgeCheck /> Approve
+                  </Button>
+                )}
+                {status === "ACTIVE" && canSuspend && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setConfirmAction("suspend")}
+                    className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <Ban /> Suspend
+                  </Button>
+                )}
+                {status === "SUSPENDED" && canReactivate && (
+                  <Button variant="brand" onClick={() => setConfirmAction("reactivate")}>
+                    <RefreshCw /> Reactivate
+                  </Button>
+                )}
+                <Button asChild variant="outline">
+                  <Link to="/platform/organizations">
+                    <ArrowLeft /> Back
+                  </Link>
                 </Button>
-              )}
-              {status === "ACTIVE" && canSuspend && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setConfirmAction("suspend")}
-                  className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                >
-                  <Ban className="h-4 w-4" /> Suspend
-                </Button>
-              )}
-              {status === "SUSPENDED" && canReactivate && (
-                <Button
-                  size="sm"
-                  onClick={() => setConfirmAction("reactivate")}
-                  className="bg-navy-deep text-white hover:bg-navy"
-                >
-                  <RefreshCw className="h-4 w-4" /> Reactivate
-                </Button>
-              )}
-              <Button asChild variant="outline" size="sm">
-                <Link to="/platform/organizations">
-                  <ArrowLeft className="h-4 w-4" /> Back
-                </Link>
-              </Button>
-            </div>
-          </header>
+              </>
+            }
+          />
 
-          <div className="space-y-5">
-            <Card className="p-4">
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                <DetailRow icon={<Hash className="h-3.5 w-3.5" />} label="Name" value={org.name} />
-                <DetailRow icon={<Hash className="h-3.5 w-3.5" />} label="Code" value={org.code} />
-                <DetailRow icon={<Globe2 className="h-3.5 w-3.5" />} label="Slug" value={org.slug} />
-                <DetailRow icon={<Layers className="h-3.5 w-3.5" />} label="Plan tier" value={org.planTier ?? "—"} />
-                <DetailRow icon={<MapPin className="h-3.5 w-3.5" />} label="Country" value={org.countryCode ?? "—"} />
-                <DetailRow icon={<BadgeCheck className="h-3.5 w-3.5" />} label="Status" value={<PlatformStatusBadge status={org.status} />} />
-                <DetailRow icon={<Calendar className="h-3.5 w-3.5" />} label="Created" value={formatDateTime(org.createdAt)} />
-                <DetailRow icon={<Clock className="h-3.5 w-3.5" />} label="Updated" value={formatDateTime(org.updatedAt)} />
-                <DetailRow
-                  icon={<Clock className="h-3.5 w-3.5" />}
-                  label="Deactivated"
-                  value={formatDateTime(org.deactivatedAt)}
-                />
-              </div>
-            </Card>
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="space-y-6 lg:col-span-2">
+              <Card>
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-base text-navy-deep">Profile</CardTitle>
+                  <CardDescription className="text-xs">Registration details for this tenant.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field icon={<Hash className="h-3.5 w-3.5" />} label="Name" value={org.name} />
+                    <Field icon={<Hash className="h-3.5 w-3.5" />} label="Code" value={org.code} />
+                    <Field icon={<Globe2 className="h-3.5 w-3.5" />} label="Slug" value={org.slug} />
+                    <Field icon={<Layers className="h-3.5 w-3.5" />} label="Plan tier" value={org.planTier ?? "—"} />
+                    <Field icon={<MapPin className="h-3.5 w-3.5" />} label="Country" value={org.countryCode ?? "—"} />
+                    <Field
+                      icon={<BadgeCheck className="h-3.5 w-3.5" />}
+                      label="Status"
+                      value={<PlatformStatusBadge status={org.status} />}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
 
-            <Card className="p-4">
-              <h2 className="mb-3 text-sm font-semibold text-navy-deep">Validation</h2>
-              <div className="grid gap-3 md:grid-cols-2">
-                <DetailRow
-                  icon={<BadgeCheck className="h-3.5 w-3.5" />}
-                  label="Validated at"
-                  value={formatDateTime(org.validatedAt)}
-                />
-                <DetailRow
-                  icon={<Hash className="h-3.5 w-3.5" />}
-                  label="Validated by"
-                  value={org.validatedByUserId ? <span className="font-mono text-xs">{org.validatedByUserId}</span> : "—"}
-                />
-                <div className="rounded-md border border-border bg-muted/20 p-3 md:col-span-2">
-                  <div className="text-[11px] uppercase text-muted-foreground">Validation notes</div>
-                  <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">
-                    {org.validationNotes ?? "—"}
-                  </p>
-                </div>
-              </div>
-            </Card>
-
-            <Card className="p-4">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <h2 className="text-sm font-semibold text-navy-deep">Enabled modules</h2>
-                <Link
-                  to="/platform/modules"
-                  className="text-xs font-medium text-blue-600 transition-colors hover:text-blue-700"
-                >
-                  View catalogue
-                </Link>
-              </div>
-
-              {modules.isLoading && (
-                <p className="py-4 text-sm text-muted-foreground">Loading module assignments…</p>
-              )}
-              {modules.isError && (
-                <p className="py-4 text-sm text-destructive">
-                  {modules.error instanceof Error ? modules.error.message : "Failed to load modules."}
-                </p>
-              )}
-              {!modules.isLoading && !modules.isError && moduleRows.length === 0 && (
-                <p className="py-4 text-sm text-muted-foreground">
-                  No modules are assigned to this organization yet.
-                </p>
-              )}
-              {moduleRows.length > 0 && (
-                <ul className="divide-y divide-border">
-                  {moduleRows
-                    .slice()
-                    .sort((a, b) => a.sortOrder - b.sortOrder)
-                    .map((row) => {
-                      const { icon: Icon, color } = platformModuleStyle(row.code);
-                      const rowPending =
-                        setModule.isPending && setModule.variables?.moduleId === row.moduleId;
-                      return (
-                        <li key={row.id} className="flex items-center gap-3 py-3">
-                          <span
-                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-                            style={{ background: `hsl(${color} / 0.12)` }}
-                          >
-                            <Icon className="h-4 w-4" style={{ color: `hsl(${color})` }} strokeWidth={1.6} />
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <div className="text-sm font-medium text-foreground">{row.name}</div>
-                            <div className="truncate text-xs text-muted-foreground">
-                              {row.description ?? "No description"}
-                            </div>
+              <Card>
+                <CardHeader className="pb-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <CardTitle className="text-base text-navy-deep">Modules</CardTitle>
+                      <CardDescription className="mt-1 text-xs">
+                        Toggle which platform modules {org.name} can use.
+                      </CardDescription>
+                    </div>
+                    <Button asChild variant="ghost" size="sm" className="shrink-0 text-brand-accent hover:text-navy">
+                      <Link to="/platform/modules">View catalogue</Link>
+                    </Button>
+                  </div>
+                  {moduleRows.length > 0 && (
+                    <div className="pt-3">
+                      <div className="mb-1.5 flex items-center justify-between text-xs text-muted-foreground">
+                        <span>
+                          {enabledCount} of {moduleRows.length} enabled
+                        </span>
+                        <span >{Math.round((enabledCount / moduleRows.length) * 100)}%</span>
+                      </div>
+                      <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className="h-full rounded-full bg-gradient-primary transition-all"
+                          style={{ width: `${(enabledCount / moduleRows.length) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  {modules.isLoading && (
+                    <div className="space-y-3" role="status">
+                      <span className="sr-only">Loading module assignments…</span>
+                      {Array.from({ length: 4 }, (_, i) => (
+                        <div key={i} className="flex items-center gap-3">
+                          <Skeleton className="h-9 w-9 rounded-lg" />
+                          <div className="flex-1 space-y-2">
+                            <Skeleton className="h-3.5 w-1/3" />
+                            <Skeleton className="h-3 w-1/2" />
                           </div>
-                          <span
-                            className={
-                              "text-[11px] font-medium " +
-                              (row.enabled ? "text-success" : "text-muted-foreground")
-                            }
-                          >
-                            {row.enabled ? "Enabled" : "Disabled"}
-                          </span>
-                          <Switch
-                            checked={row.enabled}
-                            disabled={!canAssignModules || rowPending}
-                            onCheckedChange={(checked) => handleModuleToggle(row.moduleId, row.name, checked)}
-                            aria-label={`Toggle ${row.name}`}
-                          />
-                        </li>
-                      );
-                    })}
-                </ul>
-              )}
-              {!canAssignModules && (
-                <p className="mt-3 text-xs text-muted-foreground">
-                  You don't have the <span className="font-mono">platform.module.assign</span> permission.
-                </p>
-              )}
-            </Card>
+                          <Skeleton className="h-5 w-9 rounded-full" />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {modules.isError && (
+                    <ErrorState
+                      title="Couldn't load modules"
+                      message={modules.error instanceof Error ? modules.error.message : "Failed to load modules."}
+                    />
+                  )}
+                  {!modules.isLoading && !modules.isError && moduleRows.length === 0 && (
+                    <p className="py-2 text-sm text-muted-foreground">
+                      No modules are available on the platform catalogue yet.
+                    </p>
+                  )}
+                  {moduleRows.length > 0 && (
+                    <ul className="-mx-2 divide-y divide-border">
+                      {moduleRows
+                        .slice()
+                        .sort((a, b) => a.sortOrder - b.sortOrder)
+                        .map((row) => {
+                          const { icon: Icon, color } = platformModuleStyle(row.code);
+                          const rowPending =
+                            setModule.isPending && setModule.variables?.moduleId === row.moduleId;
+                          return (
+                            <li key={row.id} className="flex items-center gap-3 px-2 py-3">
+                              <span
+                                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+                                style={{ background: `hsl(${color} / 0.12)` }}
+                              >
+                                <Icon className="h-4 w-4" style={{ color: `hsl(${color})` }} strokeWidth={1.6} />
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <div className="text-sm font-medium text-navy-deep">{row.name}</div>
+                                <div className="line-clamp-1 text-xs text-muted-foreground">
+                                  {row.description ?? "No description"}
+                                </div>
+                              </div>
+                              <span
+                                className={cn(
+                                  "hidden text-[11px] font-medium sm:inline",
+                                  row.enabled ? "text-success" : "text-muted-foreground",
+                                )}
+                              >
+                                {row.enabled ? "Enabled" : "Disabled"}
+                              </span>
+                              <Switch
+                                checked={row.enabled}
+                                disabled={!canAssignModules || rowPending}
+                                onCheckedChange={(checked) => handleModuleToggle(row.moduleId, row.name, checked)}
+                                aria-label={`Toggle ${row.name}`}
+                              />
+                            </li>
+                          );
+                        })}
+                    </ul>
+                  )}
+                  {!canAssignModules && (
+                    <p className="mt-3 rounded-md bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
+                      You don't have the <span >platform.module.assign</span> permission.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="space-y-6">
+              <Card>
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-base text-navy-deep">Lifecycle</CardTitle>
+                  <CardDescription className="text-xs">Key moments for this organization.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ol>
+                    <TimelineItem label="Created" value={formatDateTime(org.createdAt)} done />
+                    <TimelineItem label="Updated" value={formatDateTime(org.updatedAt)} done />
+                    <TimelineItem
+                      label="Validated"
+                      value={formatDateTime(org.validatedAt, "Not validated yet")}
+                      detail={
+                        org.validatedByUserId && (
+                          <>
+                            by <span className="break-all">{org.validatedByUserId}</span>
+                          </>
+                        )
+                      }
+                      done={!!org.validatedAt}
+                    />
+                    <TimelineItem
+                      label="Deactivated"
+                      value={formatDateTime(org.deactivatedAt, "Never")}
+                      done={!!org.deactivatedAt}
+                      last
+                    />
+                  </ol>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base text-navy-deep">Validation notes</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-navy-dark">
+                    {org.validationNotes ?? <span className="text-muted-foreground">No notes recorded.</span>}
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
           </div>
 
           <ApproveOrganizationDialog

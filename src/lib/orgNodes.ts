@@ -2,7 +2,6 @@
  * Org Tree API service (Governance module — Risk Governance).
  * All endpoints require the signed-in user's access token
  * (automatically attached via the axios interceptor in api.ts).
- * See GOVERNANCE_API_ENDPOINTS.md §15 for the full reference.
  */
 
 import { api } from "./api";
@@ -14,6 +13,7 @@ import type {
   OrgTreeSettingsResponse,
   UpdateOrgTreeSettingsRequest,
   CloneOrgNodeTemplateRequest,
+  OrgNodeMemberResponse,
 } from "./governance-types";
 
 export async function fetchOrgNodes(
@@ -102,6 +102,17 @@ export async function updateOrgTreeSettings(
   const { data } = await api.put<OrgTreeSettingsResponse>(
     `/v1/organizations/${orgId}/org-nodes/settings`,
     body,
+  );
+  return data;
+}
+
+/** Users placed at one node. Needs `orgnode.view` and the Governance module. */
+export async function fetchOrgNodeMembers(
+  orgId: string,
+  nodeId: string,
+): Promise<OrgNodeMemberResponse[]> {
+  const { data } = await api.get<OrgNodeMemberResponse[]>(
+    `/v1/organizations/${orgId}/org-nodes/${nodeId}/members`,
   );
   return data;
 }

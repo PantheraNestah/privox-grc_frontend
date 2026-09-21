@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Card } from "@/components/ui/card";
+import { Card, CardHeader } from "@/components/ui/card";
 import { Filter } from "lucide-react";
 import { ORG_TYPE_LABELS, type OrgNode, type OrgNodeType } from "@/data/orgStore";
 import {
@@ -23,6 +23,22 @@ import {
   ASSESSMENT_STATUS_LABELS, ASSESSMENT_STATUS_COLORS,
   type InitiativeAssessment,
 } from "@/data/assessmentStore";
+
+/** Badge tinted from an HSL "h s% l%" token supplied by the status maps. */
+const ToneBadge = ({ color, dot, children }: { color: string; dot?: boolean; children: React.ReactNode }) => (
+  <Badge
+    variant="outline"
+    className="w-fit gap-1 text-[10px] font-medium"
+    style={{
+      background: `hsl(${color} / 0.12)`,
+      borderColor: `hsl(${color} / 0.4)`,
+      color: `hsl(${color})`,
+    }}
+  >
+    {dot && <span className="h-1.5 w-1.5 rounded-full" style={{ background: `hsl(${color})` }} />}
+    {children}
+  </Badge>
+);
 
 // Only "real" org levels (no processes / sub-processes — those don't own strategy)
 const FILTER_LEVELS: OrgNodeType[] = ["group", "company", "department", "division", "section"];
@@ -99,7 +115,7 @@ export const StrategyTable = (props: Props) => {
     return (
       <div className="flex flex-wrap gap-1">
         {nodes.map(n => (
-          <span key={n.id} className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-muted text-foreground">
+          <span key={n.id} className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[10px] text-foreground">
             <span className="text-muted-foreground uppercase tracking-wider">{ORG_TYPE_LABELS[n.type]}</span>
             {n.name}
           </span>
@@ -134,73 +150,45 @@ export const StrategyTable = (props: Props) => {
 
   const renderStatus = (init: Initiative) => {
     if (props.variant === "formulation") {
-      const s = init.formulationStatus;
-      return (
-        <Badge variant="outline" className="text-[10px]"
-          style={{
-            background: `hsl(${FORMULATION_STATUS_COLORS[s]} / 0.12)`,
-            borderColor: `hsl(${FORMULATION_STATUS_COLORS[s]} / 0.4)`,
-            color: `hsl(${FORMULATION_STATUS_COLORS[s]})`,
-          }}>
-          {FORMULATION_STATUS_LABELS[s]}
-        </Badge>
-      );
+      const status = init.formulationStatus;
+      return <ToneBadge color={FORMULATION_STATUS_COLORS[status]}>{FORMULATION_STATUS_LABELS[status]}</ToneBadge>;
     }
     // assessment — show BOTH the workflow status and the actual progress status
-    const a = props.assessments.find(x => x.initiativeId === init.id);
-    if (!a) {
+    const assessment = props.assessments.find((x) => x.initiativeId === init.id);
+    if (!assessment) {
       return (
         <div className="flex flex-col gap-1">
-          <span className="text-[11px] text-muted-foreground italic">Not started</span>
-          <Badge variant="outline" className="text-[10px] gap-1"
-            style={{
-              background: `hsl(${INITIATIVE_STATUS_COLORS[init.status]} / 0.12)`,
-              borderColor: `hsl(${INITIATIVE_STATUS_COLORS[init.status]} / 0.4)`,
-              color: `hsl(${INITIATIVE_STATUS_COLORS[init.status]})`,
-            }}>
-            <span className="w-1.5 h-1.5 rounded-full" style={{ background: `hsl(${INITIATIVE_STATUS_COLORS[init.status]})` }} />
+          <span className="text-[11px] italic text-muted-foreground">Not started</span>
+          <ToneBadge color={INITIATIVE_STATUS_COLORS[init.status]} dot>
             {INITIATIVE_STATUS_LABELS[init.status]}
-          </Badge>
+          </ToneBadge>
         </div>
       );
     }
     return (
       <div className="flex flex-col gap-1">
-        <Badge variant="outline" className="text-[10px]"
-          style={{
-            background: `hsl(${ASSESSMENT_STATUS_COLORS[a.status]} / 0.12)`,
-            borderColor: `hsl(${ASSESSMENT_STATUS_COLORS[a.status]} / 0.4)`,
-            color: `hsl(${ASSESSMENT_STATUS_COLORS[a.status]})`,
-          }}>
-          {ASSESSMENT_STATUS_LABELS[a.status]}
-        </Badge>
-        <Badge variant="outline" className="text-[10px] gap-1"
-          style={{
-            background: `hsl(${INITIATIVE_STATUS_COLORS[a.initiativeStatus]} / 0.12)`,
-            borderColor: `hsl(${INITIATIVE_STATUS_COLORS[a.initiativeStatus]} / 0.4)`,
-            color: `hsl(${INITIATIVE_STATUS_COLORS[a.initiativeStatus]})`,
-          }}>
-          <span className="w-1.5 h-1.5 rounded-full" style={{ background: `hsl(${INITIATIVE_STATUS_COLORS[a.initiativeStatus]})` }} />
-          {INITIATIVE_STATUS_LABELS[a.initiativeStatus]}
-        </Badge>
+        <ToneBadge color={ASSESSMENT_STATUS_COLORS[assessment.status]}>{ASSESSMENT_STATUS_LABELS[assessment.status]}</ToneBadge>
+        <ToneBadge color={INITIATIVE_STATUS_COLORS[assessment.initiativeStatus]} dot>
+          {INITIATIVE_STATUS_LABELS[assessment.initiativeStatus]}
+        </ToneBadge>
       </div>
     );
   };
 
   return (
-    <Card className="p-0 overflow-hidden">
-      <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center gap-3 flex-wrap">
+    <Card className="overflow-hidden">
+      <CardHeader className="flex-row flex-wrap items-center gap-3 space-y-0 border-b border-border px-4 py-3">
         <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-muted-foreground" />
-          <span className="text-sm font-semibold text-foreground">
+          <Filter className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-semibold text-navy-deep">
             {props.variant === "formulation" ? "Formulation table" : "Assessment table"}
           </span>
         </div>
-        <Badge variant="secondary" className="text-[10px]">{filteredRows.length} of {rows.length}</Badge>
+        <Badge variant="secondary" className="text-[10px] font-normal">{filteredRows.length} of {rows.length}</Badge>
         <div className="ml-auto flex items-center gap-2">
           <span className="text-[11px] text-muted-foreground">Filter by level:</span>
           <Select value={levelFilter} onValueChange={(v) => setLevelFilter(v as OrgNodeType | "all")}>
-            <SelectTrigger className="h-8 w-[180px] text-xs">
+            <SelectTrigger className="h-8 w-[180px] text-xs" aria-label="Filter by level">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -211,49 +199,47 @@ export const StrategyTable = (props: Props) => {
             </SelectContent>
           </Select>
         </div>
-      </div>
+      </CardHeader>
 
-      <div className="overflow-x-auto">
-        <Table className="min-w-[1400px]">
-          <TableHeader>
+      <Table className="min-w-[1400px]">
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="text-[10px] uppercase tracking-wider">Pillar</TableHead>
+            <TableHead className="text-[10px] uppercase tracking-wider">Objective</TableHead>
+            <TableHead className="text-[10px] uppercase tracking-wider">Initiative</TableHead>
+            <TableHead className="text-[10px] uppercase tracking-wider">Activities</TableHead>
+            <TableHead className="text-[10px] uppercase tracking-wider">Expected outcomes</TableHead>
+            <TableHead className="text-[10px] uppercase tracking-wider">Performance indicators</TableHead>
+            <TableHead className="text-[10px] uppercase tracking-wider">Timeline</TableHead>
+            <TableHead className="text-[10px] uppercase tracking-wider">Responsibility</TableHead>
+            <TableHead className="text-[10px] uppercase tracking-wider">{props.variant === "assessment" ? "Workflow / progress" : "Status"}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {filteredRows.length === 0 ? (
             <TableRow>
-              <TableHead className="text-[10px] uppercase tracking-wider">Pillar</TableHead>
-              <TableHead className="text-[10px] uppercase tracking-wider">Objective</TableHead>
-              <TableHead className="text-[10px] uppercase tracking-wider">Initiative</TableHead>
-              <TableHead className="text-[10px] uppercase tracking-wider">Activities</TableHead>
-              <TableHead className="text-[10px] uppercase tracking-wider">Expected outcomes</TableHead>
-              <TableHead className="text-[10px] uppercase tracking-wider">Performance indicators</TableHead>
-              <TableHead className="text-[10px] uppercase tracking-wider">Timeline</TableHead>
-              <TableHead className="text-[10px] uppercase tracking-wider">Responsibility</TableHead>
-              <TableHead className="text-[10px] uppercase tracking-wider">{props.variant === "assessment" ? "Workflow / progress" : "Status"}</TableHead>
+              <TableCell colSpan={9} className="text-center text-xs text-muted-foreground py-8 italic">
+                No initiatives match this filter.
+              </TableCell>
             </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredRows.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={9} className="text-center text-xs text-muted-foreground py-8 italic">
-                  No initiatives match this filter.
-                </TableCell>
-              </TableRow>
-            ) : filteredRows.map(r => (
-              <TableRow key={r.key} className="align-top">
-                <TableCell className="text-xs font-medium text-foreground py-2 px-3 align-top whitespace-normal break-words">{r.pillarName}</TableCell>
-                <TableCell className="text-xs text-foreground py-2 px-3 align-top whitespace-normal break-words">{r.objectiveTitle}</TableCell>
-                <TableCell className="text-xs text-foreground py-2 px-3 align-top whitespace-normal break-words">
-                  <p className="font-medium">{r.init.name}</p>
-                  {r.init.owner && <p className="text-[10px] text-muted-foreground">Owner: {r.init.owner}</p>}
-                </TableCell>
-                <TableCell className="text-[11px] text-muted-foreground py-2 px-3 align-top whitespace-normal break-words">{r.activityText}</TableCell>
-                <TableCell className="text-[11px] text-muted-foreground py-2 px-3 align-top whitespace-normal break-words">{r.outcomeText}</TableCell>
-                <TableCell className="py-2 px-3 align-top whitespace-normal break-words">{renderKpis(r.init)}</TableCell>
-                <TableCell className="py-2 px-3 whitespace-nowrap align-top">{renderTimeline(r.init)}</TableCell>
-                <TableCell className="py-2 px-3 align-top">{renderResponsibility(r.objLinkedOrgNodeIds)}</TableCell>
-                <TableCell className="py-2 px-3 align-top">{renderStatus(r.init)}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+          ) : filteredRows.map(r => (
+            <TableRow key={r.key} className="align-top">
+              <TableCell className="text-xs font-medium text-foreground py-2 px-3 align-top whitespace-normal break-words">{r.pillarName}</TableCell>
+              <TableCell className="text-xs text-foreground py-2 px-3 align-top whitespace-normal break-words">{r.objectiveTitle}</TableCell>
+              <TableCell className="text-xs text-foreground py-2 px-3 align-top whitespace-normal break-words">
+                <p className="font-medium">{r.init.name}</p>
+                {r.init.owner && <p className="text-[10px] text-muted-foreground">Owner: {r.init.owner}</p>}
+              </TableCell>
+              <TableCell className="text-[11px] text-muted-foreground py-2 px-3 align-top whitespace-normal break-words">{r.activityText}</TableCell>
+              <TableCell className="text-[11px] text-muted-foreground py-2 px-3 align-top whitespace-normal break-words">{r.outcomeText}</TableCell>
+              <TableCell className="py-2 px-3 align-top whitespace-normal break-words">{renderKpis(r.init)}</TableCell>
+              <TableCell className="py-2 px-3 whitespace-nowrap align-top">{renderTimeline(r.init)}</TableCell>
+              <TableCell className="py-2 px-3 align-top">{renderResponsibility(r.objLinkedOrgNodeIds)}</TableCell>
+              <TableCell className="py-2 px-3 align-top">{renderStatus(r.init)}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </Card>
   );
 };

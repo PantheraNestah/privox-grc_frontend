@@ -39,9 +39,9 @@ export const UserPicker = ({
           aria-expanded={open}
           className={cn("w-full justify-between font-normal", heightClass, className)}
         >
-          <span className={cn("truncate", !value && "text-muted-foreground")}>
-            <UserIcon className="w-3.5 h-3.5 inline-block mr-1.5 -mt-0.5 text-muted-foreground" />
-            {value || placeholder}
+          <span className={cn("flex min-w-0 items-center gap-1.5", !value && "text-muted-foreground")}>
+            <UserIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <span className="truncate">{value || placeholder}</span>
           </span>
           <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
         </Button>

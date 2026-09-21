@@ -51,6 +51,18 @@ const assignments = [
   },
 ];
 
+const catalogue = [
+  {
+    id: "mod-1",
+    code: "GOVERNANCE",
+    name: "Governance",
+    description: "Governance catalogue entry",
+    active: true,
+    sortOrder: 30,
+    createdAt: "2026-08-24T08:00:00Z",
+  },
+];
+
 function renderDetails() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 }, mutations: { retry: false } },
@@ -71,6 +83,7 @@ function renderDetails() {
 describe("PlatformOrganizationDetails", () => {
   beforeEach(() => {
     vi.spyOn(platformAdmin, "getPlatformOrganization").mockResolvedValue(organization);
+    vi.spyOn(platformAdmin, "listPlatformModules").mockResolvedValue(catalogue);
     vi.spyOn(platformAdmin, "listPlatformOrganizationModules").mockResolvedValue(assignments);
     vi.spyOn(platformAdmin, "suspendPlatformOrganization").mockResolvedValue(organization);
     vi.spyOn(platformAdmin, "reactivatePlatformOrganization").mockResolvedValue(organization);

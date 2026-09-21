@@ -1,8 +1,7 @@
 /**
  * Platform Admin API service.
  *
- * Covers the platform-scoped (non-org) endpoints from the
- * "GRC Platfom Admin APIs" Postman collection: organization onboarding
+ * Covers the platform-scoped (non-org) endpoints: organization onboarding
  * (create / list / approve / suspend / reactivate) and platform module
  * catalogue / per-organization module assignment.
  *
@@ -16,6 +15,7 @@
  */
 
 import { platformApi } from "./api";
+import type { OrganizationDto } from "./auth-types";
 
 // ─── Organizations ─────────────────────────────────────────
 
@@ -215,7 +215,8 @@ export interface PlatformLoginResponse {
   expiresIn: number;
   accessTokenExpiresAt: string;
   user: PlatformUser;
-  organization: null;
+  /** Expected `null`; non-null means the account got a tenant session. */
+  organization: OrganizationDto | null;
   permissions: string[];
 }
 

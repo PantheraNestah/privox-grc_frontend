@@ -63,7 +63,7 @@ export function ApproveOrganizationDialog({
 
   return (
     <Dialog open={open} onOpenChange={(next) => !approveOrganization.isPending && onOpenChange(next)}>
-      <DialogContent className="sm:max-w-[460px]">
+      <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-[460px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <BadgeCheck className="h-4 w-4" /> Approve organization
@@ -121,7 +121,7 @@ export function ApproveOrganizationDialog({
             type="button"
             onClick={submit}
             disabled={!canSubmit || approveOrganization.isPending}
-            className="bg-navy-deep hover:bg-navy text-white"
+            variant="brand"
           >
             {approveOrganization.isPending ? "Approving…" : "Approve"}
           </Button>

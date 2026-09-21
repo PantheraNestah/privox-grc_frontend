@@ -1,7 +1,6 @@
 /**
  * Risk Strategy API service (Governance module — risk appetite, likelihood
  * and impact bands). Versions are strictly append-only.
- * See GOVERNANCE_API_ENDPOINTS.md §17 for the full reference.
  */
 
 import { api } from "./api";

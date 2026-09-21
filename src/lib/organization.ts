@@ -14,6 +14,10 @@ import type {
   OrganizationPermission,
   OrganizationDetailDto,
   GroupMember,
+  UpdateOrganizationRequest,
+  UserGroupAssignment,
+  Invitation,
+  CreateInvitationRequest,
 } from "./auth-types";
 
 type GroupDetailResponse = Omit<OrganizationGroupDetail, "permissions"> & {
@@ -60,10 +64,19 @@ export async function fetchMemberGroups(
   orgId: string,
   memberId: string,
 ): Promise<OrganizationGroup[]> {
-  const { data } = await api.get<OrganizationGroup[]>(
+  // Backend returns List<UserGroupResponse> (groupId/code/...), not AccessGroupResponse.
+  const { data } = await api.get<UserGroupAssignment[]>(
     `/v1/organizations/${orgId}/members/${memberId}/groups`,
   );
-  return data.map(normalizeGroup);
+  return data.map((assignment) =>
+    normalizeGroup({
+      id: assignment.groupId,
+      code: assignment.code,
+      name: assignment.name,
+      description: assignment.description,
+      active: assignment.active,
+    } as OrganizationGroup),
+  );
 }
 
 export async function fetchOrganizationGroups(
@@ -98,6 +111,17 @@ export async function createOrganizationGroup(
     body,
   );
   return normalizeGroup(data);
+}
+
+export async function updateOrganizationDetail(
+  orgId: string,
+  body: UpdateOrganizationRequest,
+): Promise<OrganizationDetailDto> {
+  const { data } = await api.patch<OrganizationDetailDto>(
+    `/v1/organizations/${orgId}`,
+    body,
+  );
+  return data;
 }
 
 export async function updateOrganizationGroup(
@@ -153,10 +177,11 @@ export async function addGroupMember(
 export async function removeGroupMember(
   orgId: string,
   groupId: string,
-  membershipId: string,
+  userId: string,
 ): Promise<void> {
+  // Backend DELETE path variable is the user id, not the membership id.
   await api.delete(
-    `/v1/organizations/${orgId}/groups/${groupId}/members/${membershipId}`,
+    `/v1/organizations/${orgId}/groups/${groupId}/members/${userId}`,
   );
 }
 
@@ -184,4 +209,85 @@ export async function updateGroupPermissions(
     `/v1/organizations/${orgId}/groups/${groupId}/permissions`,
     { permissionIds },
   );
+}
+
+// ─── Member lifecycle ────────────────────────────────────
+
+async function memberTransition(
+  orgId: string,
+  userId: string,
+  action: "activate" | "suspend" | "reactivate" | "deactivate",
+): Promise<OrganizationMember> {
+  const { data } = await api.post<OrganizationMember>(
+    `/v1/organizations/${orgId}/members/${userId}/${action}`,
+  );
+  return data;
+}
+
+export const activateOrganizationMember = (orgId: string, userId: string) =>
+  memberTransition(orgId, userId, "activate");
+
+export const suspendOrganizationMember = (orgId: string, userId: string) =>
+  memberTransition(orgId, userId, "suspend");
+
+export const reactivateOrganizationMember = (orgId: string, userId: string) =>
+  memberTransition(orgId, userId, "reactivate");
+
+export const deactivateOrganizationMember = (orgId: string, userId: string) =>
+  memberTransition(orgId, userId, "deactivate");
+
+export async function updateOrganizationMember(
+  orgId: string,
+  userId: string,
+  body: { email: string; username?: string; fullName: string },
+): Promise<OrganizationMember> {
+  const { data } = await api.put<OrganizationMember>(
+    `/v1/organizations/${orgId}/members/${userId}`,
+    body,
+  );
+  return data;
+}
+
+// ─── Invitations ──────────────────────────────────────────
+
+export async function fetchOrganizationInvitations(
+  orgId: string,
+  status?: "PENDING" | "ACCEPTED" | "REVOKED" | "EXPIRED",
+): Promise<Invitation[]> {
+  const search = status ? `?status=${status}` : "";
+  const { data } = await api.get<Invitation[]>(
+    `/v1/organizations/${orgId}/invitations${search}`,
+  );
+  return data;
+}
+
+export async function createOrganizationInvitation(
+  orgId: string,
+  body: CreateInvitationRequest,
+): Promise<Invitation> {
+  const { data } = await api.post<Invitation>(
+    `/v1/organizations/${orgId}/invitations`,
+    body,
+  );
+  return data;
+}
+
+export async function resendInvitation(
+  orgId: string,
+  invitationId: string,
+): Promise<Invitation> {
+  const { data } = await api.post<Invitation>(
+    `/v1/organizations/${orgId}/invitations/${invitationId}/resend`,
+  );
+  return data;
+}
+
+export async function revokeInvitation(
+  orgId: string,
+  invitationId: string,
+): Promise<Invitation> {
+  const { data } = await api.post<Invitation>(
+    `/v1/organizations/${orgId}/invitations/${invitationId}/revoke`,
+  );
+  return data;
 }

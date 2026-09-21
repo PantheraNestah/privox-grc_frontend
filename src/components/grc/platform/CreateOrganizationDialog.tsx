@@ -87,7 +87,7 @@ export function CreateOrganizationDialog({ open, onOpenChange }: CreateOrganizat
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[480px]">
+      <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-[480px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Building2 className="h-4 w-4" /> New organization
@@ -183,7 +183,7 @@ export function CreateOrganizationDialog({ open, onOpenChange }: CreateOrganizat
             type="button"
             onClick={submit}
             disabled={!canSubmit || createOrganization.isPending}
-            className="bg-navy-deep hover:bg-navy text-white"
+            variant="brand"
           >
             {createOrganization.isPending ? "Creating…" : "Create organization"}
           </Button>

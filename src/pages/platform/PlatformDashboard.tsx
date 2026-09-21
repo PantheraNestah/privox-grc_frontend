@@ -1,14 +1,20 @@
 import { type ReactNode } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
-import { ArrowRight, Building2, Clock, Layers, ShieldCheck } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { Building2, ChevronRight, Clock, Layers, Network, ShieldCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { OrgAvatar } from "@/components/grc/common/OrgAvatar";
+import { PageHeader } from "@/components/grc/common/PageHeader";
+import { EmptyState, ErrorState } from "@/components/grc/common/states";
 import { PlatformStatusBadge } from "@/components/grc/platform/PlatformStatusBadge";
 import { usePlatformAuth } from "@/contexts/PlatformAuthContext";
 import { usePlatformOrganizations } from "@/hooks/use-platform-organizations";
 import { usePlatformModules } from "@/hooks/use-platform-modules";
 import { formatDateTime } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 const StatCard = ({
   icon,
@@ -16,24 +22,34 @@ const StatCard = ({
   value,
   hint,
   loading,
+  tone,
 }: {
   icon: ReactNode;
   label: string;
   value: string | number;
   hint: string;
   loading?: boolean;
+  tone: string;
 }) => (
-  <Card className="p-5">
-    <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-muted-foreground">
-      {icon}
-      <span>{label}</span>
+  <Card className="p-4 transition-shadow hover:shadow-card-hover sm:p-5">
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
+      <span className={cn("flex h-9 w-9 items-center justify-center rounded-lg", tone)}>{icon}</span>
     </div>
-    <p className="mt-3 text-3xl font-semibold tracking-tight text-foreground">
-      {loading ? "…" : value}
-    </p>
+    {loading ? (
+      <Skeleton className="mt-3 h-9 w-16" />
+    ) : (
+      <p className="mt-3 text-3xl font-semibold tracking-tight text-navy-deep">{value}</p>
+    )}
     <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
   </Card>
 );
+
+const QUICK_LINKS = [
+  { to: "/platform/organizations", label: "Manage organizations", hint: "Onboard and validate tenants", icon: Building2 },
+  { to: "/platform/modules", label: "Module catalogue", hint: "See what can be assigned", icon: Layers },
+  { to: "/platform/templates", label: "Org templates", hint: "Reusable starter trees", icon: Network },
+];
 
 const PlatformDashboard = () => {
   const { user, permissions } = usePlatformAuth();
@@ -43,8 +59,18 @@ const PlatformDashboard = () => {
   const firstName = user?.fullName?.split(" ")[0] ?? "Admin";
   const orgs = organizations.data ?? [];
 
-  const pendingCount = orgs.filter((o) => o.status === "PENDING_VALIDATION").length;
-  const activeCount = orgs.filter((o) => o.status === "ACTIVE").length;
+  const count = (status: string) => orgs.filter((o) => o.status === status).length;
+  const pendingCount = count("PENDING_VALIDATION");
+  const activeCount = count("ACTIVE");
+  const suspendedCount = count("SUSPENDED");
+  const otherCount = orgs.length - pendingCount - activeCount - suspendedCount;
+
+  const distribution = [
+    { label: "Active", value: activeCount, bar: "bg-success" },
+    { label: "Pending validation", value: pendingCount, bar: "bg-warn" },
+    { label: "Suspended", value: suspendedCount, bar: "bg-destructive" },
+    { label: "Other", value: otherCount, bar: "bg-muted-foreground/40" },
+  ];
 
   const recent = orgs
     .slice()
@@ -62,108 +88,196 @@ const PlatformDashboard = () => {
         <link rel="canonical" href="/platform/dashboard" />
       </Helmet>
 
-      <nav aria-label="Breadcrumb" className="mb-4 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-        <span className="font-medium text-foreground">Platform Admin</span>
-        <span>/</span>
-        <span>Overview</span>
-      </nav>
-
-      <header className="mb-6">
-        <div className="mb-2 flex flex-wrap items-center gap-2">
-          <Badge variant="outline" className="gap-1.5 text-[11px]">
-            <ShieldCheck className="h-3.5 w-3.5" />
-            Platform Admin
-          </Badge>
-          <Badge variant="secondary" className="text-[11px]">
-            {permissions.length} permission{permissions.length === 1 ? "" : "s"}
-          </Badge>
-        </div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-          Welcome, {firstName}
-        </h1>
-        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-          Operator console for onboarding organisations, validating tenants and assigning platform modules.
-        </p>
-      </header>
+      <PageHeader
+        crumbs={[{ label: "Overview" }]}
+        eyebrow={
+          <>
+            <Badge variant="outline" className="gap-1.5 text-[11px]">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              Platform Admin
+            </Badge>
+            <Badge variant="secondary" className="text-[11px]">
+              {permissions.length} permission{permissions.length === 1 ? "" : "s"}
+            </Badge>
+          </>
+        }
+        title={`Welcome, ${firstName}`}
+        description="Operator console for onboarding organisations, validating tenants and assigning platform modules."
+        actions={
+          pendingCount > 0 && (
+            <Button asChild variant="brand">
+              <Link to="/platform/organizations">
+                <Clock /> Review {pendingCount} pending
+              </Link>
+            </Button>
+          )
+        }
+      />
 
       {(organizations.isError || modules.isError) && (
-        <Card className="mb-4 border-destructive/40 bg-destructive/5 p-4">
-          <p className="text-sm text-destructive">
-            Unable to load platform data. Check the API connection and try again.
-          </p>
-        </Card>
+        <div className="mb-6">
+          <ErrorState
+            title="Unable to load platform data"
+            message="Check the API connection and try again."
+          />
+        </div>
       )}
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <StatCard
-          icon={<Building2 className="h-3.5 w-3.5" />}
+          icon={<Building2 className="h-4 w-4 text-brand-accent" />}
+          tone="bg-brand-accent/10"
           label="Organizations"
           value={orgs.length}
-          hint="Total tenants on the platform."
+          hint="Tenants on the platform"
           loading={organizations.isLoading}
         />
         <StatCard
-          icon={<Clock className="h-3.5 w-3.5" />}
-          label="Pending validation"
+          icon={<Clock className="h-4 w-4 text-warn" />}
+          tone="bg-warn/15"
+          label="Pending"
           value={pendingCount}
-          hint="Awaiting approval to onboard."
+          hint="Awaiting approval"
           loading={organizations.isLoading}
         />
         <StatCard
-          icon={<ShieldCheck className="h-3.5 w-3.5" />}
+          icon={<ShieldCheck className="h-4 w-4 text-success" />}
+          tone="bg-success/12"
           label="Active"
           value={activeCount}
-          hint="Onboarded and active tenants."
+          hint="Onboarded tenants"
           loading={organizations.isLoading}
         />
         <StatCard
-          icon={<Layers className="h-3.5 w-3.5" />}
+          icon={<Layers className="h-4 w-4 text-royal" />}
+          tone="bg-royal/10"
           label="Modules"
           value={(modules.data ?? []).length}
-          hint="Catalogue modules available to assign."
+          hint="Available to assign"
           loading={modules.isLoading}
         />
       </section>
 
-      <Card className="mt-6 overflow-hidden p-0">
-        <div className="flex items-center justify-between border-b border-border px-5 py-4">
-          <h2 className="text-sm font-semibold text-navy-deep">Recent organizations</h2>
-          <Link
-            to="/platform/organizations"
-            className="text-xs font-medium text-blue-600 transition-colors hover:text-blue-700"
-          >
-            View all
-          </Link>
-        </div>
+      <div className="mt-6 grid gap-6 lg:grid-cols-3">
+        <Card className="overflow-hidden lg:col-span-2">
+          <CardHeader className="flex-row items-center justify-between space-y-0 border-b border-border px-5 py-4">
+            <div>
+              <CardTitle className="text-base text-navy-deep">Recent organizations</CardTitle>
+              <CardDescription className="mt-1 text-xs">Newest tenants on the platform.</CardDescription>
+            </div>
+            <Button asChild variant="ghost" size="sm" className="text-brand-accent hover:text-navy">
+              <Link to="/platform/organizations">View all</Link>
+            </Button>
+          </CardHeader>
 
-        {organizations.isLoading && (
-          <p className="px-5 py-6 text-sm text-muted-foreground">Loading organizations…</p>
-        )}
-        {!organizations.isLoading && recent.length === 0 && (
-          <p className="px-5 py-6 text-sm text-muted-foreground">No organizations yet.</p>
-        )}
-        {recent.length > 0 && (
-          <ul className="divide-y divide-border">
-            {recent.map((org) => (
-              <li key={org.id}>
-                <Link
-                  to={`/platform/organizations/${org.id}`}
-                  className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-muted/50"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium text-foreground">{org.name}</div>
-                    <div className="font-mono text-[11px] text-muted-foreground">
-                      {org.code} · {formatDateTime(org.createdAt)}
-                    </div>
+          {organizations.isLoading && (
+            <div className="divide-y divide-border" role="status">
+              <span className="sr-only">Loading organizations…</span>
+              {Array.from({ length: 4 }, (_, i) => (
+                <div key={i} className="flex items-center gap-3 px-5 py-3.5">
+                  <Skeleton className="h-10 w-10 rounded-xl" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-3.5 w-1/3" />
+                    <Skeleton className="h-3 w-1/4" />
                   </div>
-                  <PlatformStatusBadge status={org.status} />
-                  <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <Skeleton className="h-5 w-20 rounded-full" />
+                </div>
+              ))}
+            </div>
+          )}
+          {!organizations.isLoading && recent.length === 0 && (
+            <CardContent className="p-5">
+              <EmptyState icon={Building2} title="No organizations yet" description="New tenants will show up here." />
+            </CardContent>
+          )}
+          {recent.length > 0 && (
+            <ul className="divide-y divide-border">
+              {recent.map((org) => (
+                <li key={org.id}>
+                  <Link
+                    to={`/platform/organizations/${org.id}`}
+                    className="group flex items-center gap-3 px-5 py-3.5 transition-colors hover:bg-surface/60"
+                  >
+                    <OrgAvatar name={org.name} />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium text-navy-deep">{org.name}</div>
+                      <div className="truncate text-[11px] text-muted-foreground">
+                        {org.code} · {formatDateTime(org.createdAt)}
+                      </div>
+                    </div>
+                    <PlatformStatusBadge status={org.status} />
+                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+
+        <div className="space-y-6">
+          <Card>
+            <CardHeader className="pb-4">
+              <CardTitle className="text-base text-navy-deep">Tenant status</CardTitle>
+              <CardDescription className="text-xs">Where every organization sits today.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div
+                className="flex h-2.5 w-full overflow-hidden rounded-full bg-muted"
+                role="img"
+                aria-label="Organization status distribution"
+              >
+                {orgs.length > 0 &&
+                  distribution
+                    .filter((d) => d.value > 0)
+                    .map((d) => (
+                      <span
+                        key={d.label}
+                        className={cn("h-full", d.bar)}
+                        style={{ width: `${(d.value / orgs.length) * 100}%` }}
+                      />
+                    ))}
+              </div>
+              <ul className="space-y-2.5">
+                {distribution.map((d) => (
+                  <li key={d.label} className="flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-2 text-navy-dark">
+                      <span className={cn("h-2 w-2 rounded-full", d.bar)} aria-hidden />
+                      {d.label}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {organizations.isLoading ? "…" : d.value}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base text-navy-deep">Quick actions</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1 p-3 pt-0">
+              {QUICK_LINKS.map(({ to, label, hint, icon: Icon }) => (
+                <Link
+                  key={to}
+                  to={to}
+                  className="group flex items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-surface/70"
+                >
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-accent/10 text-brand-accent">
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-navy-deep">{label}</span>
+                    <span className="block truncate text-xs text-muted-foreground">{hint}</span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
                 </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </>
   );
 };
