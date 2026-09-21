@@ -7,19 +7,20 @@
 // opens a side-panel listing the matching initiatives so users can drill in.
 
 import { useMemo, useState } from "react";
-import { Card } from "@/components/ui/card";
+import { BarChart3, MousePointerClick, ShieldCheck, TrendingUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { TrendingUp, BarChart3, ShieldCheck, Rocket, MousePointerClick, Target, Compass } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
-  ASSESSMENT_STATUS_LABELS, ASSESSMENT_STATUS_COLORS,
-  type InitiativeAssessment, type AssessmentStatus,
+  ASSESSMENT_STATUS_COLORS,
+  ASSESSMENT_STATUS_LABELS,
+  type AssessmentStatus,
+  type InitiativeAssessment,
 } from "@/data/assessmentStore";
-import {
-  INITIATIVE_STATUS_COLORS, INITIATIVE_STATUS_LABELS,
-  type StrategyConfig, type Initiative, type KpiStatus,
-} from "@/data/strategyStore";
 import { ORG_TYPE_LABELS, type OrgNode } from "@/data/orgStore";
+import type { KpiStatus, StrategyConfig } from "@/data/strategyStore";
+import { Bar, Doughnut, Trendline } from "./assessment/InsightCharts";
+import { DrillSheet, type Drill, type DrillRow } from "./assessment/DrillSheet";
 
 interface Props {
   cfg: StrategyConfig;
@@ -29,19 +30,6 @@ interface Props {
 
 const POSITIVE_KPI_STATUSES: KpiStatus[] = ["on-track", "met"];
 const NEGATIVE_KPI_STATUSES: KpiStatus[] = ["at-risk", "off-track", "not-met"];
-
-interface DrillRow {
-  initiative: Initiative;
-  pillarName: string;
-  objectiveTitle: string;
-  assessment?: InitiativeAssessment;
-}
-
-interface Drill {
-  title: string;
-  subtitle: string;
-  rows: DrillRow[];
-}
 
 export const AssessmentInsights = ({ cfg, orgNodes, assessments }: Props) => {
   const orgNodeMap = useMemo(() => new Map(orgNodes.map(n => [n.id, n])), [orgNodes]);
@@ -227,340 +215,152 @@ export const AssessmentInsights = ({ cfg, orgNodes, assessments }: Props) => {
 
   if (totalInitiatives === 0) return null;
 
+  const statusItems = [
+    { key: "approved" as const, count: statusCounts.approved, color: ASSESSMENT_STATUS_COLORS.approved, label: ASSESSMENT_STATUS_LABELS.approved },
+    { key: "in_review" as const, count: statusCounts.in_review, color: ASSESSMENT_STATUS_COLORS.in_review, label: ASSESSMENT_STATUS_LABELS.in_review },
+    { key: "submitted" as const, count: statusCounts.submitted, color: ASSESSMENT_STATUS_COLORS.submitted, label: ASSESSMENT_STATUS_LABELS.submitted },
+    { key: "rejected" as const, count: statusCounts.rejected, color: ASSESSMENT_STATUS_COLORS.rejected, label: ASSESSMENT_STATUS_LABELS.rejected },
+    { key: "draft" as const, count: statusCounts.draft, color: ASSESSMENT_STATUS_COLORS.draft, label: ASSESSMENT_STATUS_LABELS.draft },
+    { key: "not_started" as const, count: statusCounts.not_started, color: "215 16% 70%", label: "Not started" },
+  ];
+
   return (
-    <Card className="p-5 mb-5">
-      <div className="flex items-center gap-2 mb-4">
-        <BarChart3 className="w-4 h-4 text-primary" />
-        <h2 className="text-base font-semibold text-foreground">Assessment insights</h2>
-        <Badge variant="secondary" className="text-[10px]">live roll-up</Badge>
-        <span className="ml-auto text-[10px] text-muted-foreground inline-flex items-center gap-1">
-          <MousePointerClick className="w-3 h-3" /> click any chart to drill in
+    <Card>
+      <CardHeader className="flex-col gap-2 space-y-0 pb-4 sm:flex-row sm:items-center">
+        <div className="flex items-center gap-2">
+          <BarChart3 className="h-4 w-4 text-brand-accent" />
+          <CardTitle className="text-base text-navy-deep">Assessment insights</CardTitle>
+          <Badge variant="secondary" className="text-[11px] font-normal">live roll-up</Badge>
+        </div>
+        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground sm:ml-auto">
+          <MousePointerClick className="h-3 w-3" /> click any chart to drill in
         </span>
-      </div>
+      </CardHeader>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
-        {/* Doughnut + bars */}
-        <div className="border border-border rounded-lg p-4">
-          <div className="flex items-center gap-4">
-            <Doughnut
-              segments={[
-                { key: "approved", value: statusCounts.approved, color: ASSESSMENT_STATUS_COLORS.approved, label: ASSESSMENT_STATUS_LABELS.approved },
-                { key: "in_review", value: statusCounts.in_review, color: ASSESSMENT_STATUS_COLORS.in_review, label: ASSESSMENT_STATUS_LABELS.in_review },
-                { key: "submitted", value: statusCounts.submitted, color: ASSESSMENT_STATUS_COLORS.submitted, label: ASSESSMENT_STATUS_LABELS.submitted },
-                { key: "rejected", value: statusCounts.rejected, color: ASSESSMENT_STATUS_COLORS.rejected, label: ASSESSMENT_STATUS_LABELS.rejected },
-                { key: "draft", value: statusCounts.draft, color: ASSESSMENT_STATUS_COLORS.draft, label: ASSESSMENT_STATUS_LABELS.draft },
-                { key: "not_started", value: statusCounts.not_started, color: "215 16% 70%", label: "Not started" },
-              ]}
-              total={totalInitiatives}
-              centerLabel="Initiatives"
-              onSegmentClick={(key) => drillStatus(key as AssessmentStatus | "not_started")}
-            />
-            <div className="flex-1 space-y-1.5">
-              {[
-                { key: "approved" as const, count: statusCounts.approved, color: ASSESSMENT_STATUS_COLORS.approved, label: ASSESSMENT_STATUS_LABELS.approved },
-                { key: "in_review" as const, count: statusCounts.in_review, color: ASSESSMENT_STATUS_COLORS.in_review, label: ASSESSMENT_STATUS_LABELS.in_review },
-                { key: "submitted" as const, count: statusCounts.submitted, color: ASSESSMENT_STATUS_COLORS.submitted, label: ASSESSMENT_STATUS_LABELS.submitted },
-                { key: "rejected" as const, count: statusCounts.rejected, color: ASSESSMENT_STATUS_COLORS.rejected, label: ASSESSMENT_STATUS_LABELS.rejected },
-                { key: "draft" as const, count: statusCounts.draft, color: ASSESSMENT_STATUS_COLORS.draft, label: ASSESSMENT_STATUS_LABELS.draft },
-                { key: "not_started" as const, count: statusCounts.not_started, color: "215 16% 70%", label: "Not started" },
-              ].map(item => (
-                <button
-                  key={item.key}
-                  onClick={() => drillStatus(item.key)}
-                  className="w-full flex items-center gap-2 text-[11px] text-left hover:bg-muted/50 rounded px-1 py-0.5 transition-colors"
-                >
-                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: `hsl(${item.color})` }} />
-                  <span className="text-muted-foreground flex-1 truncate">{item.label}</span>
-                  <span className="text-foreground font-medium">{item.count}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-4 pt-3 border-t border-border">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">KPI achievement (all assessments)</p>
-            {kpiTotals.total === 0 ? (
-              <p className="text-xs text-muted-foreground italic">No KPIs scored yet.</p>
-            ) : (
-              <div className="space-y-1.5">
-                <Bar label="Met / On Track" value={kpiTotals.met} total={kpiTotals.total} color="158 53% 49%" onClick={() => drillKpiBucket("met")} />
-                <Bar label="Not Met / Off Track / At Risk" value={kpiTotals.notMet} total={kpiTotals.total} color="352 70% 61%" onClick={() => drillKpiBucket("notMet")} />
-                <Bar label="In progress" value={kpiTotals.inProgress} total={kpiTotals.total} color="210 61% 49%" onClick={() => drillKpiBucket("inProgress")} />
-                <Bar label="Not started" value={kpiTotals.notStarted} total={kpiTotals.total} color="215 16% 47%" onClick={() => drillKpiBucket("notStarted")} />
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Trend */}
-        <div className="border border-border rounded-lg p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 inline-flex items-center gap-1.5">
-            <TrendingUp className="w-3 h-3" /> KPI achievement over time
-          </p>
-          {trend.length === 0 ? (
-            <p className="text-xs text-muted-foreground italic">No KPI data yet — submit assessments to see a trend.</p>
-          ) : (
-            <Trendline points={trend} onPointClick={drillTrendPoint} />
-          )}
-        </div>
-      </div>
-
-      {/* RAG grid */}
-      {rootOrgs.length > 0 && cfg.pillars.length > 0 && (
-        <div>
-          <p className="text-xs font-semibold text-foreground mb-2 inline-flex items-center gap-2">
-            <ShieldCheck className="w-3.5 h-3.5 text-muted-foreground" />
-            <span>RAG grid · Pillar × top-level org unit</span>
-            <span className="text-[10px] font-normal text-muted-foreground">
-              Green ≥ 70% KPIs met · Amber 40-70% · Red &lt; 40% (grey = no data). Click any cell to drill in.
-            </span>
-          </p>
-          <div className="overflow-x-auto rounded-md border border-border">
-            <table className="w-full text-xs">
-              <thead className="bg-muted/40">
-                <tr>
-                  <th className="text-left px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Pillar</th>
-                  {rootOrgs.map(r => (
-                    <th key={r.id} className="text-center px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">
-                      <div className="text-[9px] font-normal normal-case text-muted-foreground/70">{ORG_TYPE_LABELS[r.type]}</div>
-                      {r.name}
-                    </th>
+      <CardContent className="space-y-6">
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card className="shadow-none">
+            <CardContent className="space-y-4 p-4">
+              <div className="flex items-center gap-4">
+                <Doughnut
+                  segments={statusItems.map(({ key, count, color, label }) => ({ key, value: count, color, label }))}
+                  total={totalInitiatives}
+                  centerLabel="Initiatives"
+                  onSegmentClick={(key) => drillStatus(key as AssessmentStatus | "not_started")}
+                />
+                <ul className="flex-1 space-y-1">
+                  {statusItems.map((item) => (
+                    <li key={item.key}>
+                      <button
+                        type="button"
+                        onClick={() => drillStatus(item.key)}
+                        className="flex w-full items-center gap-2 rounded px-1 py-0.5 text-left text-xs transition-colors hover:bg-muted/50"
+                      >
+                        <span aria-hidden className="h-2 w-2 shrink-0 rounded-full" style={{ background: `hsl(${item.color})` }} />
+                        <span className="flex-1 truncate text-muted-foreground">{item.label}</span>
+                        <span className="font-medium text-foreground">{item.count}</span>
+                      </button>
+                    </li>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
-                {cfg.pillars.map(p => (
-                  <tr key={p.id} className="border-t border-border">
-                    <td className="px-3 py-2 font-medium text-foreground">{p.name}</td>
-                    {rootOrgs.map(r => {
-                      const cell = ragGrid.get(`${p.id}|${r.id}`);
-                      const total = cell?.total ?? 0;
-                      const met = cell?.met ?? 0;
-                      const inits = cell?.initiatives ?? 0;
-                      const pct = total === 0 ? null : Math.round((met / total) * 100);
-                      let bg = "215 16% 70%";
-                      let fg = "hsl(var(--muted-foreground))";
-                      if (pct !== null) {
-                        if (pct >= 70) bg = "158 53% 49%";
-                        else if (pct >= 40) bg = "34 89% 61%";
-                        else bg = "352 70% 61%";
-                        fg = "hsl(var(--primary-foreground))";
-                      }
-                      const clickable = inits > 0;
-                      return (
-                        <td key={r.id} className="px-2 py-1.5 text-center">
-                          <button
-                            disabled={!clickable}
-                            onClick={() => drillRagCell(p.id, r.id)}
-                            className={`inline-flex flex-col items-center justify-center rounded min-w-[64px] h-9 text-[11px] font-semibold transition-transform ${clickable ? "hover:scale-105 cursor-pointer" : "cursor-default opacity-80"}`}
-                            style={{ background: pct === null ? "hsl(var(--muted))" : `hsl(${bg} / 0.85)`, color: fg }}
-                            title={inits ? `${inits} initiative(s) · ${met}/${total} KPIs met — click to drill in` : "No data"}
-                          >
-                            {pct === null ? "—" : `${pct}%`}
-                            {inits ? <span className="text-[9px] font-normal opacity-80">{inits} init</span> : null}
-                          </button>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </ul>
+              </div>
+
+              <div className="space-y-2 border-t border-border pt-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  KPI achievement (all assessments)
+                </p>
+                {kpiTotals.total === 0 ? (
+                  <p className="text-xs italic text-muted-foreground">No KPIs scored yet.</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    <Bar label="Met / On Track" value={kpiTotals.met} total={kpiTotals.total} color="158 53% 49%" onClick={() => drillKpiBucket("met")} />
+                    <Bar label="Not Met / Off Track / At Risk" value={kpiTotals.notMet} total={kpiTotals.total} color="352 70% 61%" onClick={() => drillKpiBucket("notMet")} />
+                    <Bar label="In progress" value={kpiTotals.inProgress} total={kpiTotals.total} color="210 61% 49%" onClick={() => drillKpiBucket("inProgress")} />
+                    <Bar label="Not started" value={kpiTotals.notStarted} total={kpiTotals.total} color="215 16% 47%" onClick={() => drillKpiBucket("notStarted")} />
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-none">
+            <CardContent className="space-y-2 p-4">
+              <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <TrendingUp className="h-3 w-3" /> KPI achievement over time
+              </p>
+              {trend.length === 0 ? (
+                <p className="text-xs italic text-muted-foreground">No KPI data yet — submit assessments to see a trend.</p>
+              ) : (
+                <Trendline points={trend} onPointClick={drillTrendPoint} />
+              )}
+            </CardContent>
+          </Card>
         </div>
-      )}
+
+        {rootOrgs.length > 0 && cfg.pillars.length > 0 && (
+          <section className="space-y-2">
+            <h3 className="flex flex-wrap items-center gap-x-2 text-sm font-semibold text-foreground">
+              <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" />
+              RAG grid · Pillar × top-level org unit
+              <span className="text-xs font-normal text-muted-foreground">
+                Green ≥ 70% KPIs met · Amber 40-70% · Red &lt; 40% (grey = no data). Click any cell to drill in.
+              </span>
+            </h3>
+            <div className="rounded-md border border-border">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead>Pillar</TableHead>
+                    {rootOrgs.map((r) => (
+                      <TableHead key={r.id} className="text-center">
+                        <span className="block text-[11px] font-normal normal-case text-muted-foreground/80">
+                          {ORG_TYPE_LABELS[r.type]}
+                        </span>
+                        {r.name}
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {cfg.pillars.map((p) => (
+                    <TableRow key={p.id}>
+                      <TableCell className="font-medium text-foreground">{p.name}</TableCell>
+                      {rootOrgs.map((r) => {
+                        const cell = ragGrid.get(`${p.id}|${r.id}`);
+                        const total = cell?.total ?? 0;
+                        const met = cell?.met ?? 0;
+                        const inits = cell?.initiatives ?? 0;
+                        const pct = total === 0 ? null : Math.round((met / total) * 100);
+                        const tone = pct === null ? null : pct >= 70 ? "158 53% 49%" : pct >= 40 ? "34 89% 61%" : "352 70% 61%";
+                        return (
+                          <TableCell key={r.id} className="px-2 py-1.5 text-center">
+                            <button
+                              type="button"
+                              disabled={inits === 0}
+                              onClick={() => drillRagCell(p.id, r.id)}
+                              className="inline-flex h-10 min-w-[64px] flex-col items-center justify-center rounded text-xs font-semibold disabled:cursor-default disabled:opacity-80"
+                              style={{
+                                background: tone ? `hsl(${tone} / 0.85)` : "hsl(var(--muted))",
+                                color: tone ? "hsl(var(--primary-foreground))" : "hsl(var(--muted-foreground))",
+                              }}
+                              title={inits ? `${inits} initiative(s) · ${met}/${total} KPIs met — click to drill in` : "No data"}
+                            >
+                              {pct === null ? "—" : `${pct}%`}
+                              {inits ? <span className="text-[11px] font-normal opacity-80">{inits} init</span> : null}
+                            </button>
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </section>
+        )}
+      </CardContent>
 
       <DrillSheet drill={drill} onClose={() => setDrill(null)} />
     </Card>
-  );
-};
-
-// ---- Doughnut chart (SVG) ----
-const Doughnut = ({
-  segments, total, centerLabel, onSegmentClick,
-}: {
-  segments: { key: string; value: number; color: string; label: string }[];
-  total: number;
-  centerLabel: string;
-  onSegmentClick?: (key: string) => void;
-}) => {
-  const size = 120;
-  const radius = 48;
-  const stroke = 18;
-  const circ = 2 * Math.PI * radius;
-
-  let offset = 0;
-  const sumValues = segments.reduce((s, x) => s + x.value, 0) || 1;
-
-  return (
-    <div className="relative shrink-0" style={{ width: size, height: size }}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={radius} stroke="hsl(var(--muted))" strokeWidth={stroke} fill="none" />
-        {segments.map((s) => {
-          if (s.value === 0) return null;
-          const len = (s.value / sumValues) * circ;
-          const dasharray = `${len} ${circ - len}`;
-          const dashoffset = -offset;
-          offset += len;
-          return (
-            <circle
-              key={s.key}
-              cx={size / 2} cy={size / 2} r={radius}
-              stroke={`hsl(${s.color})`}
-              strokeWidth={stroke}
-              fill="none"
-              strokeDasharray={dasharray}
-              strokeDashoffset={dashoffset}
-              style={{ cursor: onSegmentClick ? "pointer" : "default" }}
-              onClick={() => onSegmentClick?.(s.key)}
-            >
-              <title>{`${s.label}: ${s.value}`}</title>
-            </circle>
-          );
-        })}
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-        <span className="text-xl font-semibold text-foreground leading-none">{total}</span>
-        <span className="text-[10px] uppercase tracking-wider text-muted-foreground mt-0.5">{centerLabel}</span>
-      </div>
-    </div>
-  );
-};
-
-const Bar = ({ label, value, total, color, onClick }: { label: string; value: number; total: number; color: string; onClick?: () => void }) => {
-  const pct = total === 0 ? 0 : Math.round((value / total) * 100);
-  return (
-    <button
-      onClick={onClick}
-      disabled={value === 0}
-      className="w-full text-left disabled:cursor-default disabled:opacity-70 hover:bg-muted/50 rounded px-1 py-0.5 transition-colors"
-    >
-      <div className="flex justify-between text-[11px] mb-0.5">
-        <span className="text-muted-foreground">{label}</span>
-        <span className="font-medium text-foreground">{value} <span className="text-muted-foreground">({pct}%)</span></span>
-      </div>
-      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-        <div className="h-full" style={{ width: `${pct}%`, background: `hsl(${color})` }} />
-      </div>
-    </button>
-  );
-};
-
-const Trendline = ({ points, onPointClick }: { points: { key: string; label: string; pct: number }[]; onPointClick: (key: string) => void }) => {
-  const w = 360, h = 140, padX = 30, padY = 18;
-  const innerW = w - padX * 2;
-  const innerH = h - padY * 2;
-  const xStep = points.length > 1 ? innerW / (points.length - 1) : 0;
-  const coord = (i: number, pct: number) => ({
-    x: padX + i * xStep,
-    y: padY + innerH - (pct / 100) * innerH,
-  });
-  const path = points.map((p, i) => {
-    const c = coord(i, p.pct);
-    return `${i === 0 ? "M" : "L"} ${c.x} ${c.y}`;
-  }).join(" ");
-
-  return (
-    <div className="overflow-x-auto">
-      <svg width={w} height={h} className="text-muted-foreground">
-        {[0, 25, 50, 75, 100].map(v => {
-          const y = padY + innerH - (v / 100) * innerH;
-          return (
-            <g key={v}>
-              <line x1={padX} y1={y} x2={w - padX} y2={y} stroke="hsl(var(--border))" strokeDasharray="2 3" />
-              <text x={4} y={y + 3} fontSize="9" fill="currentColor">{v}%</text>
-            </g>
-          );
-        })}
-        {points.length === 1 ? (
-          <circle cx={coord(0, points[0].pct).x} cy={coord(0, points[0].pct).y} r={5} fill="hsl(var(--primary))" style={{ cursor: "pointer" }} onClick={() => onPointClick(points[0].key)}>
-            <title>{`${points[0].label}: ${points[0].pct}%`}</title>
-          </circle>
-        ) : (
-          <>
-            <path d={path} fill="none" stroke="hsl(var(--primary))" strokeWidth="2" />
-            {points.map((p, i) => {
-              const c = coord(i, p.pct);
-              return (
-                <g key={p.key} style={{ cursor: "pointer" }} onClick={() => onPointClick(p.key)}>
-                  <circle cx={c.x} cy={c.y} r={8} fill="transparent" />
-                  <circle cx={c.x} cy={c.y} r={4} fill="hsl(var(--primary))" />
-                  <title>{`${p.label}: ${p.pct}% — click to drill in`}</title>
-                </g>
-              );
-            })}
-          </>
-        )}
-        {points.map((p, i) => {
-          const c = coord(i, p.pct);
-          return (
-            <text key={p.key} x={c.x} y={h - 4} fontSize="9" textAnchor="middle" fill="currentColor">
-              {p.label}
-            </text>
-          );
-        })}
-      </svg>
-    </div>
-  );
-};
-
-// ---- Drill-down side panel ----
-const DrillSheet = ({ drill, onClose }: { drill: Drill | null; onClose: () => void }) => {
-  return (
-    <Sheet open={!!drill} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <SheetContent className="w-full sm:max-w-[520px] overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle className="text-base">{drill?.title}</SheetTitle>
-          <SheetDescription className="text-xs">{drill?.subtitle}</SheetDescription>
-        </SheetHeader>
-        <div className="mt-4 space-y-2">
-          {!drill || drill.rows.length === 0 ? (
-            <p className="text-xs text-muted-foreground italic">No matching initiatives.</p>
-          ) : drill.rows.map((row) => {
-            const aStatus = row.assessment?.status;
-            const aColor = aStatus ? ASSESSMENT_STATUS_COLORS[aStatus] : "215 16% 47%";
-            const aLabel = aStatus ? ASSESSMENT_STATUS_LABELS[aStatus] : "Not started";
-            return (
-              <div key={row.initiative.id} className="border border-border rounded-md p-2.5 bg-card">
-                <div className="flex items-start gap-2">
-                  <Rocket className="w-3.5 h-3.5 text-[hsl(265_88%_66%)] mt-0.5 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{row.initiative.name || "(unnamed initiative)"}</p>
-                    <p className="text-[11px] text-muted-foreground truncate">
-                      <Compass className="inline w-3 h-3 mr-1" />{row.pillarName}
-                      <span className="mx-1.5">·</span>
-                      <Target className="inline w-3 h-3 mr-1" />{row.objectiveTitle}
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-2 flex items-center gap-1.5 flex-wrap">
-                  <Badge variant="outline" className="text-[10px] gap-1"
-                    style={{
-                      background: `hsl(${INITIATIVE_STATUS_COLORS[row.initiative.status]} / 0.12)`,
-                      borderColor: `hsl(${INITIATIVE_STATUS_COLORS[row.initiative.status]} / 0.4)`,
-                      color: `hsl(${INITIATIVE_STATUS_COLORS[row.initiative.status]})`,
-                    }}>
-                    {INITIATIVE_STATUS_LABELS[row.initiative.status]}
-                  </Badge>
-                  <Badge variant="outline" className="text-[10px] gap-1"
-                    style={{
-                      background: `hsl(${aColor} / 0.12)`,
-                      borderColor: `hsl(${aColor} / 0.4)`,
-                      color: `hsl(${aColor})`,
-                    }}>
-                    {aLabel}
-                  </Badge>
-                  {row.assessment && (
-                    <span className="text-[10px] text-muted-foreground ml-auto">
-                      Updated {new Date(row.assessment.updatedAt).toLocaleDateString()}
-                    </span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </SheetContent>
-    </Sheet>
   );
 };

@@ -43,7 +43,8 @@ export interface LoginResponse {
   expiresIn: number;
   accessTokenExpiresAt: string;
   user: UserDto;
-  organization: OrganizationDto;
+  /** `null` for platform-admin sessions. */
+  organization: OrganizationDto | null;
   permissions: string[];
 }
 
@@ -67,6 +68,8 @@ export interface RefreshResponse {
   tokenType: string;
   expiresIn: number;
   accessTokenExpiresAt: string;
+  /** Effective permissions at refresh time (re-resolved server-side each rotation). */
+  permissions?: string[];
 }
 
 export interface LogoutRequest {
@@ -134,8 +137,57 @@ export interface GroupMember {
 export interface CreateOrganizationGroupRequest {
   code: string;
   name: string;
+  description?: string;
 }
 
 export interface UpdateOrganizationGroupRequest {
-  description: string;
+  name?: string;
+  description?: string;
+}
+
+export interface UpdateOrganizationRequest {
+  name?: string;
+  slug?: string;
+  planTier?: string;
+  countryCode?: string;
+}
+
+export interface CreateOrganizationMemberRequest {
+  email: string;
+  username?: string;
+  fullName: string;
+  password: string;
+  initialGroupId: string;
+}
+
+/** Backend UserGroupResponse — uses groupId, not id. */
+export interface UserGroupAssignment {
+  groupMembershipId: string;
+  groupId: string;
+  code?: string;
+  name: string;
+  description?: string;
+  scopeType?: string;
+  systemDefault?: boolean;
+  active?: boolean;
+  addedByUserId?: string;
+  assignedAt?: string;
+}
+
+/** Backend InvitationResponse. */
+export interface Invitation {
+  id: string;
+  organizationId: string;
+  userId?: string | null;
+  email: string;
+  initialGroupId?: string | null;
+  invitedByUserId?: string;
+  status: "PENDING" | "ACCEPTED" | "REVOKED" | "EXPIRED" | string;
+  expiresAt?: string;
+  createdAt?: string;
+}
+
+export interface CreateInvitationRequest {
+  email: string;
+  initialGroupId?: string;
 }

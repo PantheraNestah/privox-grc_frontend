@@ -109,9 +109,15 @@ describe("organization group management helpers", () => {
   });
 
   it("normalizes active flags when fetching group lists and member groups", async () => {
-    vi.spyOn(api, "get").mockResolvedValue({
-      data: [{ id: "group-1", name: "Editors", active: true }],
-    });
+    vi.spyOn(api, "get").mockImplementation((url: string) =>
+      Promise.resolve({
+        data:
+          url.includes("/members/")
+            // member-group list uses UserGroupResponse (groupId, not id)
+            ? [{ groupMembershipId: "gm-1", groupId: "group-1", name: "Editors", active: true }]
+            : [{ id: "group-1", name: "Editors", active: true }],
+      }),
+    );
 
     await expect(fetchOrganizationGroups("org-1")).resolves.toMatchObject([
       { id: "group-1", active: true, status: "active" },

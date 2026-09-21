@@ -1,7 +1,6 @@
 /**
- * Maps between the backend `OrgNodeResponse` shape (§15 of
- * GOVERNANCE_API_ENDPOINTS.md — a fixed 7-value `OrgNodeType` enum, no
- * concept of custom tiers) and the local `OrgNode` UI shape
+ * Maps between the backend `OrgNodeResponse` shape (a fixed 7-value
+ * `OrgNodeType` enum, no concept of custom tiers) and the local `OrgNode` UI shape
  * (src/data/orgStore.ts), which predates the API and additionally supports:
  *  - Three-Lines-of-Defense classification (`lineOfDefense`)
  *  - `offerings` (products/frameworks/programs owned by the unit)
@@ -51,7 +50,7 @@ export function fromBackendOrgNodeType(backendType: BackendOrgNodeType): string 
   return BACKEND_TO_LOCAL_TYPE[backendType];
 }
 
-interface OrgNodeMetadata {
+interface OrgNodeMetadata extends Record<string, unknown> {
   lineOfDefense?: 1 | 2 | 3;
   offerings?: OrgOffering[];
 }

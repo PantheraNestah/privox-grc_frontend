@@ -1,14 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { Helmet } from "react-helmet-async";
-import { Link } from "react-router-dom";
-import { ArrowLeft, ChevronRight, ChevronDown, Plus, Pencil, Trash2, Building2, Network, Lock, Layers, Info } from "lucide-react";
-import { TopNav } from "@/components/grc/TopNav";
+import {
+  ChevronRight, ChevronDown, Plus, Pencil, Trash2, Building2, Network, Lock, Layers, Info,
+  LayoutTemplate, MoreHorizontal, X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Card } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -19,6 +23,12 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
 import { toast } from "sonner";
 import {
   uid,
@@ -37,6 +47,9 @@ import { loadUsers, type AppUser } from "@/data/userStore";
 import { useActiveUser } from "@/hooks/use-active-user";
 import { useAuth } from "@/contexts/AuthContext";
 import { can } from "@/data/userStore";
+import { PageHeader, TENANT_HOME } from "@/components/grc/common/PageHeader";
+import { EmptyState, ErrorState } from "@/components/grc/common/states";
+import { TemplatePicker } from "@/components/grc/governance/TemplatePicker";
 import { OrgNodeInsightsPanel } from "@/components/grc/OrgNodeInsightsPanel";
 import { OrgMapGraph } from "@/components/grc/OrgMapGraph";
 import {
@@ -69,9 +82,12 @@ const RiskGovernance = () => {
   // sibling branches like Risk.
   const canSeeAll = isAdmin;
 
-  const { organization } = useAuth();
+  const { organization, permissions } = useAuth();
   const orgId = organization?.id;
-  const { data: orgNodeResponses } = useOrgNodes(orgId);
+  // The clone endpoint requires the backend `orgnode.manage` authority.
+  const canApplyTemplates = permissions.includes("orgnode.manage");
+  const orgNodesQuery = useOrgNodes(orgId);
+  const { data: orgNodeResponses } = orgNodesQuery;
   const createNode = useCreateOrgNode(orgId ?? "");
   const updateNode = useUpdateOrgNode(orgId ?? "");
   const moveNode = useMoveOrgNode(orgId ?? "");
@@ -97,6 +113,7 @@ const RiskGovernance = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<NodeFormState>(emptyForm());
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [templatesOpen, setTemplatesOpen] = useState(false);
 
   // Bulk-add child-units state
   const [bulkParentId, setBulkParentId] = useState<string | null>(null);
@@ -175,6 +192,12 @@ const RiskGovernance = () => {
 
 
   const roots = childrenOf.get(null) ?? [];
+  // "The organisation has no tree at all" (not just an empty scope for a restricted role).
+  const orgIsEmpty = orgNodesQuery.isSuccess && allNodes.length === 0;
+  const templateParents = useMemo(
+    () => allNodes.map(n => ({ id: n.id, label: `${ORG_TYPE_LABELS[n.type]} · ${n.name}` })),
+    [allNodes],
+  );
 
   const openCreate = (parentId: string | null = null) => {
     const parent = parentId ? nodes.find(n => n.id === parentId) : null;
@@ -295,102 +318,153 @@ const RiskGovernance = () => {
         <link rel="canonical" href="/governance/risk-governance" />
       </Helmet>
 
-      <div className="flex flex-col min-h-screen">
-        <TopNav />
+      <PageHeader
+        home={TENANT_HOME}
+        crumbs={[{ label: "Governance", to: "/governance" }, { label: "Risk Governance" }]}
+        title="Risk Governance"
+        description="Define your organisation structure — group of companies, departments, divisions, sections, processes and sub-processes."
+      />
 
-        <main className="flex-1 px-5 md:px-10 py-8 md:py-9">
-          {/* Breadcrumb */}
-          <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-muted-foreground mb-4">
-            <Link to="/dashboard" className="hover:text-foreground transition-colors">Dashboard</Link>
-            <ChevronRight className="w-3.5 h-3.5" />
-            <Link to="/governance" className="hover:text-foreground transition-colors">Governance Management</Link>
-            <ChevronRight className="w-3.5 h-3.5" />
-            <span className="text-foreground font-medium">Risk Governance</span>
-          </nav>
+      <div className="space-y-6">
+        {!isAdmin && (
+          <Alert>
+            <Lock className="h-4 w-4" />
+            <AlertTitle>Read-only view</AlertTitle>
+            <AlertDescription>
+              Only the GRC Administrator can create or modify the organisation structure. You're viewing as{" "}
+              <strong>{activeUser.name}</strong>.
+            </AlertDescription>
+          </Alert>
+        )}
 
-          <header className="mb-6 flex items-start justify-between gap-4 flex-wrap">
-            <div>
-              <h1 className="text-[25px] font-semibold tracking-tight text-foreground">Risk Governance</h1>
-              <p className="text-[13.5px] text-muted-foreground mt-0.5 max-w-2xl">
-                Define your organisation structure — group of companies, departments, divisions, sections, processes and sub-processes.
-              </p>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+          <StatCard icon={<Network className="h-4 w-4" />} label="Org units" value={totalCount} />
+          <StatCard icon={<Building2 className="h-4 w-4" />} label="Top-level entities" value={roots.length} />
+          <StatCard icon={<Network className="h-4 w-4" />} label="Processes & sub-processes" value={processCount} />
+        </div>
+
+        {isAdmin && (
+          <HierarchyTypesCard types={orgTypes} nodes={allNodes} onChange={persistOrgTypes} />
+        )}
+
+        {/* Tree */}
+        <Card>
+          <CardHeader className="flex-col gap-3 space-y-0 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-1.5">
+              <CardTitle className="text-base text-navy-deep">Organisation Structure</CardTitle>
+              <CardDescription className="text-xs">
+                Select any unit to see roll-up insights (objectives, initiatives, documents, users) for it and everything beneath it.
+              </CardDescription>
             </div>
-            <Button asChild variant="outline" size="sm">
-              <Link to="/governance">
-                <ArrowLeft className="w-4 h-4 mr-1.5" />
-                Back to Governance
-              </Link>
-            </Button>
-          </header>
-
-          {!isAdmin && (
-            <Card className="p-4 mb-5 border-warn/40 bg-warn/5">
-              <div className="flex items-start gap-3">
-                <Lock className="w-5 h-5 text-warn mt-0.5" />
-                <div>
-                  <p className="text-sm font-semibold text-foreground">Read-only view</p>
-                  <p className="text-xs text-muted-foreground">
-                    Only the GRC Administrator can create or modify the organisation structure. You're viewing as <strong>{activeUser.name}</strong>.
-                  </p>
-                </div>
-              </div>
-            </Card>
-          )}
-
-          {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
-            <StatCard icon={<Network className="w-4 h-4" />} label="Org units" value={totalCount} />
-            <StatCard icon={<Building2 className="w-4 h-4" />} label="Top-level entities" value={roots.length} />
-            <StatCard icon={<Network className="w-4 h-4" />} label="Processes & sub-processes" value={processCount} />
-          </div>
-
-          {/* Hierarchy Types (admin-managed) */}
-          {isAdmin && (
-            <HierarchyTypesCard
-              types={orgTypes}
-              nodes={allNodes}
-              onChange={persistOrgTypes}
-            />
-          )}
-
-          {/* Tree */}
-          <Card className="p-5">
-            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-              <div>
-                <h2 className="text-base font-semibold text-foreground">Organisation Structure</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Click any unit to see roll-up insights (objectives, initiatives, documents, users) for it and everything beneath it.
-                </p>
-              </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {canApplyTemplates && orgId && !orgIsEmpty && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  aria-expanded={templatesOpen}
+                  onClick={() => setTemplatesOpen(o => !o)}
+                >
+                  <LayoutTemplate /> Add from template
+                </Button>
+              )}
               {isAdmin && (
-                <div className="flex items-center gap-2">
+                <>
                   <Button size="sm" variant="outline" onClick={() => openBulkAdd(null)}>
-                    <Layers className="w-4 h-4 mr-1.5" /> Bulk add
+                    <Layers /> Bulk add
                   </Button>
-                  <Button size="sm" onClick={() => openCreate(null)} className="bg-primary hover:bg-primary/90">
-                    <Plus className="w-4 h-4 mr-1.5" /> Add top-level
+                  <Button size="sm" variant="brand" onClick={() => openCreate(null)}>
+                    <Plus /> Add top-level
                   </Button>
-                </div>
+                </>
               )}
             </div>
+          </CardHeader>
 
-            {roots.length === 0 ? (
-              <div className="text-center py-12 border-2 border-dashed border-border rounded-lg">
-                <Building2 className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
-                <p className="text-sm font-medium text-foreground">No organisation defined yet</p>
-                <p className="text-xs text-muted-foreground mt-1 mb-4">
-                  {isAdmin
-                    ? "Start by adding a Group, Company or any other top-level entity."
-                    : "The GRC Administrator hasn't set up the organisation yet."}
-                </p>
-                {isAdmin && (
-                  <Button size="sm" onClick={() => openCreate(null)}>
-                    <Plus className="w-4 h-4 mr-1.5" /> Add first entity
+          <CardContent className="space-y-4">
+            {templatesOpen && canApplyTemplates && orgId && !orgIsEmpty && (
+              <Card className="bg-muted/30 shadow-none">
+                <CardHeader className="flex-row items-start justify-between space-y-0 pb-3">
+                  <div className="space-y-1.5">
+                    <CardTitle className="text-sm text-navy-deep">Add from template</CardTitle>
+                    <CardDescription className="text-xs">
+                      Copy a ready-made structure under an existing unit, or at the top level.
+                    </CardDescription>
+                  </div>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 text-muted-foreground"
+                    onClick={() => setTemplatesOpen(false)}
+                    aria-label="Close template picker"
+                  >
+                    <X />
                   </Button>
+                </CardHeader>
+                <CardContent>
+                  <TemplatePicker
+                    orgId={orgId}
+                    canManage
+                    parents={templateParents}
+                    onCloned={() => setTemplatesOpen(false)}
+                  />
+                </CardContent>
+              </Card>
+            )}
+
+            {orgNodesQuery.isLoading ? (
+              <div className="space-y-2" role="status">
+                <span className="sr-only">Loading organisation structure…</span>
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="ml-6 h-9 w-[calc(100%-1.5rem)]" />
+                <Skeleton className="ml-6 h-9 w-[calc(100%-1.5rem)]" />
+              </div>
+            ) : orgNodesQuery.isError ? (
+              <ErrorState
+                title="Couldn't load the organisation structure"
+                message={orgNodesQuery.error instanceof Error ? orgNodesQuery.error.message : "Failed to load org units."}
+              />
+            ) : roots.length === 0 ? (
+              <div className="space-y-6">
+                <EmptyState
+                  icon={Building2}
+                  title="No organisation defined yet"
+                  description={
+                    orgIsEmpty
+                      ? isAdmin
+                        ? "Start by adding a Group, Company or any other top-level entity"
+                          + (canApplyTemplates ? ", or copy a ready-made template below." : ".")
+                        : "The GRC Administrator hasn't set up the organisation yet."
+                      : "No org unit is assigned to you yet."
+                  }
+                  action={
+                    isAdmin && (
+                      <Button size="sm" variant="brand" onClick={() => openCreate(null)}>
+                        <Plus /> Add first entity
+                      </Button>
+                    )
+                  }
+                />
+                {orgIsEmpty && orgId && (
+                  <>
+                    <Separator />
+                    <section className="space-y-3" aria-labelledby="start-from-template">
+                      <div>
+                        <h3 id="start-from-template" className="text-sm font-semibold text-navy-deep">
+                          Start from a template
+                        </h3>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {canApplyTemplates
+                            ? "Pick a ready-made structure. It's copied into your organisation and every unit stays editable."
+                            : "Ask an administrator with the orgnode.manage permission to start from a template."}
+                        </p>
+                      </div>
+                      <TemplatePicker orgId={orgId} canManage={canApplyTemplates} />
+                    </section>
+                  </>
                 )}
               </div>
             ) : (
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 {roots.map(node => (
                   <TreeRow
                     key={node.id}
@@ -410,21 +484,24 @@ const RiskGovernance = () => {
                 ))}
               </div>
             )}
-          </Card>
+          </CardContent>
+        </Card>
 
-          {/* Org Map */}
-          <Card className="p-5 mt-5">
-            <div className="flex items-baseline justify-between mb-4">
-              <div>
-                <h2 className="text-base font-semibold text-foreground">Organisation Map</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">Visual representation of your organisation grouped by the Three Lines of Defense, all the way down to processes and sub-processes.</p>
-              </div>
-            </div>
+        {/* Org Map */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base text-navy-deep">Organisation Map</CardTitle>
+            <CardDescription className="text-xs">
+              Your organisation grouped by the Three Lines of Defense, all the way down to processes and sub-processes.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
             {roots.length === 0 ? (
-              <div className="text-center py-10 border-2 border-dashed border-border rounded-lg">
-                <Network className="w-10 h-10 mx-auto text-muted-foreground mb-2" />
-                <p className="text-sm text-muted-foreground">Your org map will appear here once you add entities above.</p>
-              </div>
+              <EmptyState
+                icon={Network}
+                title="Nothing to map yet"
+                description="Your org map will appear here once you add entities above."
+              />
             ) : (
               <OrgMapGraph
                 nodes={nodes}
@@ -434,50 +511,31 @@ const RiskGovernance = () => {
               />
             )}
 
-            {/* 3LoD summary table */}
             <ThreeLodSummary nodes={nodes} users={users} />
 
             {/* Legend */}
-            <div className="mt-5 pt-4 border-t border-border space-y-2">
+            <div className="space-y-2 border-t border-border pt-4">
               <div className="flex flex-wrap gap-2">
                 {([1, 2, 3] as const).map(l => (
-                  <span
-                    key={l}
-                    className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded"
-                    style={{ background: `hsl(${LINE_OF_DEFENSE_COLORS[l]} / 0.15)`, color: `hsl(${LINE_OF_DEFENSE_COLORS[l]})` }}
-                  >
-                    {LINE_OF_DEFENSE_SHORT[l]}
-                  </span>
+                  <ColorBadge key={l} color={LINE_OF_DEFENSE_COLORS[l]}>{LINE_OF_DEFENSE_SHORT[l]}</ColorBadge>
                 ))}
               </div>
               <div className="flex flex-wrap gap-2">
                 {TYPE_OPTIONS.map(t => (
-                  <span
-                    key={t}
-                    className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded"
-                    style={{ background: `hsl(${ORG_TYPE_COLORS[t]} / 0.12)`, color: `hsl(${ORG_TYPE_COLORS[t]})` }}
-                  >
-                    {ORG_TYPE_LABELS[t]}
-                  </span>
+                  <ColorBadge key={t} color={ORG_TYPE_COLORS[t]}>{ORG_TYPE_LABELS[t]}</ColorBadge>
                 ))}
                 {(Object.keys(OFFERING_KIND_LABELS) as OfferingKind[]).map(k => (
-                  <span
-                    key={k}
-                    className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded border border-dashed"
-                    style={{ borderColor: `hsl(${OFFERING_KIND_COLORS[k]} / 0.6)`, color: `hsl(${OFFERING_KIND_COLORS[k]})` }}
-                  >
-                    {OFFERING_KIND_LABELS[k]}
-                  </span>
+                  <ColorBadge key={k} color={OFFERING_KIND_COLORS[k]} outline>{OFFERING_KIND_LABELS[k]}</ColorBadge>
                 ))}
               </div>
             </div>
-          </Card>
-        </main>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Create / Edit dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-[520px]">
+        <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-[520px]">
           <DialogHeader>
             <DialogTitle>{form.id ? "Edit org unit" : "Add org unit"}</DialogTitle>
             <DialogDescription>
@@ -625,7 +683,7 @@ const RiskGovernance = () => {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={submitForm} className="bg-primary hover:bg-primary/90">
+            <Button variant="brand" onClick={submitForm}>
               {form.id ? "Save changes" : "Add unit"}
             </Button>
           </DialogFooter>
@@ -651,7 +709,7 @@ const RiskGovernance = () => {
 
       {/* Bulk-add child units dialog */}
       <Dialog open={bulkParentId !== null} onOpenChange={(o) => { if (!o) { setBulkParentId(null); setBulkNames(""); } }}>
-        <DialogContent className="sm:max-w-[520px]">
+        <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-[520px]">
           <DialogHeader>
             <DialogTitle>Bulk add units</DialogTitle>
             <DialogDescription>
@@ -688,13 +746,14 @@ const RiskGovernance = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setBulkParentId(null); setBulkNames(""); }}>Cancel</Button>
-            <Button onClick={submitBulk} className="bg-primary hover:bg-primary/90">Add all</Button>
+            <Button variant="brand" onClick={submitBulk}>Add all</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Insights side panel */}
       <OrgNodeInsightsPanel
+        orgId={orgId}
         node={insightNode}
         open={!!insightNode}
         onClose={() => setInsightNodeId(null)}
@@ -702,7 +761,6 @@ const RiskGovernance = () => {
         documents={documents}
         strategy={strategy}
         assessments={assessments}
-        users={users}
       />
     </>
   );
@@ -715,14 +773,31 @@ function suggestChildType(parent: OrgNodeType): OrgNodeType {
   return order[Math.min(idx + 1, order.length - 1)];
 }
 
+/** Small tinted pill driven by an HSL triplet (type / line-of-defense / offering colours). */
+const ColorBadge = ({ color, outline, children }: { color: string; outline?: boolean; children: React.ReactNode }) => (
+  <Badge
+    variant="outline"
+    className={`text-[10px] font-semibold uppercase tracking-wider ${outline ? "border-dashed bg-transparent" : "border-transparent"}`}
+    style={{
+      background: outline ? undefined : `hsl(${color} / 0.12)`,
+      borderColor: outline ? `hsl(${color} / 0.6)` : undefined,
+      color: `hsl(${color})`,
+    }}
+  >
+    {children}
+  </Badge>
+);
+
 interface StatCardProps { icon: React.ReactNode; label: string; value: number; }
 const StatCard = ({ icon, label, value }: StatCardProps) => (
-  <Card className="p-4">
-    <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-      {icon}
-      <span>{label}</span>
-    </div>
-    <p className="text-2xl font-semibold text-foreground">{value}</p>
+  <Card>
+    <CardContent className="p-4">
+      <div className="mb-1 flex items-center gap-2 text-xs text-muted-foreground">
+        {icon}
+        <span>{label}</span>
+      </div>
+      <p className="text-2xl font-semibold text-navy-deep">{value}</p>
+    </CardContent>
   </Card>
 );
 
@@ -749,93 +824,107 @@ const TreeRow = ({
 }: TreeRowProps) => {
   const kids = childrenOf.get(node.id) ?? [];
   const isOpen = expanded.has(node.id);
-  const color = ORG_TYPE_COLORS[node.type];
   const c = counts.get(node.id) ?? { objectives: 0, initiatives: 0, documents: 0, users: 0 };
+  const rollups: [string, string, number][] = [
+    ["O", "objective", c.objectives],
+    ["I", "initiative", c.initiatives],
+    ["D", "document", c.documents],
+    ["U", "user", c.users],
+  ];
 
   return (
     <div>
       <div
-        className="group flex items-center gap-2 py-2 pr-2 rounded-md hover:bg-muted/50 transition-colors"
-        style={{ paddingLeft: `${depth * 20 + 8}px` }}
+        className="flex items-center gap-2 rounded-md py-1.5 pr-1 transition-colors hover:bg-muted/50"
+        style={{ paddingLeft: `${depth * 20 + 4}px` }}
       >
-        <button
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-6 w-6 shrink-0 text-muted-foreground"
           onClick={() => onToggle(node.id)}
-          className="w-5 h-5 flex items-center justify-center text-muted-foreground hover:text-foreground"
           aria-label={isOpen ? "Collapse" : "Expand"}
+          aria-expanded={kids.length > 0 ? isOpen : undefined}
           disabled={kids.length === 0}
         >
           {kids.length > 0 ? (
-            isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />
+            isOpen ? <ChevronDown /> : <ChevronRight />
           ) : (
-            <span className="w-1.5 h-1.5 rounded-full bg-border" />
+            <span className="h-1.5 w-1.5 rounded-full bg-border" />
           )}
-        </button>
+        </Button>
 
-        <span
-          className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded"
-          style={{ background: `hsl(${color} / 0.12)`, color: `hsl(${color})` }}
-        >
-          {ORG_TYPE_LABELS[node.type]}
-        </span>
+        <ColorBadge color={ORG_TYPE_COLORS[node.type]}>{ORG_TYPE_LABELS[node.type]}</ColorBadge>
 
         <button
+          type="button"
           onClick={() => onOpenInsights(node.id)}
-          className="text-sm font-medium text-foreground truncate text-left hover:underline underline-offset-2 decoration-dotted"
+          className="min-w-0 truncate text-left text-sm font-medium text-navy-deep decoration-dotted underline-offset-2 hover:underline"
           title="View roll-up insights"
         >
           {node.name}
         </button>
 
-        {/* Roll-up count badges */}
-        <div className="flex items-center gap-1 ml-2">
-          {c.objectives > 0 && (
-            <Badge variant="secondary" className="text-[9px] h-4 px-1.5" title={`${c.objectives} objective${c.objectives === 1 ? "" : "s"}`}>
-              O {c.objectives}
-            </Badge>
-          )}
-          {c.initiatives > 0 && (
-            <Badge variant="secondary" className="text-[9px] h-4 px-1.5" title={`${c.initiatives} initiative${c.initiatives === 1 ? "" : "s"}`}>
-              I {c.initiatives}
-            </Badge>
-          )}
-          {c.documents > 0 && (
-            <Badge variant="secondary" className="text-[9px] h-4 px-1.5" title={`${c.documents} document${c.documents === 1 ? "" : "s"}`}>
-              D {c.documents}
-            </Badge>
-          )}
-          {c.users > 0 && (
-            <Badge variant="secondary" className="text-[9px] h-4 px-1.5" title={`${c.users} user${c.users === 1 ? "" : "s"}`}>
-              U {c.users}
-            </Badge>
+        <div className="ml-1 hidden items-center gap-1 sm:flex">
+          {rollups.map(([letter, label, count]) =>
+            count > 0 ? (
+              <Badge
+                key={letter}
+                variant="secondary"
+                className="px-1.5 text-[10px] font-medium"
+                title={`${count} ${label}${count === 1 ? "" : "s"}`}
+              >
+                {letter} {count}
+              </Badge>
+            ) : null,
           )}
         </div>
 
-        <Button size="icon" variant="ghost" className="h-7 w-7 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => onOpenInsights(node.id)} aria-label="Insights">
-          <Info className="w-3.5 h-3.5" />
-        </Button>
+        <div className="ml-auto flex shrink-0 items-center">
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 text-muted-foreground"
+            onClick={() => onOpenInsights(node.id)}
+            aria-label="Insights"
+          >
+            <Info />
+          </Button>
 
-        {canEdit && (
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => onAddChild(node.id)}>
-              <Plus className="w-3.5 h-3.5 mr-1" /> Child
-            </Button>
-            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => onBulkAddChild(node.id)} title="Add several at once">
-              <Layers className="w-3.5 h-3.5 mr-1" /> Bulk
-            </Button>
-            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onEdit(node)} aria-label="Edit">
-              <Pencil className="w-3.5 h-3.5" />
-            </Button>
-            <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => onDelete(node.id)} aria-label="Delete">
-              <Trash2 className="w-3.5 h-3.5" />
-            </Button>
-          </div>
-        )}
+          {canEdit && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground" aria-label="Unit actions">
+                  <MoreHorizontal />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onSelect={() => onAddChild(node.id)}>
+                  <Plus /> Add child
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => onBulkAddChild(node.id)}>
+                  <Layers /> Bulk add children
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => onEdit(node)}>
+                  <Pencil /> Edit
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                  onSelect={() => onDelete(node.id)}
+                >
+                  <Trash2 /> Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
       </div>
 
       {node.description && (
-        <div style={{ paddingLeft: `${depth * 20 + 40}px` }} className="pb-1">
-          <p className="text-xs text-muted-foreground mb-1">{node.description}</p>
-        </div>
+        <p className="pb-1 text-xs text-muted-foreground" style={{ paddingLeft: `${depth * 20 + 40}px` }}>
+          {node.description}
+        </p>
       )}
 
       {isOpen && kids.map(child => (
@@ -877,61 +966,59 @@ const ThreeLodSummary = ({ nodes, users }: { nodes: OrgNode[]; users: AppUser[] 
   if (rows.every(r => r.units.length === 0)) return null;
 
   return (
-    <div className="mt-6">
-      <h3 className="text-sm font-semibold text-foreground mb-2">Governance Map: Three Lines of Defense (3LoD)</h3>
-      <p className="text-xs text-muted-foreground mb-3">Visual representation of the governance lines of defense across the organization.</p>
-      <div className="overflow-x-auto rounded-lg border border-border">
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="bg-muted/40 text-left">
-              <th className="px-3 py-2 font-semibold w-[28%]">Line</th>
-              <th className="px-3 py-2 font-semibold">Org Units</th>
-              <th className="px-3 py-2 font-semibold w-[28%]">People</th>
-            </tr>
-          </thead>
-          <tbody>
+    <div>
+      <h3 className="text-sm font-semibold text-navy-deep">Governance Map: Three Lines of Defense (3LoD)</h3>
+      <p className="mb-3 mt-0.5 text-xs text-muted-foreground">
+        The governance lines of defense across the organisation.
+      </p>
+      <div className="rounded-lg border border-border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[28%]">Line</TableHead>
+              <TableHead>Org units</TableHead>
+              <TableHead className="w-[28%]">People</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {rows.map(r => (
-              <tr
-                key={r.lod}
-                className="border-t border-border align-top"
-                style={{ background: `hsl(${LINE_OF_DEFENSE_COLORS[r.lod]} / 0.04)` }}
-              >
-                <td className="px-3 py-2">
-                  <div className="font-semibold" style={{ color: `hsl(${LINE_OF_DEFENSE_COLORS[r.lod]})` }}>
+              <TableRow key={r.lod} className="align-top">
+                <TableCell>
+                  <div className="text-sm font-semibold" style={{ color: `hsl(${LINE_OF_DEFENSE_COLORS[r.lod]})` }}>
                     {LINE_OF_DEFENSE_SHORT[r.lod]}
                   </div>
                   <div className="text-[11px] text-muted-foreground">({r.subtitle})</div>
-                </td>
-                <td className="px-3 py-2">
+                </TableCell>
+                <TableCell>
                   {r.units.length === 0
-                    ? <span className="text-muted-foreground italic">— none —</span>
+                    ? <span className="text-xs italic text-muted-foreground">— none —</span>
                     : (
                       <div className="flex flex-wrap gap-1">
                         {r.units.map(u => (
-                          <span key={u.id} className="text-[10px] px-1.5 py-0.5 rounded bg-card border border-border">
+                          <Badge key={u.id} variant="outline" className="text-[10px] font-normal">
                             {ORG_TYPE_LABELS[u.type]}: {u.name}
-                          </span>
+                          </Badge>
                         ))}
                       </div>
                     )}
-                </td>
-                <td className="px-3 py-2">
+                </TableCell>
+                <TableCell>
                   {r.userList.length === 0
-                    ? <span className="text-muted-foreground italic">— none assigned —</span>
+                    ? <span className="text-xs italic text-muted-foreground">— none assigned —</span>
                     : (
                       <div className="flex flex-wrap gap-1">
                         {r.userList.map(u => (
-                          <span key={u.id} className="text-[10px] px-1.5 py-0.5 rounded bg-foreground text-background">
+                          <Badge key={u.id} variant="secondary" className="text-[10px] font-normal">
                             {u.title || u.name}
-                          </span>
+                          </Badge>
                         ))}
                       </div>
                     )}
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );
@@ -986,65 +1073,65 @@ const HierarchyTypesCard = ({ types, nodes, onChange }: HierarchyTypesCardProps)
   };
 
   return (
-    <Card className="p-5 mb-5">
-      <div className="flex items-start justify-between mb-3 flex-wrap gap-2">
-        <div>
-          <h2 className="text-base font-semibold text-foreground">Hierarchy Types</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            The organisation structure API supports a fixed set of tiers (Group, Company, Department, Division, Section, Process, Sub-process). You can rename and recolour them here, but new custom tiers can't be added — org units are validated against this fixed list server-side.
-          </p>
-        </div>
-      </div>
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base text-navy-deep">Hierarchy Types</CardTitle>
+        <CardDescription className="text-xs">
+          The organisation structure API supports a fixed set of tiers (Group, Company, Department, Division, Section, Process, Sub-process). You can rename and recolour them here, but new custom tiers can't be added — org units are validated against this fixed list server-side.
+        </CardDescription>
+      </CardHeader>
 
-      <div className="space-y-2 mb-4">
+      <CardContent className="divide-y divide-border">
         {types.map(t => {
           const inUse = usageByKey.get(t.key) ?? 0;
           return (
-            <div key={t.key} className="flex flex-wrap items-center gap-2 p-2 rounded-md border border-border bg-card">
+            <div key={t.key} className="flex flex-wrap items-center gap-2 py-2 first:pt-0 last:pb-0">
               <span
-                className="w-3 h-3 rounded-full shrink-0"
+                className="h-3 w-3 shrink-0 rounded-full"
                 style={{ background: `hsl(${t.color})` }}
+                aria-hidden
               />
               <Input
                 className="h-8 w-[180px]"
                 value={t.label}
+                aria-label={`Label for ${t.key}`}
                 onChange={e => updateType(t.key, { label: e.target.value })}
               />
               <Select value={t.color} onValueChange={(v) => updateType(t.key, { color: v })}>
-                <SelectTrigger className="h-8 w-[140px]"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 w-[140px]" aria-label={`Colour for ${t.key}`}><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {TYPE_COLOR_PALETTE.map(p => (
                     <SelectItem key={p.value} value={p.value}>
                       <span className="inline-flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full" style={{ background: `hsl(${p.value})` }} />
+                        <span className="h-2.5 w-2.5 rounded-full" style={{ background: `hsl(${p.value})` }} />
                         {p.label}
                       </span>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono">{t.key}</span>
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{t.key}</span>
               {t.builtin && (
-                <Badge variant="secondary" className="text-[9px] h-4 px-1.5">Built-in</Badge>
+                <Badge variant="secondary" className="px-1.5 text-[10px] font-normal">Built-in</Badge>
               )}
-              <Badge variant="secondary" className="text-[9px] h-4 px-1.5" title="Number of units using this type">
+              <Badge variant="secondary" className="px-1.5 text-[10px] font-normal" title="Number of units using this type">
                 {inUse} in use
               </Badge>
               <Button
                 size="icon"
                 variant="ghost"
-                className="h-7 w-7 ml-auto text-destructive hover:text-destructive disabled:opacity-30"
+                className="ml-auto h-8 w-8 text-destructive hover:text-destructive disabled:opacity-30"
                 onClick={() => removeType(t.key)}
                 disabled={t.builtin || inUse > 0}
+                aria-label={`Remove ${t.key} type`}
                 title={t.builtin ? "Built-in" : inUse > 0 ? "Type is in use" : "Remove"}
               >
-                <Trash2 className="w-3.5 h-3.5" />
+                <Trash2 />
               </Button>
             </div>
           );
         })}
-      </div>
-
+      </CardContent>
     </Card>
   );
 };

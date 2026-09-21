@@ -23,10 +23,12 @@ export default {
       "9xl": ["8rem", { lineHeight: "1" }],
     },
     extend: {
+      // One uniform family. `mono`/`serif` alias the same stack so preflight's
+      // <code>/<pre> defaults and any stray utility never fall back to another font.
       fontFamily: {
-        sans: ["'DM Sans'", "system-ui", "sans-serif"],
-        mono: ["'DM Mono'", "ui-monospace", "monospace"],
-        serif: ["'Playfair Display'", "Georgia", "serif"],
+        sans: ["'Google Sans'", "system-ui", "sans-serif"],
+        mono: ["'Google Sans'", "system-ui", "sans-serif"],
+        serif: ["'Google Sans'", "system-ui", "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",

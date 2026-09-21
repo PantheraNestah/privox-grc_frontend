@@ -69,7 +69,7 @@ describe("PlatformTemplates", () => {
     expect(orgNodeTemplates.fetchOrgNodeTemplates).toHaveBeenCalledWith("platform");
   });
 
-  it("opens a nested preview dialog for a template", async () => {
+  it("shows a nested preview inline on the page instead of in a dialog", async () => {
     renderPage();
     await screen.findByText("Kenya Enterprise Standard Structure");
 
@@ -77,8 +77,31 @@ describe("PlatformTemplates", () => {
 
     expect(await screen.findByText("Kenya Enterprise Group")).toBeInTheDocument();
     expect(screen.getByText("Finance")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     await waitFor(() =>
       expect(orgNodeTemplates.fetchOrgNodeTemplatePreview).toHaveBeenCalledWith("template-1", "platform"),
+    );
+  });
+
+  it("closes the inline preview", async () => {
+    renderPage();
+    await screen.findByText("Kenya Enterprise Standard Structure");
+
+    fireEvent.click(screen.getByRole("button", { name: /Preview tree/ }));
+    await screen.findByText("Kenya Enterprise Group");
+
+    fireEvent.click(screen.getByRole("button", { name: "Close preview" }));
+
+    expect(screen.queryByText("Kenya Enterprise Group")).not.toBeInTheDocument();
+  });
+
+  it("links to the registration page for users who can manage templates", async () => {
+    renderPage();
+    await screen.findByText("Kenya Enterprise Standard Structure");
+
+    expect(screen.getByRole("link", { name: /Register template/ })).toHaveAttribute(
+      "href",
+      "/platform/templates/new",
     );
   });
 });

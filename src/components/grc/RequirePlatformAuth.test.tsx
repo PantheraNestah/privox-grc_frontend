@@ -28,12 +28,13 @@ const setAuth = (partial: { isAuthenticated: boolean; isLoading: boolean }) => {
 describe("RequirePlatformAuth", () => {
   afterEach(() => vi.clearAllMocks());
 
-  it("renders nothing while the platform session is loading", () => {
+  it("shows a restore indicator while the platform session is loading", () => {
     setAuth({ isAuthenticated: false, isLoading: true });
-    const { container } = renderAt("/platform/dashboard");
+    renderAt("/platform/dashboard");
 
-    expect(container).toBeEmptyDOMElement();
+    expect(screen.getByRole("status")).toHaveTextContent("Restoring your session");
     expect(screen.queryByText("Platform Dashboard")).not.toBeInTheDocument();
+    expect(screen.queryByText("Platform Login")).not.toBeInTheDocument();
   });
 
   it("redirects unauthenticated visitors to the platform login", () => {

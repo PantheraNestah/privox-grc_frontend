@@ -1,11 +1,13 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { queryClient } from "@/lib/query-client";
 import { PlatformAuthProvider } from "@/contexts/PlatformAuthContext";
 import { RequireAuth } from "@/components/grc/RequireAuth";
 import { RequirePlatformAuth } from "@/components/grc/RequirePlatformAuth";
 import { PlatformLayout } from "@/components/grc/PlatformLayout";
+import { TenantLayout } from "@/components/grc/TenantLayout";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -20,6 +22,7 @@ import DocumentManagement from "./pages/DocumentManagement.tsx";
 import SurveyManagement from "./pages/SurveyManagement.tsx";
 import SurveyRespond from "./pages/SurveyRespond.tsx";
 import OrganizationDetails from "./pages/OrganizationDetails.tsx";
+import ModuleSettings from "./pages/ModuleSettings.tsx";
 import UserManagement, {
   GroupEdit,
   GroupMembersView,
@@ -34,8 +37,7 @@ import PlatformOrganizations from "./pages/platform/PlatformOrganizations.tsx";
 import PlatformOrganizationDetails from "./pages/platform/PlatformOrganizationDetails.tsx";
 import PlatformModules from "./pages/platform/PlatformModules.tsx";
 import PlatformTemplates from "./pages/platform/PlatformTemplates.tsx";
-
-const queryClient = new QueryClient();
+import PlatformTemplateRegister from "./pages/platform/PlatformTemplateRegister.tsx";
 
 const App = () => (
   <HelmetProvider>
@@ -49,22 +51,26 @@ const App = () => (
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route element={<RequireAuth />}>
-                  <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/governance" element={<Governance />} />
-                  <Route path="/governance/risk-governance" element={<RiskGovernance />} />
-                  <Route path="/governance/strategy-formulation" element={<StrategyFormulation />} />
-                  <Route path="/governance/strategy-assessment" element={<StrategyAssessment />} />
-                  <Route path="/governance/risk-strategy" element={<RiskStrategy />} />
-                  <Route path="/governance/documents" element={<DocumentManagement />} />
-                  <Route path="/governance/surveys" element={<SurveyManagement />} />
+                  <Route element={<TenantLayout />}>
+                    <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/governance" element={<Governance />} />
+                    <Route path="/governance/risk-governance" element={<RiskGovernance />} />
+                    <Route path="/governance/strategy-formulation" element={<StrategyFormulation />} />
+                    <Route path="/governance/strategy-assessment" element={<StrategyAssessment />} />
+                    <Route path="/governance/risk-strategy" element={<RiskStrategy />} />
+                    <Route path="/governance/documents" element={<DocumentManagement />} />
+                    <Route path="/governance/surveys" element={<SurveyManagement />} />
+                    <Route path="/settings/organization" element={<OrganizationDetails />} />
+                    <Route path="/settings/modules" element={<ModuleSettings />} />
+                    <Route path="/settings/users" element={<UserManagement />} />
+                    <Route path="/settings/users/members/:memberId" element={<UserMemberView />} />
+                    <Route path="/settings/users/members/:memberId/edit" element={<UserMemberEdit />} />
+                    <Route path="/settings/users/groups/:groupId" element={<GroupView />} />
+                    <Route path="/settings/users/groups/:groupId/members" element={<GroupMembersView />} />
+                    <Route path="/settings/users/groups/:groupId/edit" element={<GroupEdit />} />
+                  </Route>
+                  {/* Respondent view: standalone page, no workspace chrome. */}
                   <Route path="/surveys/:surveyId/respond" element={<SurveyRespond />} />
-                  <Route path="/settings/organization" element={<OrganizationDetails />} />
-                  <Route path="/settings/users" element={<UserManagement />} />
-                  <Route path="/settings/users/members/:memberId" element={<UserMemberView />} />
-                  <Route path="/settings/users/members/:memberId/edit" element={<UserMemberEdit />} />
-                  <Route path="/settings/users/groups/:groupId" element={<GroupView />} />
-                  <Route path="/settings/users/groups/:groupId/members" element={<GroupMembersView />} />
-                  <Route path="/settings/users/groups/:groupId/edit" element={<GroupEdit />} />
                 </Route>
 
                 {/* Platform admin portal */}
@@ -77,6 +83,7 @@ const App = () => (
                     <Route path="organizations/:orgId" element={<PlatformOrganizationDetails />} />
                     <Route path="modules" element={<PlatformModules />} />
                     <Route path="templates" element={<PlatformTemplates />} />
+                    <Route path="templates/new" element={<PlatformTemplateRegister />} />
                   </Route>
                 </Route>
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

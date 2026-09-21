@@ -1,9 +1,8 @@
 /**
  * Types for the Governance module (Org Tree, Org Node Templates, Risk Strategy).
- * See GOVERNANCE_API_ENDPOINTS.md for the authoritative API reference.
  */
 
-// ─── Org Tree (§15) ────────────────────────────────────────
+// ─── Org Tree ──────────────────────────────────────────────
 
 export type OrgNodeType =
   | "GROUP"
@@ -15,6 +14,19 @@ export type OrgNodeType =
   | "SUB_PROCESS";
 
 export type RiskRating = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+
+/** A user placed at an org node (`GET …/org-nodes/{nodeId}/members`). */
+export interface OrgNodeMemberResponse {
+  id: string;
+  orgNodeId: string;
+  userId: string;
+  userEmail: string;
+  userFullName: string;
+  effectiveFrom: string;
+  /** Null while the placement is still active. */
+  effectiveTo: string | null;
+  createdAt: string;
+}
 
 export interface OrgNodeResponse {
   id: string;
@@ -71,7 +83,7 @@ export interface CloneOrgNodeTemplateRequest {
   targetParentId?: string | null;
 }
 
-// ─── Org Node Templates (§16) ──────────────────────────────
+// ─── Org Node Templates ────────────────────────────────────
 
 export interface OrgNodeTemplateResponse {
   id: string;
@@ -110,7 +122,7 @@ export interface OrgNodeTemplatePreviewResponse {
   rootNode: OrgNodeTemplatePreviewNode;
 }
 
-// ─── Risk Strategy (§17) ────────────────────────────────────
+// ─── Risk Strategy ─────────────────────────────────────────
 
 export type ReviewFrequency = "MONTHLY" | "QUARTERLY" | "ANNUALLY";
 export type LikelihoodMode = "PROBABILITY" | "TIMELINE" | "BOTH";
