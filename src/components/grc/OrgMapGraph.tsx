@@ -18,7 +18,10 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import dagre from "dagre";
+import { Download } from "lucide-react";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
   ORG_TYPE_LABELS,
@@ -31,6 +34,12 @@ import {
   type OrgNode,
 } from "@/data/orgStore";
 import type { AppUser } from "@/data/userStore";
+import {
+  buildHierarchySvg,
+  downloadSvg,
+  type HierarchySvgBox,
+  type HierarchySvgGroup,
+} from "@/lib/hierarchySvg";
 
 const CARD_WIDTH = 210;
 const CARD_HEIGHT = 108;
@@ -307,8 +316,67 @@ export const OrgMapGraph = ({ nodes, childrenOf, users, onNodeSelect }: OrgMapGr
     [onNodeSelect],
   );
 
+  /** Re-render the laid-out React Flow graph as a standalone SVG file. */
+  const exportSvg = useCallback(() => {
+    const boxes: HierarchySvgBox[] = [];
+    const groups: HierarchySvgGroup[] = [];
+
+    for (const n of flowNodes) {
+      if (n.type === "laneGroup") {
+        const d = n.data as LaneGroupData;
+        groups.push({
+          x: n.position.x,
+          y: n.position.y,
+          width: Number(n.style?.width ?? 0),
+          height: Number(n.style?.height ?? 0),
+          label: d.label,
+          color: d.color,
+          dashed: d.dashed,
+        });
+      } else if (n.type === "orgCard") {
+        const d = n.data as OrgCardData;
+        boxes.push({
+          id: n.id,
+          x: n.position.x,
+          y: n.position.y,
+          width: CARD_WIDTH,
+          height: CARD_HEIGHT,
+          accent: ORG_TYPE_COLORS[d.node.type],
+          typeLabel: ORG_TYPE_LABELS[d.node.type],
+          title: d.node.name,
+          description: d.node.description ?? null,
+          chips: [
+            ...(d.node.offerings ?? []).map((o) => o.label || OFFERING_KIND_LABELS[o.kind]),
+            ...d.users.map((u) => u.title || u.name),
+          ],
+        });
+      }
+    }
+
+    if (boxes.length === 0) return;
+    const svg = buildHierarchySvg(
+      boxes,
+      flowEdges.map((e) => ({ source: e.source, target: e.target })),
+      groups,
+      { direction: "TB" },
+    );
+    downloadSvg(`organisation-map-${new Date().toISOString().slice(0, 10)}.svg`, svg);
+    toast.success("Organisation map exported as SVG");
+  }, [flowNodes, flowEdges]);
+
   return (
-    <div className="h-[420px] overflow-hidden rounded-lg border border-border sm:h-[520px] lg:h-[600px]">
+    <div className="relative h-[420px] overflow-hidden rounded-lg border border-border sm:h-[520px] lg:h-[600px]">
+      <div className="absolute right-3 top-3 z-10">
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-1.5 bg-card/90 backdrop-blur"
+          onClick={exportSvg}
+          disabled={flowNodes.length === 0}
+        >
+          <Download className="h-3.5 w-3.5" /> Export SVG
+        </Button>
+      </div>
       <ReactFlow
         nodes={flowNodes}
         edges={flowEdges}
