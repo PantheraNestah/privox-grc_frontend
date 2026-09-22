@@ -12,7 +12,7 @@
  *     authenticated/tenant data is never written to the Cache Storage.
  */
 
-const CACHE_NAME = "rsolve-grc-shell-v1";
+const CACHE_NAME = "privox-grc-shell-v1";
 const OFFLINE_SHELL = "./index.html";
 
 self.addEventListener("install", (event) => {

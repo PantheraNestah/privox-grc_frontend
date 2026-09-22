@@ -1,8 +1,8 @@
 {
   "packageId": "com.example.rsolvegrc",
   "host": "grc.example.com",
-  "name": "Rsolve GRC Platform",
-  "launcherName": "Rsolve GRC",
+  "name": "Privox GRC Platform",
+  "launcherName": "Privox GRC",
   "display": "standalone",
   "themeColor": "#1E40AF",
   "themeColorDark": "#0F172A",
