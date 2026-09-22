@@ -1,0 +1,53 @@
+{
+  "packageId": "com.example.rsolvegrc",
+  "host": "grc.example.com",
+  "name": "Rsolve GRC Platform",
+  "launcherName": "Rsolve GRC",
+  "display": "standalone",
+  "themeColor": "#1E40AF",
+  "themeColorDark": "#0F172A",
+  "navigationColor": "#0F172A",
+  "navigationColorDark": "#0F172A",
+  "navigationDividerColor": "#1E40AF",
+  "navigationDividerColorDark": "#0F172A",
+  "backgroundColor": "#0F172A",
+  "enableNotifications": true,
+  "enableSiteSettingsShortcut": true,
+  "startUrl": "/",
+  "fullScopeUrl": "https://grc.example.com/",
+  "webManifestUrl": "https://grc.example.com/manifest.webmanifest",
+  "iconUrl": "https://grc.example.com/icons/icon-512.png",
+  "maskableIconUrl": "https://grc.example.com/icons/icon-maskable-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "android"
+  },
+  "appVersionName": "1.0.0",
+  "appVersionCode": 1,
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "shortName": "Dashboard",
+      "url": "/dashboard",
+      "chosenIconUrl": "https://grc.example.com/icons/icon-192.png"
+    },
+    {
+      "name": "Governance",
+      "shortName": "Governance",
+      "url": "/governance",
+      "chosenIconUrl": "https://grc.example.com/icons/icon-192.png"
+    }
+  ],
+  "generatorApp": "bubblewrap-cli",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": { "enabled": false },
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "minSdkVersion": 21,
+  "orientation": "default",
+  "fingerprints": [],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": []
+}
