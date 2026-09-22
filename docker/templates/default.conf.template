@@ -1,0 +1,70 @@
+server {
+    listen ${NGINX_PORT};
+    listen [::]:${NGINX_PORT};
+    server_name ${NGINX_SERVER_NAME};
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # nginx only inherits add_header from a parent block when the child
+    # location sets none of its own, so these are repeated in every location
+    # below that also sets a Cache-Control header.
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+
+    # Vite emits content-hashed assets; cache them for a long time.
+    location /assets/ {
+        try_files $uri =404;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "DENY" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+    }
+
+    # Never cache the app shell or the files that configure/register the PWA;
+    # they reference the current hashed assets or must be re-fetched to update.
+    location = /index.html {
+        add_header Cache-Control "no-cache";
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "DENY" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+    }
+
+    location = /manifest.webmanifest {
+        add_header Cache-Control "no-cache";
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "DENY" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+    }
+
+    location = /sw.js {
+        add_header Cache-Control "no-cache";
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "DENY" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+    }
+
+    # Generated at container startup by 50-generate-runtime-env.sh into a
+    # writable, ephemeral path so /usr/share/nginx/html can stay read-only.
+    location = /env.js {
+        alias /tmp/env.js;
+        default_type application/javascript;
+        add_header Cache-Control "no-cache";
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "DENY" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+    }
+
+    # SPA fallback.
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

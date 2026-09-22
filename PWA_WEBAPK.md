@@ -101,17 +101,15 @@ Use `pwa/assetlinks.json.example` as the template. Verify at
 <https://developers.google.com/digital-asset-links/tools/generator> (or
 `https://<your-domain>/.well-known/assetlinks.json`).
 
-### ⚠️ GitHub Pages caveat
+### Deployment note
 
-The current Pages deploy serves the app from a **project subpath**
-(`https://<user>.github.io/<repo>/`). Digital Asset Links must live at the
-**domain root** (`https://<user>.github.io/.well-known/assetlinks.json`), which a
-project page cannot control. So:
+The app is served from a container at the domain root (see `Dockerfile` /
+`docker/README.md`), so `/.well-known/assetlinks.json` resolves normally and
+both install paths work without caveats:
 
-- **Path A (WebAPK install from Chrome)** works fine on the Pages URL — no
-  assetlinks required.
-- **Path B (TWA/Play Store)** needs a **custom domain** (or a root-served host)
-  so `/.well-known/assetlinks.json` resolves.
+- **Path A (WebAPK install from Chrome)** — no assetlinks required.
+- **Path B (TWA/Play Store)** — publish `pwa/assetlinks.json.example` (filled
+  in) at `/.well-known/assetlinks.json` on the serving domain.
 
 ## Alternative GUI: PWABuilder
 
