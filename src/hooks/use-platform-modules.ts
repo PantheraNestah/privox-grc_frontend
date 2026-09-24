@@ -6,10 +6,12 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  createPlatformModule,
   disablePlatformOrganizationModule,
   enablePlatformOrganizationModule,
   listPlatformModules,
   listPlatformOrganizationModules,
+  type CreatePlatformModuleRequest,
   type OrganizationModuleAssignment,
 } from "@/lib/platformAdmin";
 
@@ -71,6 +73,17 @@ export function usePlatformOrganizationModules(organizationId: string | undefine
     },
     enabled: !!organizationId,
     staleTime: ASSIGNMENT_STALE_TIME,
+  });
+}
+
+/** Add a new module to the platform catalogue, then refresh the catalogue. */
+export function useCreatePlatformModule() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: CreatePlatformModuleRequest) => createPlatformModule(body),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: platformModuleKeys.catalogue() });
+    },
   });
 }
 

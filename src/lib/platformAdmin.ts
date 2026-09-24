@@ -142,6 +142,15 @@ export interface PlatformModule {
   createdAt: string;
 }
 
+export interface CreatePlatformModuleRequest {
+  /** Stable uppercase code, e.g. `THIRD_PARTY_RISK`. */
+  code: string;
+  name: string;
+  description?: string | null;
+  sortOrder?: number;
+  active?: boolean;
+}
+
 export interface OrganizationModuleAssignment {
   /** Assignment row id (not the module id). */
   id: string;
@@ -158,6 +167,14 @@ export interface OrganizationModuleAssignment {
 /** `GET /v1/platform/modules` — the platform-wide module catalogue. */
 export async function listPlatformModules(): Promise<PlatformModule[]> {
   const { data } = await platformApi.get<PlatformModule[]>("/v1/platform/modules");
+  return data;
+}
+
+/** `POST /v1/platform/modules` — add a module to the platform catalogue. */
+export async function createPlatformModule(
+  body: CreatePlatformModuleRequest,
+): Promise<PlatformModule> {
+  const { data } = await platformApi.post<PlatformModule>("/v1/platform/modules", body);
   return data;
 }
 

@@ -1,17 +1,32 @@
+import { useState } from "react";
 import { Helmet } from "react-helmet-async";
-import { Layers } from "lucide-react";
+import { Layers, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { CreateModuleDialog } from "@/components/grc/platform/CreateModuleDialog";
 import { PageHeader } from "@/components/grc/common/PageHeader";
 import { CardGridSkeleton, EmptyState, ErrorState } from "@/components/grc/common/states";
 import { usePlatformModules } from "@/hooks/use-platform-modules";
+import { usePlatformAuth } from "@/contexts/PlatformAuthContext";
+import { canAnyPlatform, PLATFORM_PERMISSIONS } from "@/lib/platformPermissions";
 import { platformModuleStyle } from "@/data/platformModules";
 import { cn } from "@/lib/utils";
 
 const PlatformModules = () => {
+  const [createOpen, setCreateOpen] = useState(false);
   const { data, isLoading, isError, error } = usePlatformModules();
+  const { permissions } = usePlatformAuth();
   const modules = data ?? [];
   const activeCount = modules.filter((m) => m.active).length;
+  // A dedicated create authority is preferred; fall back to the module-assign
+  // authority so existing platform module managers can still add modules.
+  const canCreateModule = canAnyPlatform(permissions, [
+    PLATFORM_PERMISSIONS.moduleCreate,
+    PLATFORM_PERMISSIONS.moduleAssign,
+  ]);
+  const nextSortOrder =
+    modules.reduce((max, m) => Math.max(max, m.sortOrder), 0) + 10;
 
   return (
     <>
@@ -41,7 +56,22 @@ const PlatformModules = () => {
             </>
           )
         }
+        actions={
+          canCreateModule && (
+            <Button variant="brand" onClick={() => setCreateOpen(true)}>
+              <Plus /> New module
+            </Button>
+          )
+        }
       />
+
+      {createOpen && (
+        <CreateModuleDialog
+          open
+          onOpenChange={setCreateOpen}
+          suggestedSortOrder={nextSortOrder}
+        />
+      )}
 
       {isLoading && <CardGridSkeleton label="Loading module catalogue…" />}
 

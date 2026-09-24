@@ -24,3 +24,9 @@ dist-ssr
 *.sln
 *.sw?
 *.claude
+
+# PWA / Bubblewrap (TWA) — never commit signing keys or build output
+*.keystore
+*.jks
+pwa/android/
+pwa/app-release-*

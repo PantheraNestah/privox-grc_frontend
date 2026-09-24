@@ -2,15 +2,24 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Rsolve GRC Platform · Governance, Risk &amp; Compliance</title>
-    <meta name="description" content="Rsolve — a centralised Governance, Risk and Compliance platform for unified risk, compliance and resilience management." />
-    <meta name="author" content="Rsolve" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Privox GRC Platform · Governance, Risk &amp; Compliance</title>
+    <meta name="description" content="Privox — a centralised Governance, Risk and Compliance platform for unified risk, compliance and resilience management." />
+    <meta name="author" content="Privox" />
 
-    <meta property="og:title" content="Rsolve GRC Platform" />
+    <meta property="og:title" content="Privox GRC Platform" />
     <meta property="og:description" content="Unified Governance, Risk and Compliance workspace." />
     <meta property="og:type" content="website" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!-- PWA / WebAPK installability -->
+    <link rel="manifest" href="%BASE_URL%manifest.webmanifest" />
+    <meta name="theme-color" content="#1e40af" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Privox GRC" />
+    <link rel="apple-touch-icon" href="%BASE_URL%icons/apple-touch-icon-180.png" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -19,6 +28,7 @@
 
   <body>
     <div id="root"></div>
+    <script src="/env.js"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
