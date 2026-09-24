@@ -1,0 +1,4 @@
+# Sourced (not executed) by the base image's entrypoint, so exports here
+# are visible to the later 20-envsubst-on-templates.sh script.
+export NGINX_PORT="${NGINX_PORT:-${PORT:-8080}}"
+export NGINX_SERVER_NAME="${NGINX_SERVER_NAME:-_}"

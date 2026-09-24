@@ -20,7 +20,11 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import dagre from "dagre";
-import { ChevronDown, ChevronRight, MapPin, Users, Wallet } from "lucide-react";
+import { ChevronDown, ChevronRight, Download, MapPin, Users, Wallet } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { buildHierarchySvg, downloadSvg, type HierarchySvgBox } from "@/lib/hierarchySvg";
 
 export interface OrgTreeViewNode {
   id: string;
@@ -220,8 +224,53 @@ export const OrgTreeGraph = ({ roots, className, onNodeClick }: OrgTreeGraphProp
     return { cards, edges: edgeList };
   }, [roots, collapsedIds]);
 
+  /** Re-render the laid-out React Flow graph as a standalone SVG file. */
+  const exportSvg = useCallback(() => {
+    const boxes: HierarchySvgBox[] = cards.map((n) => {
+      const d = n.data as unknown as OrgTreeNodeData;
+      const chips = [
+        d.headcount != null && d.headcount > 0 ? `${d.headcount} people` : "",
+        d.location ?? "",
+        d.costCenterCode ? `CC ${d.costCenterCode}` : "",
+      ].filter(Boolean);
+      return {
+        id: n.id,
+        x: n.position.x,
+        y: n.position.y,
+        width: CARD_WIDTH,
+        height: CARD_HEIGHT,
+        accent: d.color,
+        typeLabel: d.typeLabel,
+        title: d.name,
+        description: d.description ?? null,
+        chips,
+      };
+    });
+
+    if (boxes.length === 0) return;
+    const svg = buildHierarchySvg(
+      boxes,
+      edges.map((e) => ({ source: e.source, target: e.target })),
+      [],
+      { direction: "LR" },
+    );
+    downloadSvg(`organisation-hierarchy-${new Date().toISOString().slice(0, 10)}.svg`, svg);
+    toast.success("Hierarchy exported as SVG");
+  }, [cards, edges]);
+
   return (
-    <div className={className}>
+    <div className={cn("relative", className)}>
+      <div className="absolute right-3 top-3 z-10">
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-1.5 bg-card/90 backdrop-blur"
+          onClick={exportSvg}
+          disabled={cards.length === 0}
+        >
+          <Download className="h-3.5 w-3.5" /> Export SVG
+        </Button>
+      </div>
       <ReactFlow
         nodes={cards}
         edges={edges}

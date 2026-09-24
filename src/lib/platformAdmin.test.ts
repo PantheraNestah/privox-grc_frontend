@@ -1,6 +1,7 @@
 import { platformApi } from "./api";
 import {
   approvePlatformOrganization,
+  createPlatformModule,
   createPlatformOrganization,
   disablePlatformOrganizationModule,
   enablePlatformOrganizationModule,
@@ -83,6 +84,20 @@ describe("platform modules", () => {
 
     await expect(listPlatformModules()).resolves.toEqual([{ id: "mod-1" }]);
     expect(platformApi.get).toHaveBeenCalledWith("/v1/platform/modules");
+  });
+
+  it("creates a module in the catalogue", async () => {
+    vi.spyOn(platformApi, "post").mockResolvedValue({ data: { id: "mod-3" } });
+    const body = {
+      code: "THIRD_PARTY_RISK",
+      name: "Third Party Risk",
+      description: null,
+      sortOrder: 80,
+      active: true,
+    };
+
+    await expect(createPlatformModule(body)).resolves.toEqual({ id: "mod-3" });
+    expect(platformApi.post).toHaveBeenCalledWith("/v1/platform/modules", body);
   });
 
   it("lists an organization's module assignments", async () => {

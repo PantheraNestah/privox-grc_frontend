@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import {
   ChevronRight, ChevronDown, Plus, Pencil, Trash2, Building2, Network, Lock, Layers, Info,
-  LayoutTemplate, MoreHorizontal, X,
+  LayoutTemplate, MoreHorizontal, X, Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,7 +33,6 @@ import { toast } from "sonner";
 import {
   uid,
   ORG_TYPE_LABELS, ORG_TYPE_COLORS,
-  getOrgDescendantChain,
   LINE_OF_DEFENSE_LABELS, LINE_OF_DEFENSE_SHORT, LINE_OF_DEFENSE_COLORS,
   OFFERING_KIND_LABELS, OFFERING_KIND_COLORS,
   loadOrgTypes, saveOrgTypes,
@@ -56,6 +55,7 @@ import {
   useOrgNodes, useCreateOrgNode, useUpdateOrgNode, useMoveOrgNode, useSoftDeleteOrgNode,
 } from "@/hooks/use-org-nodes";
 import { fromOrgNodeResponse, toCreateOrgNodeRequest, toUpdateOrgNodeRequest } from "@/lib/org-node-mapping";
+import { downloadTextFile, orgNodesToCsv, orgNodesToJson } from "@/lib/orgTreeExport";
 
 // Hierarchy types are now admin-managed; see the "Hierarchy Types" card.
 
@@ -76,11 +76,6 @@ const emptyForm = (parentId: string | null = null, type: OrgNodeType = "company"
 const RiskGovernance = () => {
   const activeUser = useActiveUser();
   const isAdmin = can.manageUsers(activeUser.role);
-  // Only the GRC Administrator sees the full org tree. Every other role —
-  // including Risk Manager and Executive — is scoped to their own unit and
-  // everything beneath it, so a staff member in (e.g.) Travel never sees
-  // sibling branches like Risk.
-  const canSeeAll = isAdmin;
 
   const { organization, permissions } = useAuth();
   const orgId = organization?.id;
@@ -97,18 +92,11 @@ const RiskGovernance = () => {
     [orgNodeResponses],
   );
 
-  // Scope nodes: privileged roles see everything; everyone else sees only their
-  // assigned org unit and everything beneath it.
-  const nodes = useMemo(() => {
-    if (canSeeAll) return allNodes;
-    if (!activeUser.orgNodeId) return [];
-    const scope = getOrgDescendantChain(allNodes, activeUser.orgNodeId);
-    if (scope.length === 0) return [];
-    // Re-root the user's unit so the tree renders cleanly.
-    return scope.map(n =>
-      n.id === activeUser.orgNodeId ? { ...n, parentId: null } : n
-    );
-  }, [allNodes, canSeeAll, activeUser.orgNodeId]);
+  // View scoping is resolved server-side: the API narrows the response to the
+  // units the signed-in user may see (privileged roles receive the full tree,
+  // node leaders receive their own subtree), so the UI renders exactly what the
+  // backend authorises rather than re-implementing the rules in the browser.
+  const nodes = allNodes;
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<NodeFormState>(emptyForm());
@@ -304,6 +292,32 @@ const RiskGovernance = () => {
     }
   };
 
+  /** Export the tree the API returned (already scoped server-side). */
+  const exportTree = (format: "csv" | "json") => {
+    if (nodes.length === 0) return;
+    const stamp = new Date().toISOString().slice(0, 10);
+    const base = `organisation-structure-${stamp}`;
+    try {
+      if (format === "csv") {
+        downloadTextFile(`${base}.csv`, orgNodesToCsv(nodes), "text/csv;charset=utf-8");
+      } else {
+        downloadTextFile(
+          `${base}.json`,
+          orgNodesToJson(nodes, {
+            organizationName: organization?.name ?? null,
+            organizationId: orgId ?? null,
+          }),
+          "application/json",
+        );
+      }
+      toast.success(
+        `Exported ${nodes.length} org unit${nodes.length === 1 ? "" : "s"} as ${format.toUpperCase()}`,
+      );
+    } catch {
+      toast.error("Failed to export the organisation structure");
+    }
+  };
+
   const totalCount = nodes.length;
   const processCount = nodes.filter(n => n.type === "process" || n.type === "subprocess").length;
 
@@ -357,6 +371,19 @@ const RiskGovernance = () => {
               </CardDescription>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              {nodes.length > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="sm" variant="outline">
+                      <Download /> Export
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => exportTree("csv")}>Export as CSV</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => exportTree("json")}>Export as JSON</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
               {canApplyTemplates && orgId && !orgIsEmpty && (
                 <Button
                   size="sm"

@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { ModuleCard } from "@/components/grc/ModuleCard";
 import { QuickActionsPanel } from "@/components/grc/QuickActionsPanel";
+import { InstallAppButton } from "@/components/grc/InstallAppButton";
 import { PageHeader, TENANT_HOME } from "@/components/grc/common/PageHeader";
 import { CardGridSkeleton, EmptyState, ErrorState } from "@/components/grc/common/states";
 import { useAuth } from "@/contexts/AuthContext";
@@ -85,6 +86,7 @@ const Dashboard = () => {
             <span className="text-xs text-brand-accent">{dateStr}</span>
           </>
         }
+        actions={<InstallAppButton />}
       />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">

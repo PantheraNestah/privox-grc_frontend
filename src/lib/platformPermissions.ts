@@ -14,6 +14,7 @@ export const PLATFORM_PERMISSIONS = {
   organizationSuspend: "platform.organization.suspend",
   organizationDeactivate: "platform.organization.deactivate",
   moduleAssign: "platform.module.assign",
+  moduleCreate: "platform.module.create",
   orgNodeManage: "platform.orgnode.manage",
   userInvite: "user.invite",
 } as const;
