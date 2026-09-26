@@ -46,6 +46,11 @@ export interface LoginResponse {
   /** `null` for platform-admin sessions. */
   organization: OrganizationDto | null;
   permissions: string[];
+  /**
+   * Active module codes allocated to this user in the tenant (Redesign V3).
+   * Baseline read entitlement — presence means the module is visible.
+   */
+  allocatedModules?: string[];
 }
 
 export interface MeResponse {
@@ -56,6 +61,8 @@ export interface MeResponse {
   organization: OrganizationDto;
   permissions: string[];
   accessTokenExpiresAt: string;
+  /** New in V3: active module codes allocated to this user (optional). */
+  allocatedModules?: string[];
 }
 
 export interface RefreshRequest {
@@ -81,6 +88,8 @@ export interface AuthState {
   user: UserDto | null;
   organization: OrganizationDto | null;
   permissions: string[];
+  /** New in V3: list of allocated module codes for the tenant session. */
+  allocatedModules: string[];
   accessToken: string | null;
   refreshToken: string | null;
   accessTokenExpiresAt: string | null;
@@ -109,6 +118,8 @@ export interface OrganizationGroup {
   memberCount?: number;
   active?: boolean;
   status?: string;
+  /** System default groups are blueprints and must not be deleted/deactivated. */
+  systemDefault?: boolean;
 }
 
 export interface OrganizationPermission {
@@ -190,4 +201,74 @@ export interface Invitation {
 export interface CreateInvitationRequest {
   email: string;
   initialGroupId?: string;
+}
+
+// ─── Organization Invitation Acceptance (public flow) ────
+
+/**
+ * Payload returned by `GET /api/v1/auth/invitations/{token}`.
+ *
+ * The backend has shipped both `id` and `invitationId` spellings for the
+ * invitation identifier; both are declared so either contract type-checks.
+ */
+export interface InvitationDetailsResponse {
+  id?: string;
+  invitationId?: string;
+  organizationId: string;
+  organizationName: string;
+  email: string;
+  /** `false` → render the new-account registration form. */
+  existingUser: boolean;
+  initialGroupId: string | null;
+  expiresAt: string;
+}
+
+/**
+ * Payload sent to `POST /api/v1/auth/invitations/{token}/accept` for new users.
+ * `confirmPassword` is sent (equal to `password`) for backends that validate it.
+ */
+export interface AcceptInvitationRequest {
+  fullName: string;
+  username?: string;
+  password: string;
+  confirmPassword?: string;
+}
+
+/** Payload returned by `POST /api/v1/auth/invitations/{token}/accept`. */
+export interface InvitationAcceptanceResponse {
+  userId: string;
+  organizationId: string;
+  organizationName: string;
+  email: string;
+  accountCreated: boolean;
+  status: "ACCEPTED" | string;
+}
+
+// ─── User Module Allocations (Redesign V3) ────────────────
+
+/** One module allocated to a user (`GET …/my-modules` item). */
+export interface UserModuleDto {
+  moduleId: string;
+  code: string;
+  name: string;
+  description?: string;
+  sortOrder?: number;
+  allocatedAt?: string;
+}
+
+/**
+ * `GET /api/v1/organizations/{orgId}/members/{userId}/modules`.
+ * The backend currently returns `moduleCodes`; older docs/contracts use
+ * `allocatedModuleCodes`, so both are optional and normalized by the client.
+ */
+export interface MemberModulesResponse {
+  userId: string;
+  organizationId: string;
+  moduleCodes?: string[];
+  allocatedModuleCodes?: string[];
+}
+
+/** `PUT /api/v1/organizations/{orgId}/members/{userId}/modules`. */
+export interface UpdateMemberModulesRequest {
+  moduleCodes: string[];
 }

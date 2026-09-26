@@ -45,26 +45,29 @@ const GOVERNANCE_ITEMS = [
 /** Chrome for the organization workspace (see `AppLayout` for the shared shell). */
 export function TenantLayout() {
   const navigate = useNavigate();
-  const { user, organization, logout } = useAuth();
+  const { user, organization, permissions, hasModule, logout } = useAuth();
   const { isModuleEnabled } = useModuleAccess(organization?.id);
 
-  const governanceEnabled = isModuleEnabled("governance");
-  const usersEnabled = isModuleEnabled("settings");
+  // Dual-layer gating: organization subscription (Layer 0) AND user module
+  // allocation (Layer 1). `hasModule` already applies the org-admin bypass.
+  const governanceVisible = isModuleEnabled("governance") && hasModule("GOVERNANCE");
+  // User Management is strictly restricted to organization administrators.
+  const canManageUsers = permissions.includes("organization.manage");
 
   const groups = useMemo<NavGroup[]>(
     () => [
       { items: [{ label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, end: true }] },
-      ...(governanceEnabled ? [{ label: "Governance", items: GOVERNANCE_ITEMS }] : []),
+      ...(governanceVisible ? [{ label: "Governance", items: GOVERNANCE_ITEMS }] : []),
       {
         label: "Settings",
         items: [
           { label: "Organization", href: "/settings/organization", icon: Building2 },
           { label: "Modules", href: "/settings/modules", icon: Layers },
-          ...(usersEnabled ? [{ label: "Users", href: "/settings/users", icon: Users }] : []),
+          ...(canManageUsers ? [{ label: "Users", href: "/settings/users", icon: Users }] : []),
         ],
       },
     ],
-    [governanceEnabled, usersEnabled],
+    [governanceVisible, canManageUsers],
   );
 
   const name = user?.fullName?.trim() || "Account";

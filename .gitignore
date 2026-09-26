@@ -30,3 +30,8 @@ dist-ssr
 *.jks
 pwa/android/
 pwa/app-release-*
+
+# Local reference / working docs (keep on disk, out of version control)
+/FRONTEND_INVITATION_FLOW_GUIDE.md
+/FRONTEND_PERMISSIONS_MIGRATION_GUIDE.md
+/PERMISSIONS_INVITATIONS_IMPLEMENTATION_PLAN.md

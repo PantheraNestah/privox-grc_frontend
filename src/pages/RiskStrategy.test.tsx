@@ -7,16 +7,16 @@ import RiskStrategy from "./RiskStrategy";
 import * as riskStrategyApi from "@/lib/riskStrategy";
 import type { RiskStrategyConfigResponse } from "@/lib/governance-types";
 
-const session = vi.hoisted(() => ({ role: "admin" as string }));
+const session = vi.hoisted(() => ({ permissions: ["organization.manage"] as string[] }));
 
 vi.mock("sonner", () => ({
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
 }));
 vi.mock("@/contexts/AuthContext", () => ({
-  useAuth: () => ({ organization: { id: "org-1", code: "ORG", name: "Org" } }),
-}));
-vi.mock("@/hooks/use-active-user", () => ({
-  useActiveUser: () => ({ id: "u1", name: "Ada", role: session.role }),
+  useAuth: () => ({
+    organization: { id: "org-1", code: "ORG", name: "Org" },
+    permissions: session.permissions,
+  }),
 }));
 
 const saved = {
@@ -59,7 +59,7 @@ function renderPage() {
 
 describe("RiskStrategy", () => {
   beforeEach(() => {
-    session.role = "admin";
+    session.permissions = ["organization.manage"];
     vi.spyOn(riskStrategyApi, "fetchCurrentRiskStrategy").mockResolvedValue(saved);
     vi.spyOn(riskStrategyApi, "createRiskStrategyVersion").mockResolvedValue({ ...saved, id: "cfg-2", version: 2 });
   });
@@ -67,7 +67,7 @@ describe("RiskStrategy", () => {
   afterEach(() => vi.restoreAllMocks());
 
   it("shows the saved configuration read-only to non-admins", async () => {
-    session.role = "input_user";
+    session.permissions = [];
     renderPage();
 
     expect(await screen.findByDisplayValue("Low appetite")).toBeDisabled();

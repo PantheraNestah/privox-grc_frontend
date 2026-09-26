@@ -25,7 +25,6 @@ import { ErrorState } from "@/components/grc/common/states";
 import { AppetiteTab, ImpactTab, LikelihoodTab } from "@/components/grc/strategy/RiskScaleEditors";
 import { withScaleLevel } from "@/components/grc/strategy/risk-config";
 import { useAuth } from "@/contexts/AuthContext";
-import { useActiveUser } from "@/hooks/use-active-user";
 import {
   isRealStrategyError,
   useCreateRiskStrategyVersion,
@@ -37,12 +36,16 @@ import type { RiskStrategyConfig, ScaleLevel } from "@/data/orgStore";
 import { fromRiskStrategyResponse, toCreateRiskStrategyVersionRequest } from "@/lib/risk-strategy-mapping";
 
 const RiskStrategy = () => {
-  const activeUser = useActiveUser();
-  const isAdmin = activeUser?.role === "admin";
-  const readOnly = !isAdmin;
-
-  const { organization } = useAuth();
+  const { organization, permissions } = useAuth();
   const orgId = organization?.id;
+
+  // Maker-Checker separation of duties (Redesign V3).
+  const canContribute =
+    permissions.includes("strategy.contribute") || permissions.includes("organization.manage");
+  const canApprove =
+    permissions.includes("strategy.approve") || permissions.includes("organization.manage");
+  const readOnly = !canContribute;
+
   const current = useCurrentRiskStrategy(orgId);
   const createVersion = useCreateRiskStrategyVersion(orgId ?? "");
   const decideVersion = useDecideRiskStrategyVersion(orgId ?? "");
@@ -64,24 +67,33 @@ const RiskStrategy = () => {
     setDraft((prev) => fn(prev ?? serverCfg));
 
   /**
-   * The backend versions risk strategy and can gate a new version behind
-   * approval (`requiresApproval`). This page has no separate approval UI, so
-   * to preserve the single-shot "Save" behaviour for an admin, a version created
-   * while approval is required is immediately self-approved.
+   * Maker-Checker: a new version is created as a draft. If the caller also holds
+   * `strategy.approve` (or is an org admin) it is published immediately;
+   * otherwise it is left pending for a Governance Approver to decide.
+   * Returns whether the version was published or left as a draft.
    */
-  const persist = async (next: RiskStrategyConfig) => {
-    if (!orgId) return;
+  const persist = async (next: RiskStrategyConfig): Promise<"published" | "draft"> => {
+    if (!orgId) return "published";
     const created = await createVersion.mutateAsync(toCreateRiskStrategyVersionRequest(next));
+
+    let outcome: "published" | "draft" = "published";
     if (!created.current) {
-      await decideVersion.mutateAsync({ configId: created.id, body: { decision: "APPROVE" } });
+      if (canApprove) {
+        await decideVersion.mutateAsync({ configId: created.id, body: { decision: "APPROVE" } });
+      } else {
+        outcome = "draft";
+      }
     }
+
     setDraft(null);
+    return outcome;
   };
 
   const save = async () => {
     try {
-      await persist(cfg);
-      toast.success("Risk strategy saved");
+      const outcome = await persist(cfg);
+      if (outcome === "draft") toast.info("Draft submitted to a Governance Approver for review.");
+      else toast.success("Risk strategy saved");
     } catch {
       toast.error("Failed to save risk strategy");
     }
@@ -91,8 +103,9 @@ const RiskStrategy = () => {
     const defaults = buildDefaultConfig(cfg.scaleLevel);
     setDraft(defaults);
     try {
-      await persist(defaults);
-      toast.success("Reset to defaults");
+      const outcome = await persist(defaults);
+      if (outcome === "draft") toast.info("Reset draft submitted to a Governance Approver for review.");
+      else toast.success("Reset to defaults");
     } catch {
       toast.error("Failed to reset risk strategy");
     }
@@ -130,7 +143,7 @@ const RiskStrategy = () => {
           )
         }
         actions={
-          isAdmin &&
+          canContribute &&
           !showLoading &&
           !loadError && (
             <>
@@ -150,8 +163,9 @@ const RiskStrategy = () => {
           <Lock className="h-4 w-4" />
           <AlertTitle>Read-only view</AlertTitle>
           <AlertDescription>
-            Only an Administrator can define or change the organisation's risk appetite, rating scales and impact
-            thresholds. You can review the current configuration below.
+            Only a Governance Contributor (or organization administrator) can define or change the
+            organisation's risk appetite, rating scales and impact thresholds. You can review the current
+            configuration below.
           </AlertDescription>
         </Alert>
       )}

@@ -3,16 +3,18 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HelmetProvider } from "react-helmet-async";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import UserManagement, { GroupEdit, GroupMembersView, UserMemberView } from "./UserManagement";
+import UserManagement, { GroupEdit, GroupMembersView, UserMemberEdit, UserMemberView } from "./UserManagement";
 import { api } from "@/lib/api";
 import * as organizationApi from "@/lib/organization";
+import * as organizationModulesApi from "@/lib/organizationModules";
 
 vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({
     organization: { id: "org-1", code: "ORG", name: "Organization" },
     isAuthenticated: true,
     user: { id: "user-1", email: "admin@example.com", username: "admin", fullName: "Admin" },
-    permissions: ["user.view"],
+    permissions: ["organization.manage"],
+    hasModule: () => true,
   }),
 }));
 
@@ -139,6 +141,45 @@ describe("caching and lazy loading", () => {
     fireEvent.mouseDown(screen.getByRole("tab", { name: /permissions/i }));
     expect(await screen.findByText("View users")).toBeInTheDocument();
     expect(catalog).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("member module allocations", () => {
+  it("keeps mandatory modules checked and saves the allocation set", async () => {
+    vi.spyOn(organizationApi, "fetchOrganizationMembers").mockResolvedValue([activeMember]);
+    vi.spyOn(organizationApi, "fetchMemberModules").mockResolvedValue([
+      "CORE",
+      "USER_MANAGEMENT",
+      "GOVERNANCE",
+    ]);
+    vi.spyOn(organizationModulesApi, "fetchOrganizationModules").mockResolvedValue([
+      { id: "m1", moduleId: "m1", code: "CORE", name: "Core Platform", enabled: true, sortOrder: 10, enabledAt: null, disabledAt: null },
+      { id: "m2", moduleId: "m2", code: "USER_MANAGEMENT", name: "User Management", enabled: true, sortOrder: 20, enabledAt: null, disabledAt: null },
+      { id: "m3", moduleId: "m3", code: "GOVERNANCE", name: "Governance", enabled: true, sortOrder: 30, enabledAt: null, disabledAt: null },
+      { id: "m4", moduleId: "m4", code: "RISK_MANAGEMENT", name: "Risk Management", enabled: true, sortOrder: 40, enabledAt: null, disabledAt: null },
+    ]);
+    vi.spyOn(organizationApi, "updateOrganizationMember").mockResolvedValue(activeMember);
+    const updateModules = vi
+      .spyOn(organizationApi, "updateMemberModules")
+      .mockResolvedValue(["CORE", "USER_MANAGEMENT"]);
+
+    renderPage(
+      <Routes>
+        <Route path="/settings/users/members/:memberId/edit" element={<UserMemberEdit />} />
+        <Route path="/settings/users/members/:memberId" element={<div>Member view</div>} />
+      </Routes>,
+      ["/settings/users/members/member-1/edit"],
+    );
+
+    const core = await screen.findByRole("checkbox", { name: /core platform/i });
+    expect(core).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /governance/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() =>
+      expect(updateModules).toHaveBeenCalledWith("org-1", "user-1", ["CORE", "USER_MANAGEMENT"]),
+    );
   });
 });
 

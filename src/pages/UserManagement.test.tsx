@@ -11,7 +11,8 @@ vi.mock("@/contexts/AuthContext", () => ({
     organization: { id: "org-1", code: "ORG", name: "Organization" },
     isAuthenticated: true,
     user: { id: "user-1", email: "admin@example.com", username: "admin", fullName: "Admin" },
-    permissions: ["user.view"],
+    permissions: ["organization.manage"],
+    hasModule: () => true,
   }),
 }));
 
@@ -129,7 +130,8 @@ describe("UserManagement", () => {
         code: "RISK_OWNERS",
         name: "Risk Owners",
       });
-      expect(organizationApi.deactivateOrganizationGroup).toHaveBeenCalledWith("org-1", "group-2");
+      // New groups start active — no secondary deactivation call.
+      expect(organizationApi.deactivateOrganizationGroup).not.toHaveBeenCalled();
     });
   });
 
@@ -150,10 +152,12 @@ describe("UserMemberView", () => {
     vi.restoreAllMocks();
   });
 
-  it("loads profile, assigned groups, and auth permissions", async () => {
+  it("loads profile, assigned groups, and allocated modules", async () => {
     vi.spyOn(organizationApi, "fetchOrganizationMembers").mockResolvedValue(members);
     vi.spyOn(organizationApi, "fetchMemberGroups").mockResolvedValue(groups);
-    const fetchGroupPermissions = vi.spyOn(organizationApi, "fetchGroupPermissions").mockResolvedValue([]);
+    const fetchMemberModules = vi
+      .spyOn(organizationApi, "fetchMemberModules")
+      .mockResolvedValue(["CORE", "USER_MANAGEMENT", "GOVERNANCE"]);
 
     renderPage(
       <Routes>
@@ -169,11 +173,11 @@ describe("UserMemberView", () => {
     fireEvent.mouseDown(within(detailTabs).getByRole("tab", { name: /groups/i }));
     expect(await screen.findByText("Editors")).toBeInTheDocument();
 
-    fireEvent.mouseDown(within(detailTabs).getByRole("tab", { name: /permissions/i }));
-    expect(await screen.findByText("user.view")).toBeInTheDocument();
+    fireEvent.mouseDown(within(detailTabs).getByRole("tab", { name: /allocated modules/i }));
+    expect(await screen.findByText("GOVERNANCE")).toBeInTheDocument();
 
     expect(organizationApi.fetchMemberGroups).toHaveBeenCalledWith("org-1", "user-1");
-    expect(fetchGroupPermissions).not.toHaveBeenCalled();
+    expect(fetchMemberModules).toHaveBeenCalledWith("org-1", "user-1");
   });
 
   it("uses the loaded user id when fetching a viewed user's groups", async () => {

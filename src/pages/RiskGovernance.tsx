@@ -45,7 +45,6 @@ import { loadAssessments, type InitiativeAssessment } from "@/data/assessmentSto
 import { loadUsers, type AppUser } from "@/data/userStore";
 import { useActiveUser } from "@/hooks/use-active-user";
 import { useAuth } from "@/contexts/AuthContext";
-import { can } from "@/data/userStore";
 import { PageHeader, TENANT_HOME } from "@/components/grc/common/PageHeader";
 import { EmptyState, ErrorState } from "@/components/grc/common/states";
 import { TemplatePicker } from "@/components/grc/governance/TemplatePicker";
@@ -75,12 +74,17 @@ const emptyForm = (parentId: string | null = null, type: OrgNodeType = "company"
 
 const RiskGovernance = () => {
   const activeUser = useActiveUser();
-  const isAdmin = can.manageUsers(activeUser.role);
 
   const { organization, permissions } = useAuth();
   const orgId = organization?.id;
-  // The clone endpoint requires the backend `orgnode.manage` authority.
-  const canApplyTemplates = permissions.includes("orgnode.manage");
+  // Segregation of duties: contributors draft/edit nodes; approvers move/delete
+  // them; template cloning stays a full organization-administrator action.
+  const canContribute =
+    permissions.includes("orgnode.contribute") || permissions.includes("organization.manage");
+  const canApprove =
+    permissions.includes("orgnode.approve") || permissions.includes("organization.manage");
+  const isAdmin = permissions.includes("organization.manage");
+  const canApplyTemplates = isAdmin;
   const orgNodesQuery = useOrgNodes(orgId);
   const { data: orgNodeResponses } = orgNodesQuery;
   const createNode = useCreateOrgNode(orgId ?? "");
@@ -340,12 +344,13 @@ const RiskGovernance = () => {
       />
 
       <div className="space-y-6">
-        {!isAdmin && (
+        {!canContribute && !canApprove && (
           <Alert>
             <Lock className="h-4 w-4" />
             <AlertTitle>Read-only view</AlertTitle>
             <AlertDescription>
-              Only the GRC Administrator can create or modify the organisation structure. You're viewing as{" "}
+              Creating or editing the organisation structure requires the Governance Contributor role;
+              approving structural changes requires the Governance Approver role. You're viewing as{" "}
               <strong>{activeUser.name}</strong>.
             </AlertDescription>
           </Alert>
@@ -457,14 +462,14 @@ const RiskGovernance = () => {
                   title="No organisation defined yet"
                   description={
                     orgIsEmpty
-                      ? isAdmin
+                      ? canContribute
                         ? "Start by adding a Group, Company or any other top-level entity"
                           + (canApplyTemplates ? ", or copy a ready-made template below." : ".")
                         : "The GRC Administrator hasn't set up the organisation yet."
                       : "No org unit is assigned to you yet."
                   }
                   action={
-                    isAdmin && (
+                    canContribute && (
                       <Button size="sm" variant="brand" onClick={() => openCreate(null)}>
                         <Plus /> Add first entity
                       </Button>
@@ -482,7 +487,7 @@ const RiskGovernance = () => {
                         <p className="mt-0.5 text-xs text-muted-foreground">
                           {canApplyTemplates
                             ? "Pick a ready-made structure. It's copied into your organisation and every unit stays editable."
-                            : "Ask an administrator with the orgnode.manage permission to start from a template."}
+                            : "Ask an organization administrator to start from a template."}
                         </p>
                       </div>
                       <TemplatePicker orgId={orgId} canManage={canApplyTemplates} />
@@ -506,7 +511,8 @@ const RiskGovernance = () => {
                     onDelete={(id) => setDeleteId(id)}
                     onOpenInsights={(id) => setInsightNodeId(id)}
                     counts={countsByNode}
-                    canEdit={isAdmin}
+                    canContribute={canContribute}
+                    canApprove={canApprove}
                   />
                 ))}
               </div>
@@ -842,12 +848,13 @@ interface TreeRowProps {
   onDelete: (id: string) => void;
   onOpenInsights: (id: string) => void;
   counts: Map<string, NodeCounts>;
-  canEdit: boolean;
+  canContribute: boolean;
+  canApprove: boolean;
 }
 
 const TreeRow = ({
   node, depth, childrenOf, expanded, onToggle, onAddChild, onBulkAddChild,
-  onEdit, onDelete, onOpenInsights, counts, canEdit,
+  onEdit, onDelete, onOpenInsights, counts, canContribute, canApprove,
 }: TreeRowProps) => {
   const kids = childrenOf.get(node.id) ?? [];
   const isOpen = expanded.has(node.id);
@@ -918,7 +925,7 @@ const TreeRow = ({
             <Info />
           </Button>
 
-          {canEdit && (
+          {(canContribute || canApprove) && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground" aria-label="Unit actions">
@@ -926,22 +933,28 @@ const TreeRow = ({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onSelect={() => onAddChild(node.id)}>
-                  <Plus /> Add child
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => onBulkAddChild(node.id)}>
-                  <Layers /> Bulk add children
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => onEdit(node)}>
-                  <Pencil /> Edit
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-                  onSelect={() => onDelete(node.id)}
-                >
-                  <Trash2 /> Delete
-                </DropdownMenuItem>
+                {canContribute && (
+                  <>
+                    <DropdownMenuItem onSelect={() => onAddChild(node.id)}>
+                      <Plus /> Add child
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => onBulkAddChild(node.id)}>
+                      <Layers /> Bulk add children
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => onEdit(node)}>
+                      <Pencil /> Edit
+                    </DropdownMenuItem>
+                  </>
+                )}
+                {canContribute && canApprove && <DropdownMenuSeparator />}
+                {canApprove && (
+                  <DropdownMenuItem
+                    className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                    onSelect={() => onDelete(node.id)}
+                  >
+                    <Trash2 /> Delete
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           )}
@@ -968,7 +981,8 @@ const TreeRow = ({
           onDelete={onDelete}
           onOpenInsights={onOpenInsights}
           counts={counts}
-          canEdit={canEdit}
+          canContribute={canContribute}
+          canApprove={canApprove}
         />
       ))}
     </div>

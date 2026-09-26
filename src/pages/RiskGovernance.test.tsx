@@ -10,7 +10,7 @@ import * as orgNodeTemplates from "@/lib/orgNodeTemplates";
 import type { OrgNodeResponse } from "@/lib/governance-types";
 
 const auth = vi.hoisted(() => ({
-  permissions: ["user.view", "orgnode.manage"] as string[],
+  permissions: ["organization.manage"] as string[],
 }));
 
 vi.mock("sonner", () => ({
@@ -23,6 +23,7 @@ vi.mock("@/contexts/AuthContext", () => ({
     user: { id: "u1", email: "admin@org.com", username: "admin", fullName: "Org Admin" },
     organization: { id: "org-1", code: "ORG", name: "Org" },
     permissions: auth.permissions,
+    hasModule: () => true,
   }),
 }));
 
@@ -107,7 +108,7 @@ function renderPage() {
 
 describe("RiskGovernance template cloning", () => {
   beforeEach(() => {
-    auth.permissions = ["user.view", "orgnode.manage"];
+    auth.permissions = ["organization.manage"];
     localStorage.clear();
     vi.spyOn(orgNodes, "fetchOrgNodes").mockResolvedValue([]);
     vi.spyOn(orgNodeTemplates, "fetchOrgNodeTemplates").mockResolvedValue(templates);
@@ -162,15 +163,15 @@ describe("RiskGovernance template cloning", () => {
     await waitFor(() => expect(vi.mocked(orgNodes.fetchOrgNodes).mock.calls.length).toBeGreaterThan(before));
   });
 
-  it("does not let users without orgnode.manage apply a template", async () => {
-    auth.permissions = ["user.view"];
+  it("does not let users without organization.manage apply a template", async () => {
+    auth.permissions = [];
     renderPage();
 
     fireEvent.click(await screen.findByRole("button", { name: /Insurance Group Standard/ }));
     await screen.findByText("Standard Group");
 
     expect(screen.getByRole("button", { name: "Use this template" })).toBeDisabled();
-    expect(screen.getAllByText(/orgnode\.manage permission/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/organization\.manage permission/).length).toBeGreaterThan(0);
     expect(orgNodes.cloneOrgNodeTemplate).not.toHaveBeenCalled();
   });
 
@@ -205,8 +206,8 @@ describe("RiskGovernance template cloning", () => {
     );
   });
 
-  it("hides the add-from-template action for users without orgnode.manage", async () => {
-    auth.permissions = ["user.view"];
+  it("hides the add-from-template action for users without organization.manage", async () => {
+    auth.permissions = [];
     vi.spyOn(orgNodes, "fetchOrgNodes").mockResolvedValue([existingNode]);
     renderPage();
 

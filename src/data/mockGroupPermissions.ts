@@ -1,8 +1,9 @@
 /**
- * Placeholder permission data.
- * There is no backend endpoint for permissions yet — once one exists, replace
- * this with a real fetch in src/lib/organization.ts. Creation/edits/deletion
- * made against this data in the UI are local-only and not persisted.
+ * Local permission catalogue mirroring the backend's streamlined V3 model.
+ *
+ * The authoritative catalogue is served by `GET /v1/permissions`; this module
+ * remains as a static fallback/reference for offline UI affordances and
+ * mirrors the same 5 tenant permissions.
  */
 
 export interface MockPermission {
@@ -11,34 +12,57 @@ export interface MockPermission {
 }
 
 export const DEFAULT_PERMISSIONS: MockPermission[] = [
-  { key: "user.view", description: "View organisation members" },
-  { key: "user.manage", description: "Add, remove and manage organisation members" },
-  { key: "group.view", description: "View groups and their members" },
-  { key: "group.manage", description: "Create, edit, delete groups and manage their membership" },
-  { key: "organization.view", description: "View organisation details" },
-  { key: "organization.manage", description: "Manage organisation settings" },
-  { key: "governance.view", description: "View governance records" },
-  { key: "governance.manage", description: "Manage governance policies and decisions" },
-  { key: "risk.view", description: "View the risk register" },
-  { key: "risk.manage", description: "Create, assess and treat risks" },
-  { key: "compliance.view", description: "View compliance records" },
-  { key: "compliance.manage", description: "Manage compliance frameworks and audits" },
+  {
+    key: "organization.manage",
+    description:
+      "Full management of organization profile, user management, access groups, invitations, and settings",
+  },
+  {
+    key: "orgnode.contribute",
+    description: "Create drafts and edit organizational tree nodes",
+  },
+  {
+    key: "orgnode.approve",
+    description: "Approve organizational node structure modifications, moves, and deletions",
+  },
+  {
+    key: "strategy.contribute",
+    description:
+      "Draft risk strategy versions, appetite bands, strategy formulation elements, and progress metrics",
+  },
+  {
+    key: "strategy.approve",
+    description: "Review, approve, reject, or publish risk strategies and strategy formulation elements",
+  },
 ];
 
-const VIEW_ONLY_KEYS = ["user.view", "group.view", "organization.view", "governance.view"];
+/** Contribution permissions shared by the Governance contributor blueprint. */
+const CONTRIBUTOR_KEYS = ["orgnode.contribute", "strategy.contribute"];
+
+/** Approval permissions shared by the Governance approver blueprint. */
+const APPROVER_KEYS = ["orgnode.approve", "strategy.approve"];
 
 const ROLE_PERMISSIONS: { match: RegExp; permissions: string[] }[] = [
   {
     match: /admin/i,
-    permissions: ["user.manage", "group.manage", "organization.manage", "governance.manage"],
+    permissions: ["organization.manage"],
   },
   {
-    match: /view/i,
-    permissions: VIEW_ONLY_KEYS,
+    match: /approv/i,
+    permissions: APPROVER_KEYS,
+  },
+  {
+    match: /contribut|input|editor/i,
+    permissions: CONTRIBUTOR_KEYS,
   },
 ];
 
+/**
+ * Best-effort static mapping of a group name to its likely permission codes.
+ * Deferred to the authoritative `GET /v1/permissions` + group detail endpoints
+ * wherever possible.
+ */
 export function mockPermissionsForGroup(groupName: string): string[] {
   const matched = ROLE_PERMISSIONS.find((r) => r.match.test(groupName));
-  return matched ? matched.permissions : VIEW_ONLY_KEYS;
+  return matched ? matched.permissions : [];
 }

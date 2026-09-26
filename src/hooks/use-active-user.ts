@@ -16,12 +16,25 @@ export function useActiveUser(): AppUser {
   const apiUser = useMemo<AppUser | null>(() => {
     if (!auth.isAuthenticated || !auth.user) return null;
 
-    // Derive a role from the permissions array.
-    // If the user has "user.view" they're at least an admin-equivalent.
-    // Extend this mapping as your backend permission model grows.
-    const role: UserRole = auth.permissions.includes("user.view")
-      ? "admin"
-      : "input_user";
+    // Derive a role from the streamlined 5-permission SoD model:
+    //   organization.manage        → full administrator
+    //   *.approve                  → approver (maker-checker reviewer)
+    //   *.contribute               → input user (drafter)
+    let role: UserRole = "input_user";
+
+    if (auth.permissions.includes("organization.manage")) {
+      role = "admin";
+    } else if (
+      auth.permissions.includes("strategy.approve") ||
+      auth.permissions.includes("orgnode.approve")
+    ) {
+      role = "approver";
+    } else if (
+      auth.permissions.includes("strategy.contribute") ||
+      auth.permissions.includes("orgnode.contribute")
+    ) {
+      role = "input_user";
+    }
 
     return {
       id: auth.user.id,

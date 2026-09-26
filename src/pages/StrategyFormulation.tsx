@@ -53,10 +53,18 @@ function isSection(value: string | null): value is Section {
 }
 
 const StrategyFormulation = () => {
-  const { organization, permissions } = useAuth();
+  const { organization, permissions, hasModule } = useAuth();
   const orgId = organization?.id;
-  const canView = permissions.includes("strategyformulation.view");
-  const canManage = permissions.includes("strategyformulation.manage");
+
+  // Question 1: can the user SEE? (baseline read via module allocation)
+  const canView = hasModule("GOVERNANCE");
+
+  // Question 2: can the user MUTATE? (elevated SoD permissions)
+  const canContribute =
+    permissions.includes("strategy.contribute") || permissions.includes("organization.manage");
+  const canApprove =
+    permissions.includes("strategy.approve") || permissions.includes("organization.manage");
+  const canManage = canContribute || canApprove;
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get("tab");
   const activeTab: Section = isSection(requestedTab) ? requestedTab : "overview";
@@ -69,7 +77,7 @@ const StrategyFormulation = () => {
   const summaryQuery = useStrategySummary(canView ? orgId : undefined);
   const insightsQuery = useStrategyInsights(canView ? orgId : undefined);
   const settingsQuery = useStrategyFormulationSettings(canView ? orgId : undefined);
-  const orgNodesQuery = useOrgNodes(canManage ? orgId : undefined);
+  const orgNodesQuery = useOrgNodes(canContribute ? orgId : undefined);
 
   const changeTab = (value: string) => {
     setSearchParams(value === "overview" ? {} : { tab: value });
@@ -120,15 +128,21 @@ const StrategyFormulation = () => {
       ) : !canView ? (
         <Alert variant="destructive" className="bg-destructive/5">
           <ShieldAlert className="h-4 w-4" />
-          <AlertTitle>Strategy Formulation is restricted</AlertTitle>
-          <AlertDescription>Your account needs the strategyformulation.view permission to access this workspace.</AlertDescription>
+          <AlertTitle>Governance module not allocated</AlertTitle>
+          <AlertDescription>
+            You do not have access to the Governance module. Please contact your organization administrator
+            to allocate this module to your account.
+          </AlertDescription>
         </Alert>
       ) : (
         <>
-          {!canManage && (
+          {!canContribute && (
             <Alert className="mb-5 py-2.5">
               <ShieldAlert className="h-4 w-4" />
-              <AlertDescription className="text-xs">You have a read-only formulation view. Strategy creation and governance actions require strategyformulation.manage.</AlertDescription>
+              <AlertDescription className="text-xs">
+                You have a read-only formulation view. Creating or updating strategic formulation elements
+                requires the Governance Contributor role.
+              </AlertDescription>
             </Alert>
           )}
           <Tabs value={activeTab} onValueChange={changeTab}>

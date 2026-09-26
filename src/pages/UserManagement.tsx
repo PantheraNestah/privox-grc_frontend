@@ -11,8 +11,7 @@ import { OverviewTab } from "@/components/grc/users/OverviewTab";
 import { PermissionsTab } from "@/components/grc/users/PermissionsTab";
 import { UsersTab } from "@/components/grc/users/UsersTab";
 import { useOrganizationId } from "@/components/grc/users/shared";
-import { useActiveUser } from "@/hooks/use-active-user";
-import { can } from "@/data/userStore";
+import { useAuth } from "@/contexts/AuthContext";
 
 const SECTIONS = [
   { value: "dashboard", label: "Overview", icon: LayoutDashboard },
@@ -29,13 +28,31 @@ const isSection = (value: string | null): value is Section => SECTIONS.some((s) 
 export const UserManagement = () => {
   const orgId = useOrganizationId();
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeUser = useActiveUser();
-  const isAdmin = can.manageUsers(activeUser.role);
+  const { permissions } = useAuth();
+  const isAdmin = permissions.includes("organization.manage");
 
   const requestedTab = searchParams.get("tab");
   const activeTab: Section = isSection(requestedTab) ? requestedTab : "dashboard";
 
   const handleTabChange = (value: string) => setSearchParams(value === "dashboard" ? {} : { tab: value });
+
+  if (!isAdmin) {
+    return (
+      <>
+        <Helmet>
+          <title>User Management - Rsolve GRC Platform</title>
+          <link rel="canonical" href="/settings/users" />
+        </Helmet>
+        <Alert variant="destructive">
+          <ShieldAlert className="h-4 w-4" />
+          <AlertTitle>Access Denied</AlertTitle>
+          <AlertDescription>
+            User and Access Group Management is restricted to Organization Administrators.
+          </AlertDescription>
+        </Alert>
+      </>
+    );
+  }
 
   return (
     <>
@@ -51,14 +68,6 @@ export const UserManagement = () => {
         title="User Management"
         description="Review organization members and manage backend-backed groups."
       />
-
-      {!isAdmin && (
-        <Alert className="mb-6">
-          <ShieldAlert className="h-4 w-4" />
-          <AlertTitle>Read-only view</AlertTitle>
-          <AlertDescription>Some management features are restricted to administrators.</AlertDescription>
-        </Alert>
-      )}
 
       {!orgId ? (
         <ErrorState

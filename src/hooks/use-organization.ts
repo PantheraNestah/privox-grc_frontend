@@ -8,6 +8,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   activateOrganizationGroup,
+  acceptInvitation,
   addGroupMember,
   createOrganizationGroup,
   createOrganizationInvitation,
@@ -16,7 +17,10 @@ import {
   activateOrganizationMember,
   fetchGroupMembers,
   fetchGroupPermissions,
+  fetchInvitationDetails,
   fetchMemberGroups,
+  fetchMemberModules,
+  fetchMyModules,
   fetchOrganization,
   fetchOrganizationGroup,
   fetchOrganizationGroups,
@@ -29,13 +33,17 @@ import {
   revokeInvitation,
   suspendOrganizationMember,
   updateGroupPermissions,
+  updateMemberModules,
   updateOrganizationDetail,
   updateOrganizationGroup,
   updateOrganizationMember,
 } from "@/lib/organization";
 import type {
+  AcceptInvitationRequest,
   CreateInvitationRequest,
   CreateOrganizationGroupRequest,
+  InvitationAcceptanceResponse,
+  InvitationDetailsResponse,
   UpdateOrganizationGroupRequest,
   UpdateOrganizationRequest,
 } from "@/lib/auth-types";
@@ -57,6 +65,15 @@ export const organizationKeys = {
     [...organizationKeys.group(orgId, groupId), "permissions"] as const,
   invitations: (orgId: string, status?: InvitationStatus) =>
     [...organizationKeys.all(orgId), "invitations", status ?? "all"] as const,
+  myModules: (orgId: string) => [...organizationKeys.all(orgId), "my-modules"] as const,
+  memberModules: (orgId: string, userId: string) =>
+    [...organizationKeys.all(orgId), "member-modules", userId] as const,
+};
+
+/** Public invitation pre-validation/acceptance keys (token-scoped, not org-scoped). */
+export const invitationKeys = {
+  all: ["invitations"] as const,
+  detail: (token: string | null) => [...invitationKeys.all, "detail", token] as const,
 };
 
 export const permissionCatalogKey = ["permission-catalog"] as const;
@@ -256,4 +273,71 @@ export function useResendInvitation(orgId: string) {
 
 export function useRevokeInvitation(orgId: string) {
   return useInvitationMutation(orgId, (invitationId: string) => revokeInvitation(orgId, invitationId));
+}
+
+// ─── Public invitation acceptance ─────────────────────────
+
+/**
+ * Pre-validates an invitation token and loads the organization context.
+ * Client errors (404/409/410) are terminal and must not be retried.
+ */
+export function useInvitationDetails(token: string | null) {
+  return useQuery<InvitationDetailsResponse, Error>({
+    queryKey: invitationKeys.detail(token),
+    queryFn: () => {
+      if (!token) throw new Error("No invitation token provided");
+      return fetchInvitationDetails(token);
+    },
+    enabled: Boolean(token && token.trim().length > 0),
+    retry: (failureCount, error) => {
+      const status = (error as { response?: { status?: number } })?.response?.status;
+      if (status === 404 || status === 409 || status === 410) return false;
+      return failureCount < 2;
+    },
+    staleTime: 5 * 60_000,
+  });
+}
+
+/** Accepts an invitation token (public; existing users may carry a session). */
+export function useAcceptInvitation(token: string) {
+  return useMutation<
+    InvitationAcceptanceResponse,
+    Error,
+    AcceptInvitationRequest | undefined
+  >({
+    mutationFn: (body) => acceptInvitation(token, body),
+  });
+}
+
+// ─── User module allocations (Redesign V3) ────────────────
+
+export function useMyModules(orgId: string | undefined) {
+  return useQuery({
+    queryKey: organizationKeys.myModules(orgId ?? ""),
+    queryFn: () => fetchMyModules(orgId!),
+    enabled: !!orgId,
+    staleTime: PROFILE_STALE_TIME,
+  });
+}
+
+export function useMemberModules(orgId: string | undefined, userId: string | undefined) {
+  return useQuery({
+    queryKey: organizationKeys.memberModules(orgId ?? "", userId ?? ""),
+    queryFn: () => fetchMemberModules(orgId!, userId!),
+    enabled: !!orgId && !!userId,
+  });
+}
+
+export function useUpdateMemberModules(orgId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, moduleCodes }: { userId: string; moduleCodes: string[] }) =>
+      updateMemberModules(orgId, userId, moduleCodes),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: organizationKeys.memberModules(orgId, variables.userId),
+      });
+      queryClient.invalidateQueries({ queryKey: organizationKeys.members(orgId) });
+    },
+  });
 }

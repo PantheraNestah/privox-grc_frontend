@@ -18,6 +18,11 @@ import type {
   UserGroupAssignment,
   Invitation,
   CreateInvitationRequest,
+  InvitationDetailsResponse,
+  AcceptInvitationRequest,
+  InvitationAcceptanceResponse,
+  UserModuleDto,
+  MemberModulesResponse,
 } from "./auth-types";
 
 type GroupDetailResponse = Omit<OrganizationGroupDetail, "permissions"> & {
@@ -290,4 +295,74 @@ export async function revokeInvitation(
     `/v1/organizations/${orgId}/invitations/${invitationId}/revoke`,
   );
   return data;
+}
+
+// ─── Invitation acceptance (public) ──────────────────────
+
+/**
+ * Pre-validates a raw invitation token.
+ * `GET /api/v1/auth/invitations/{token}` — public.
+ */
+export async function fetchInvitationDetails(
+  token: string,
+): Promise<InvitationDetailsResponse> {
+  const { data } = await api.get<InvitationDetailsResponse>(
+    `/v1/auth/invitations/${encodeURIComponent(token)}`,
+  );
+  return data;
+}
+
+/**
+ * Accepts an invitation and activates organization membership.
+ * `POST /api/v1/auth/invitations/{token}/accept` — public.
+ *
+ * New users pass `{ fullName, username?, password }`; existing users pass an
+ * empty body (the request interceptor attaches the session token if present).
+ */
+export async function acceptInvitation(
+  token: string,
+  body?: AcceptInvitationRequest,
+): Promise<InvitationAcceptanceResponse> {
+  const { data } = await api.post<InvitationAcceptanceResponse>(
+    `/v1/auth/invitations/${encodeURIComponent(token)}/accept`,
+    body ?? {},
+  );
+  return data;
+}
+
+// ─── User module allocations (Redesign V3) ───────────────
+
+/** Active module codes allocated to the calling user. */
+export async function fetchMyModules(orgId: string): Promise<UserModuleDto[]> {
+  const { data } = await api.get<UserModuleDto[]>(
+    `/v1/organizations/${orgId}/my-modules`,
+  );
+  return data;
+}
+
+/**
+ * Module codes allocated to one member. The backend has returned both
+ * `moduleCodes` and `allocatedModuleCodes`; normalize to a single list.
+ */
+export async function fetchMemberModules(
+  orgId: string,
+  userId: string,
+): Promise<string[]> {
+  const { data } = await api.get<MemberModulesResponse>(
+    `/v1/organizations/${orgId}/members/${userId}/modules`,
+  );
+  return data.moduleCodes ?? data.allocatedModuleCodes ?? [];
+}
+
+/** Bulk-replaces a member's module allocations. */
+export async function updateMemberModules(
+  orgId: string,
+  userId: string,
+  moduleCodes: string[],
+): Promise<string[]> {
+  const { data } = await api.put<MemberModulesResponse>(
+    `/v1/organizations/${orgId}/members/${userId}/modules`,
+    { moduleCodes },
+  );
+  return data.moduleCodes ?? data.allocatedModuleCodes ?? moduleCodes;
 }

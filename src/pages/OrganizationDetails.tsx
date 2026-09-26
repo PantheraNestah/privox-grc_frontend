@@ -52,7 +52,7 @@ const OrganizationDetails = () => {
   const orgId = authOrganization?.id;
   const organizationQuery = useOrganization(orgId);
   // Best-effort org map — hidden when the tree endpoint is unavailable
-  // (e.g. GOVERNANCE module disabled or lacking orgnode.view).
+  // (e.g. the GOVERNANCE module is disabled or not allocated to this user).
   const orgNodes = useOrgNodes(orgId);
 
   const organization: OrganizationDetailDto | null = organizationQuery.data

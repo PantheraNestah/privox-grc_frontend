@@ -12,7 +12,8 @@ import type {
 } from "@/lib/strategy-formulation-types";
 
 const session = vi.hoisted(() => ({
-  permissions: ["strategyformulation.view", "strategyformulation.manage"] as string[],
+  permissions: ["strategy.contribute", "strategy.approve"] as string[],
+  hasGovernance: true,
   create: vi.fn(),
   createVersion: vi.fn(),
   publish: vi.fn(),
@@ -32,6 +33,7 @@ vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({
     organization: { id: "org-1", code: "ORG", name: "Organization" },
     permissions: session.permissions,
+    hasModule: (code: string) => code === "GOVERNANCE" && session.hasGovernance,
   }),
 }));
 
@@ -256,7 +258,8 @@ const openTab = (name: RegExp) => fireEvent.mouseDown(screen.getByRole("tab", { 
 
 describe("StrategyFormulation API workspace", () => {
   beforeEach(() => {
-    session.permissions = ["strategyformulation.view", "strategyformulation.manage"];
+    session.permissions = ["strategy.contribute", "strategy.approve"];
+    session.hasGovernance = true;
     session.create.mockResolvedValue({});
     session.createVersion.mockResolvedValue({});
     session.publish.mockResolvedValue({ current: true });
@@ -279,18 +282,18 @@ describe("StrategyFormulation API workspace", () => {
   });
 
   it("keeps users without manage permission read-only", () => {
-    session.permissions = ["strategyformulation.view"];
+    session.permissions = [];
     renderPage();
 
     expect(screen.getByText(/read-only formulation view/i)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /New element/ })).not.toBeInTheDocument();
   });
 
-  it("gates the workspace when view permission is absent", () => {
-    session.permissions = [];
+  it("gates the workspace when the Governance module is not allocated", () => {
+    session.hasGovernance = false;
     renderPage();
 
-    expect(screen.getByText("Strategy Formulation is restricted")).toBeInTheDocument();
+    expect(screen.getByText("Governance module not allocated")).toBeInTheDocument();
     expect(screen.queryByText("Publication health")).not.toBeInTheDocument();
   });
 
@@ -382,7 +385,7 @@ describe("StrategyFormulation API workspace", () => {
   });
 
   it("prevents read-only viewers from recording KPI progress", async () => {
-    session.permissions = ["strategyformulation.view"];
+    session.permissions = [];
     renderPage();
     openTab(/KPIs & Progress/);
     fireEvent.click(screen.getByRole("button", { name: /View KPI/ }));

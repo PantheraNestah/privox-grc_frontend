@@ -16,6 +16,7 @@ import {
   revokeIssuedSession,
 } from "@/lib/auth-session";
 import { queryClient } from "@/lib/query-client";
+import { getJwtModules } from "@/lib/jwt";
 import {
   getAccessToken,
   setAccessToken,
@@ -37,6 +38,12 @@ interface AuthContextValue extends AuthState {
   login: (req: LoginRequest) => Promise<void>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<void>;
+  /**
+   * Question 1 of the V3 entitlement model — can the user SEE this module?
+   * Mirrors the backend `@userModuleAccess`: `organization.manage` bypasses the
+   * allocation list and grants every module.
+   */
+  hasModule: (moduleCode: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -48,6 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user: null,
     organization: null,
     permissions: [],
+    allocatedModules: [],
     accessToken: null,
     refreshToken: null,
     accessTokenExpiresAt: null,
@@ -63,6 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user: null,
       organization: null,
       permissions: [],
+      allocatedModules: [],
       accessToken: null,
       refreshToken: null,
       accessTokenExpiresAt: null,
@@ -96,6 +105,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
         organization: data.organization,
         permissions: refreshResponse.permissions ?? data.permissions,
+        // Refresh/me omit allocations; the refreshed JWT carries the `modules` claim.
+        allocatedModules: data.allocatedModules ?? getJwtModules(refreshResponse.accessToken),
         accessToken: refreshResponse.accessToken,
         refreshToken: getStoredRefreshToken(),
         accessTokenExpiresAt: refreshResponse.accessTokenExpiresAt,
@@ -128,13 +139,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const refreshResponse = await refreshAccessToken();
         if (!active) return;
 
-        setState((current) => ({
-          ...current,
-          accessToken: refreshResponse.accessToken,
-          refreshToken: refreshResponse.refreshToken,
-          accessTokenExpiresAt: refreshResponse.accessTokenExpiresAt,
-          permissions: refreshResponse.permissions ?? current.permissions,
-        }));
+        setState((current) => {
+          const refreshedModules = getJwtModules(refreshResponse.accessToken);
+          return {
+            ...current,
+            accessToken: refreshResponse.accessToken,
+            refreshToken: refreshResponse.refreshToken,
+            accessTokenExpiresAt: refreshResponse.accessTokenExpiresAt,
+            permissions: refreshResponse.permissions ?? current.permissions,
+            allocatedModules: refreshedModules.length ? refreshedModules : current.allocatedModules,
+          };
+        });
       } catch {
         if (active) clearSession();
       }
@@ -170,6 +185,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user: data.user,
       organization: data.organization,
       permissions: data.permissions,
+      allocatedModules: data.allocatedModules ?? getJwtModules(data.accessToken),
       accessToken: data.accessToken,
       refreshToken: data.refreshToken,
       accessTokenExpiresAt: data.accessTokenExpiresAt,
@@ -195,9 +211,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearSession();
   }, [clearSession]);
 
+  // Question 1: baseline read entitlement. `organization.manage` is the
+  // implicit bypass the backend applies in `UserModuleAccessChecker`.
+  const hasModule = useCallback(
+    (moduleCode: string): boolean => {
+      if (!state.isAuthenticated) return false;
+      if (state.permissions.includes("organization.manage")) return true;
+
+      const normalized = moduleCode.trim().toUpperCase();
+      if (!normalized) return false;
+      return state.allocatedModules.some((code) => code.trim().toUpperCase() === normalized);
+    },
+    [state.isAuthenticated, state.permissions, state.allocatedModules],
+  );
+
   return (
     <AuthContext.Provider
-      value={{ ...state, login, logout, refreshSession }}
+      value={{ ...state, login, logout, refreshSession, hasModule }}
     >
       {children}
     </AuthContext.Provider>
