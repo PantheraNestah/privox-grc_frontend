@@ -29,6 +29,12 @@ export default defineConfig(({ mode }) => {
       alias: {
         "@": path.resolve(__dirname, "./src"),
       },
+      // A single instance of the Radix layer context is what stops the
+      // `pointer-events: none` body lock from leaking after a Dialog opened
+      // from a DropdownMenu (see issue #16). Without this, Vite's dev
+      // pre-bundler can inline its own copy of `@radix-ui/react-dismissable-layer`
+      // into each Radix entry, giving dialog and dropdown-menu separate contexts.
+      dedupe: ["@radix-ui/react-dismissable-layer"],
     },
   };
 });
