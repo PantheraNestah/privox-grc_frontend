@@ -546,7 +546,7 @@ export function StrategyElementsView(props: SharedViewProps) {
             </CardHeader>
             <CardContent className="p-0">
               {rows.map((row) => (
-                <button key={row.node.id} type="button" onClick={() => onOpen(row.node.id)} className="flex w-full items-center gap-3 border-b p-4 text-left transition-colors last:border-0 hover:bg-brand-accent/5">
+                <button key={row.node.id} type="button" onClick={() => onOpen(row.node.id)} style={{ paddingLeft: `${row.depth * 20 + 16}px` }} className="flex w-full items-center gap-3 border-b py-4 pr-4 text-left transition-colors last:border-0 hover:bg-brand-accent/5">
                   <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", typeIconClass(row.node.type))}>
                     {row.node.type === "KPI" ? <TrendingUp className="h-4 w-4" /> : <ListChecks className="h-4 w-4" />}
                   </span>
