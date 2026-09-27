@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AxiosError, type AxiosResponse } from "axios";
 import { HelmetProvider } from "react-helmet-async";
@@ -7,16 +7,16 @@ import RiskStrategy from "./RiskStrategy";
 import * as riskStrategyApi from "@/lib/riskStrategy";
 import type { RiskStrategyConfigResponse } from "@/lib/governance-types";
 
-const session = vi.hoisted(() => ({ role: "admin" as string }));
+const session = vi.hoisted(() => ({ permissions: ["organization.manage"] as string[] }));
 
 vi.mock("sonner", () => ({
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
 }));
 vi.mock("@/contexts/AuthContext", () => ({
-  useAuth: () => ({ organization: { id: "org-1", code: "ORG", name: "Org" } }),
-}));
-vi.mock("@/hooks/use-active-user", () => ({
-  useActiveUser: () => ({ id: "u1", name: "Ada", role: session.role }),
+  useAuth: () => ({
+    organization: { id: "org-1", code: "ORG", name: "Org" },
+    permissions: session.permissions,
+  }),
 }));
 
 const saved = {
@@ -59,7 +59,7 @@ function renderPage() {
 
 describe("RiskStrategy", () => {
   beforeEach(() => {
-    session.role = "admin";
+    session.permissions = ["organization.manage"];
     vi.spyOn(riskStrategyApi, "fetchCurrentRiskStrategy").mockResolvedValue(saved);
     vi.spyOn(riskStrategyApi, "createRiskStrategyVersion").mockResolvedValue({ ...saved, id: "cfg-2", version: 2 });
   });
@@ -67,7 +67,7 @@ describe("RiskStrategy", () => {
   afterEach(() => vi.restoreAllMocks());
 
   it("shows the saved configuration read-only to non-admins", async () => {
-    session.role = "input_user";
+    session.permissions = [];
     renderPage();
 
     expect(await screen.findByDisplayValue("Low appetite")).toBeDisabled();
@@ -110,6 +110,33 @@ describe("RiskStrategy", () => {
       ),
     );
     await waitFor(() => expect(screen.queryByText("Unsaved changes")).not.toBeInTheDocument());
+  });
+
+  it("lets an approver approve a pending draft with a comment", async () => {
+    session.permissions = ["strategy.approve"];
+    const pending = { ...saved, id: "cfg-2", version: 2, current: false, approvalStatus: "PENDING" as const };
+    vi.spyOn(riskStrategyApi, "fetchRiskStrategyHistory").mockResolvedValue([pending, saved]);
+    const decide = vi
+      .spyOn(riskStrategyApi, "decideRiskStrategyVersion")
+      .mockResolvedValue({ ...pending, current: true, approvalStatus: "APPROVED" });
+    renderPage();
+
+    expect(await screen.findByText(/Draft version v2 pending approval/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Save/ })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Approve version/ }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText(/Decision comments/), {
+      target: { value: "Aligned with the enterprise risk assessment." },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: /Confirm & activate/ }));
+
+    await waitFor(() =>
+      expect(decide).toHaveBeenCalledWith("org-1", "cfg-2", {
+        decision: "APPROVE",
+        comments: "Aligned with the enterprise risk assessment.",
+      }),
+    );
   });
 
   it("asks for confirmation before resetting to defaults", async () => {

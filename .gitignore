@@ -30,3 +30,22 @@ dist-ssr
 *.jks
 pwa/android/
 pwa/app-release-*
+
+# ─── Never commit reference/export docs or secret material ──────────
+# Postman collections/environments routinely contain live access tokens,
+# refresh tokens and plaintext passwords. See rules.llm.
+*postman_collection*.json
+*postman_environment*.json
+postman/
+
+# API specs, authentication walkthroughs, and implementation/reference docs.
+/ALL_APIs.md
+/AUTHENTICATION_LOGIN_FLOW.md
+/*_GUIDE.md
+/*_IMPLEMENTATION_PLAN.md
+
+# Generic secret material (defence in depth).
+*.pem
+*.key
+*.p12
+*.pfx

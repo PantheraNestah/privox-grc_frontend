@@ -4,11 +4,15 @@ import { TenantLayout } from "./TenantLayout";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 const modules = vi.hoisted(() => ({ disabled: new Set<string>() }));
+const auth = vi.hoisted(() => ({ permissions: ["organization.manage"] as string[] }));
 
 vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({
     user: { fullName: "Jane Doe", email: "jane@org.co" },
     organization: { id: "org-1", code: "ORG", name: "Acme Insurance" },
+    permissions: auth.permissions,
+    allocatedModules: ["CORE", "USER_MANAGEMENT", "GOVERNANCE"],
+    hasModule: (code: string) => code === "GOVERNANCE",
     logout: vi.fn(),
   }),
 }));
@@ -35,6 +39,7 @@ describe("TenantLayout navigation", () => {
   beforeEach(() => {
     localStorage.clear();
     modules.disabled = new Set();
+    auth.permissions = ["organization.manage"];
   });
 
   it("renders the workspace nav with governance and settings links", () => {
@@ -49,8 +54,9 @@ describe("TenantLayout navigation", () => {
     expect(screen.getByRole("link", { name: "Users" })).toHaveAttribute("href", "/settings/users");
   });
 
-  it("hides sections whose module is not enabled for the organization", () => {
+  it("hides disabled module sections and admin items the user lacks permission for", () => {
     modules.disabled = new Set(["governance", "settings"]);
+    auth.permissions = [];
     renderLayout();
 
     expect(screen.queryByRole("link", { name: "Risk Governance" })).not.toBeInTheDocument();

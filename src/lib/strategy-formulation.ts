@@ -23,15 +23,47 @@ function normalizeArray<T>(data: T[] | null | undefined): T[] {
   return Array.isArray(data) ? data : [];
 }
 
+function flattenTree(nodes: StrategyTreeNode[]): StrategyTreeNode[] {
+  const flat: StrategyTreeNode[] = [];
+  for (const node of nodes) {
+    flat.push({ ...node, children: [] });
+    flat.push(...flattenTree(node.children ?? []));
+  }
+  return flat;
+}
+
+/** Rebuild the hierarchy from `parentElementId` links. */
+function buildTree(flat: StrategyTreeNode[]): StrategyTreeNode[] {
+  const byId = new Map<string, StrategyTreeNode>();
+  for (const node of flat) byId.set(node.id, { ...node, children: [] });
+  const roots: StrategyTreeNode[] = [];
+  for (const node of byId.values()) {
+    const parent = node.parentElementId ? byId.get(node.parentElementId) : undefined;
+    if (parent) parent.children.push(node);
+    else roots.push(node);
+  }
+  return roots;
+}
+
 function normalizeTree(
   data: Array<StrategyTreeNode | null> | null | undefined,
 ): StrategyTreeNode[] {
-  return normalizeArray(data)
+  const nested = normalizeArray(data)
     .filter((node): node is StrategyTreeNode => node !== null)
     .map((node) => ({
       ...node,
       children: normalizeTree(node.children),
     }));
+  // The `/tree` endpoint is requested to return nested children, but it (and
+  // some integration tests) can also hand back a flat list where nesting is only
+  // expressed through `parentElementId`. Detect that and rebuild the hierarchy so
+  // the UI never renders a flat list of what should be a nested structure.
+  const flat = flattenTree(nested);
+  const ids = new Set(flat.map((node) => node.id));
+  const hasParentLinks = flat.some(
+    (node) => node.parentElementId != null && ids.has(node.parentElementId),
+  );
+  return hasParentLinks ? buildTree(flat) : nested;
 }
 
 export async function fetchStrategyFormulationSettings(

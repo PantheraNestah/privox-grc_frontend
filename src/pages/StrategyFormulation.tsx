@@ -53,10 +53,20 @@ function isSection(value: string | null): value is Section {
 }
 
 const StrategyFormulation = () => {
-  const { organization, permissions } = useAuth();
+  const { organization, permissions, hasModule } = useAuth();
   const orgId = organization?.id;
-  const canView = permissions.includes("strategyformulation.view");
-  const canManage = permissions.includes("strategyformulation.manage");
+
+  // Question 1: can the user SEE? (baseline read via module allocation)
+  const canView = hasModule("GOVERNANCE");
+
+  // Question 2: can the user MUTATE? (elevated SoD permissions)
+  // Strict Segregation of Duties: authoring, approving and module settings are
+  // three distinct capabilities. Never collapse them into one `canManage` flag.
+  const canContribute =
+    permissions.includes("strategy.contribute") || permissions.includes("organization.manage");
+  const canApprove =
+    permissions.includes("strategy.approve") || permissions.includes("organization.manage");
+  const canManageSettings = permissions.includes("organization.manage");
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get("tab");
   const activeTab: Section = isSection(requestedTab) ? requestedTab : "overview";
@@ -69,10 +79,10 @@ const StrategyFormulation = () => {
   const summaryQuery = useStrategySummary(canView ? orgId : undefined);
   const insightsQuery = useStrategyInsights(canView ? orgId : undefined);
   const settingsQuery = useStrategyFormulationSettings(canView ? orgId : undefined);
-  const orgNodesQuery = useOrgNodes(canManage ? orgId : undefined);
+  const orgNodesQuery = useOrgNodes(canContribute ? orgId : undefined);
 
-  const changeTab = (value: string) => {
-    setSearchParams(value === "overview" ? {} : { tab: value });
+  const changeTab = (value: string, params?: Record<string, string>) => {
+    setSearchParams(value === "overview" ? {} : { tab: value, ...params });
   };
   const openCreate = (type: StrategyElementType = "PILLAR") => {
     setCreateType(type);
@@ -84,9 +94,10 @@ const StrategyFormulation = () => {
     insights: insightsQuery.data,
     loading: treeQuery.isPending || summaryQuery.isPending || insightsQuery.isPending,
     error: treeQuery.error ?? summaryQuery.error ?? insightsQuery.error,
-    canManage,
+    canManage: canContribute,
     onOpen: setSelectedElementId,
     onNew: openCreate,
+    onNavigateTab: changeTab,
   };
 
   return (
@@ -107,10 +118,10 @@ const StrategyFormulation = () => {
             <Button asChild variant="outline">
               <Link to="/governance/strategy-assessment"><ClipboardCheck /> Go to assessment</Link>
             </Button>
-            {canManage && settingsQuery.data && (
+            {canManageSettings && settingsQuery.data && (
               <Button variant="outline" onClick={() => setSettingsOpen(true)}><Settings2 /> Settings</Button>
             )}
-            {canManage && <Button variant="brand" onClick={() => openCreate()}><Plus /> New element</Button>}
+            {canContribute && <Button variant="brand" onClick={() => openCreate()}><Plus /> New element</Button>}
           </>
         }
       />
@@ -120,15 +131,21 @@ const StrategyFormulation = () => {
       ) : !canView ? (
         <Alert variant="destructive" className="bg-destructive/5">
           <ShieldAlert className="h-4 w-4" />
-          <AlertTitle>Strategy Formulation is restricted</AlertTitle>
-          <AlertDescription>Your account needs the strategyformulation.view permission to access this workspace.</AlertDescription>
+          <AlertTitle>Governance module not allocated</AlertTitle>
+          <AlertDescription>
+            You do not have access to the Governance module. Please contact your organization administrator
+            to allocate this module to your account.
+          </AlertDescription>
         </Alert>
       ) : (
         <>
-          {!canManage && (
+          {!canContribute && (
             <Alert className="mb-5 py-2.5">
               <ShieldAlert className="h-4 w-4" />
-              <AlertDescription className="text-xs">You have a read-only formulation view. Strategy creation and governance actions require strategyformulation.manage.</AlertDescription>
+              <AlertDescription className="text-xs">
+                You have a read-only formulation view. Creating or updating strategic formulation elements
+                requires the Governance Contributor role.
+              </AlertDescription>
             </Alert>
           )}
           <Tabs value={activeTab} onValueChange={changeTab}>
@@ -176,7 +193,8 @@ const StrategyFormulation = () => {
           elementId={selectedElementId}
           open={!!selectedElementId}
           onOpenChange={(open) => !open && setSelectedElementId(null)}
-          canManage={canManage}
+          canContribute={canContribute}
+          canApprove={canApprove}
         />
       )}
     </>

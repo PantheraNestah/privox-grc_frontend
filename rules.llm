@@ -1,0 +1,51 @@
+# rules.llm — Repository guardrails for coding agents & contributors
+
+This file is **policy** and is intentionally version-controlled. The
+reference/spec/export documents it protects are **not**.
+
+## Never commit, stage or push
+
+| Class | Examples / patterns |
+|---|---|
+| Postman exports | `*.postman_collection.json`, `*.postman_environment.json`, anything under `postman/` |
+| API & auth specs | `ALL_APIs.md`, `AUTHENTICATION_LOGIN_FLOW.md` |
+| Reference guides | `*_GUIDE.md` (e.g. `FRONTEND_*_GUIDE.md`) |
+| Planning docs | `*_IMPLEMENTATION_PLAN.md` |
+| Secret material | `*.pem`, `*.key`, `*.p12`, `*.pfx`, `*.keystore`, `*.jks`, real `.env` files |
+| Test evidence | one-off tokens, captured HTTP dumps, screenshots of secrets |
+
+These routinely contain live access tokens, refresh tokens, invitation
+tokens, passwords and internal endpoint maps. They belong in the team wiki /
+secret manager / ticket, **never** in Git.
+
+## Required checks before every commit
+
+```sh
+git status --short                 # confirm nothing unexpected is staged
+git diff --cached --name-only      # eyeball the exact file list
+```
+
+If any protected file is staged, unstage it (`git restore --staged <path>`)
+and add it to `.gitignore` if it is missing.
+
+A tracked hook (`.githooks/pre-commit`) enforces the list above. Enable it
+once per clone:
+
+```sh
+git config core.hooksPath .githooks
+```
+
+## What *is* allowed
+
+- Application source and tests (`src/**`, `*.test.tsx`, …).
+- Repo policy/config files: `README.md`, `rules.md`, `rules.llm`,
+  `package.json`, `tsconfig*.json`, `.env.example` (template only, **no real
+  values**), CI/workflow files.
+- Short-lived operational notes only when they contain no credentials or
+  internal topology.
+
+## If a protected file was already pushed
+
+Deleting it in a later commit is **not** enough — it stays in history. Purge
+it with `git filter-repo` (see the repo's security runbook) and rotate any
+credential it exposed. Assume every token that was ever pushed is compromised.

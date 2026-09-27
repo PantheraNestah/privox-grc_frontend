@@ -5,6 +5,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { queryClient } from "@/lib/query-client";
 import { PlatformAuthProvider } from "@/contexts/PlatformAuthContext";
 import { RequireAuth } from "@/components/grc/RequireAuth";
+import { RequireOrgAdmin } from "@/components/grc/RequireOrgAdmin";
 import { RequirePlatformAuth } from "@/components/grc/RequirePlatformAuth";
 import { PlatformLayout } from "@/components/grc/PlatformLayout";
 import { TenantLayout } from "@/components/grc/TenantLayout";
@@ -12,6 +13,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Index from "./pages/Index.tsx";
+import AcceptInvitationPage from "./pages/AcceptInvitationPage.tsx";
 import Dashboard from "./pages/Dashboard.tsx";
 import Governance from "./pages/Governance.tsx";
 import RiskGovernance from "./pages/RiskGovernance.tsx";
@@ -50,6 +52,9 @@ const App = () => (
             <BrowserRouter basename={import.meta.env.BASE_URL}>
               <Routes>
                 <Route path="/" element={<Index />} />
+                {/* Public invitation acceptance & signup (outside RequireAuth) */}
+                <Route path="/signup" element={<AcceptInvitationPage />} />
+                <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
                 <Route element={<RequireAuth />}>
                   <Route element={<TenantLayout />}>
                     <Route path="/dashboard" element={<Dashboard />} />
@@ -62,12 +67,14 @@ const App = () => (
                     <Route path="/governance/surveys" element={<SurveyManagement />} />
                     <Route path="/settings/organization" element={<OrganizationDetails />} />
                     <Route path="/settings/modules" element={<ModuleSettings />} />
-                    <Route path="/settings/users" element={<UserManagement />} />
-                    <Route path="/settings/users/members/:memberId" element={<UserMemberView />} />
-                    <Route path="/settings/users/members/:memberId/edit" element={<UserMemberEdit />} />
-                    <Route path="/settings/users/groups/:groupId" element={<GroupView />} />
-                    <Route path="/settings/users/groups/:groupId/members" element={<GroupMembersView />} />
-                    <Route path="/settings/users/groups/:groupId/edit" element={<GroupEdit />} />
+                    <Route element={<RequireOrgAdmin />}>
+                      <Route path="/settings/users" element={<UserManagement />} />
+                      <Route path="/settings/users/members/:memberId" element={<UserMemberView />} />
+                      <Route path="/settings/users/members/:memberId/edit" element={<UserMemberEdit />} />
+                      <Route path="/settings/users/groups/:groupId" element={<GroupView />} />
+                      <Route path="/settings/users/groups/:groupId/members" element={<GroupMembersView />} />
+                      <Route path="/settings/users/groups/:groupId/edit" element={<GroupEdit />} />
+                    </Route>
                   </Route>
                   {/* Respondent view: standalone page, no workspace chrome. */}
                   <Route path="/surveys/:surveyId/respond" element={<SurveyRespond />} />

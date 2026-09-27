@@ -115,6 +115,28 @@ describe("Strategy Formulation API service", () => {
     expect(api.get).toHaveBeenNthCalledWith(2, `${base}/tree`);
   });
 
+  it("rebuilds the hierarchy when the tree endpoint returns a flat list", async () => {
+    vi.spyOn(api, "get").mockResolvedValueOnce({
+      data: [
+        { id: "objective-1", parentElementId: "pillar-1", children: [] },
+        { id: "pillar-1", parentElementId: null, children: [] },
+        { id: "initiative-1", parentElementId: "objective-1", children: [] },
+      ],
+    });
+
+    await expect(fetchStrategyTree("org-1")).resolves.toMatchObject([
+      {
+        id: "pillar-1",
+        children: [
+          {
+            id: "objective-1",
+            children: [{ id: "initiative-1", children: [] }],
+          },
+        ],
+      },
+    ]);
+  });
+
   it("publishes, decides and creates immutable versions", async () => {
     vi.spyOn(api, "post").mockResolvedValue({ data: { versionId: "version-1" } });
     const decision = { decision: "APPROVE" as const, comments: "Approved" };

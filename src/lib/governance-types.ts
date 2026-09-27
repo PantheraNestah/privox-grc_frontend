@@ -128,6 +128,7 @@ export type ReviewFrequency = "MONTHLY" | "QUARTERLY" | "ANNUALLY";
 export type LikelihoodMode = "PROBABILITY" | "TIMELINE" | "BOTH";
 export type ImpactMode = "QUANTITATIVE" | "QUALITATIVE" | "BOTH";
 export type ApprovalDecisionType = "APPROVE" | "REJECT" | "REQUEST_REVISION";
+export type ApprovalRequestStatus = "PENDING" | "APPROVED" | "REJECTED" | "REVISION_REQUESTED";
 
 export interface RiskAppetiteCategoryResponse {
   id: string;
@@ -200,6 +201,8 @@ export interface RiskStrategyConfigResponse {
   appetiteCategories: RiskAppetiteCategoryResponse[];
   likelihoodBands: LikelihoodBandsResponse;
   impactParameters: RiskImpactParameterResponse[];
+  /** Maker-Checker workflow status of this version (server-authoritative). */
+  approvalStatus?: ApprovalRequestStatus | null;
 }
 
 export interface CreateRiskStrategyVersionRequest {

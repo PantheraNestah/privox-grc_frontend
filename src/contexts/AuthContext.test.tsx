@@ -308,3 +308,89 @@ describe("AuthProvider session restore", () => {
     expect(screen.getByTestId("authenticated")).toHaveTextContent("false");
   });
 });
+
+describe("AuthProvider module entitlements", () => {
+  const makeJwt = (payload: Record<string, unknown>) => {
+    const encode = (value: Record<string, unknown>) =>
+      btoa(JSON.stringify(value)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    return `${encode({ alg: "RS256" })}.${encode(payload)}.sig`;
+  };
+
+  function ModuleProbe() {
+    const auth = useAuth();
+    return (
+      <>
+        <span data-testid="modules">{auth.allocatedModules.join(",")}</span>
+        <span data-testid="gov">{String(auth.hasModule("governance"))}</span>
+        <span data-testid="risk">{String(auth.hasModule("RISK_MANAGEMENT"))}</span>
+        <button onClick={() => auth.login({ identifier: "a", password: "p", rememberMe: false })}>login</button>
+      </>
+    );
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
+    vi.clearAllMocks();
+    mocks.refreshAccessToken.mockReset();
+    mocks.getStoredRefreshToken.mockReturnValue(null);
+  });
+
+  afterEach(() => vi.useRealTimers());
+
+  it("gates modules by allocation for non-admin users", async () => {
+    mocks.apiPost.mockResolvedValue({
+      data: { ...loginResponse, permissions: [], allocatedModules: ["CORE", "GOVERNANCE"] },
+    });
+
+    render(<AuthProvider><ModuleProbe /></AuthProvider>);
+    await act(async () => screen.getByText("login").click());
+
+    expect(screen.getByTestId("modules")).toHaveTextContent("CORE,GOVERNANCE");
+    expect(screen.getByTestId("gov")).toHaveTextContent("true");
+    expect(screen.getByTestId("risk")).toHaveTextContent("false");
+  });
+
+  it("lets organization.manage bypass the allocation list", async () => {
+    mocks.apiPost.mockResolvedValue({
+      data: { ...loginResponse, permissions: ["organization.manage"], allocatedModules: [] },
+    });
+
+    render(<AuthProvider><ModuleProbe /></AuthProvider>);
+    await act(async () => screen.getByText("login").click());
+
+    expect(screen.getByTestId("gov")).toHaveTextContent("true");
+    expect(screen.getByTestId("risk")).toHaveTextContent("true");
+  });
+
+  it("restores allocations from the refreshed JWT modules claim", async () => {
+    const accessToken = makeJwt({ org: "o1", modules: ["CORE", "RISK_MANAGEMENT"], permissions: [] });
+    mocks.getStoredRefreshToken.mockReturnValue("stored-refresh");
+    mocks.refreshAccessToken.mockResolvedValue({
+      accessToken,
+      refreshToken: "restored-refresh",
+      tokenType: "Bearer",
+      expiresIn: 300,
+      accessTokenExpiresAt: "2026-01-01T00:05:00.000Z",
+      permissions: [],
+    });
+    mocks.apiGet.mockResolvedValue({
+      data: {
+        id: "1",
+        email: "a@example.com",
+        username: "a",
+        fullName: "A",
+        organization: { id: "o1", code: "ORG", name: "Org" },
+        permissions: [],
+        accessTokenExpiresAt: "2026-01-01T00:05:00.000Z",
+      },
+    });
+
+    render(<AuthProvider><ModuleProbe /></AuthProvider>);
+    await act(async () => {});
+
+    expect(screen.getByTestId("modules")).toHaveTextContent("CORE,RISK_MANAGEMENT");
+    expect(screen.getByTestId("risk")).toHaveTextContent("true");
+    expect(screen.getByTestId("gov")).toHaveTextContent("false");
+  });
+});

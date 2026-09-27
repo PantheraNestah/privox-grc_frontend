@@ -50,12 +50,11 @@ export function GroupsTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean 
     const name = groupName.trim();
     if (!orgId || !name) return;
     try {
-      const created = await createGroup.mutateAsync({ code: deriveGroupCode(name), name });
-      // New groups start inactive until an admin has reviewed their permissions.
-      await setGroupActive.mutateAsync({ groupId: created.id, active: false });
+      // Groups are created active by default.
+      await createGroup.mutateAsync({ code: deriveGroupCode(name), name });
       setGroupName("");
       setCreateOpen(false);
-      toast.success("Group created as inactive");
+      toast.success("Group created successfully");
     } catch (err) {
       toast.error(errorMessage(err, "Failed to create group"));
     }
@@ -74,7 +73,7 @@ export function GroupsTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean 
     }
   };
 
-  const creating = createGroup.isPending || setGroupActive.isPending;
+  const creating = createGroup.isPending;
 
   return (
     <>
@@ -129,9 +128,18 @@ export function GroupsTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean 
                     <TableCell>
                       <Switch
                         checked={!isInactiveStatus(group.status, group.active)}
-                        disabled={setGroupActive.isPending && setGroupActive.variables?.groupId === group.id}
+                        disabled={
+                          Boolean(group.systemDefault) ||
+                          (setGroupActive.isPending && setGroupActive.variables?.groupId === group.id)
+                        }
                         onCheckedChange={() => setGroupToToggle(group)}
-                        aria-label={isInactiveStatus(group.status, group.active) ? "Activate group" : "Deactivate group"}
+                        aria-label={
+                          group.systemDefault
+                            ? "System group status is locked"
+                            : isInactiveStatus(group.status, group.active)
+                              ? "Activate group"
+                              : "Deactivate group"
+                        }
                       />
                     </TableCell>
                   )}

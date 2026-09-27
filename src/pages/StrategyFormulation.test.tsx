@@ -12,7 +12,8 @@ import type {
 } from "@/lib/strategy-formulation-types";
 
 const session = vi.hoisted(() => ({
-  permissions: ["strategyformulation.view", "strategyformulation.manage"] as string[],
+  permissions: ["strategy.contribute", "strategy.approve"] as string[],
+  hasGovernance: true,
   create: vi.fn(),
   createVersion: vi.fn(),
   publish: vi.fn(),
@@ -21,6 +22,7 @@ const session = vi.hoisted(() => ({
   progress: vi.fn(),
   updateSettings: vi.fn(),
   detailHasDraft: false,
+  detailApprovalStatus: null as null | "PENDING" | "REVISION_REQUESTED" | "REJECTED",
   orgNodes: [] as Array<Record<string, unknown>>,
 }));
 
@@ -32,6 +34,7 @@ vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({
     organization: { id: "org-1", code: "ORG", name: "Organization" },
     permissions: session.permissions,
+    hasModule: (code: string) => code === "GOVERNANCE" && session.hasGovernance,
   }),
 }));
 
@@ -222,7 +225,9 @@ vi.mock("@/hooks/use-strategy-formulation", () => ({
   useRecordStrategyProgress: () => mutation(session.progress),
   useUpdateStrategyFormulationSettings: () => mutation(session.updateSettings),
   useStrategyElementDetail: () => ({
-    data: session.detailHasDraft ? { ...detail, draftVersion } : detail,
+    data: session.detailHasDraft
+      ? { ...detail, draftVersion: { ...draftVersion, approvalStatus: session.detailApprovalStatus } }
+      : detail,
     isLoading: false,
     error: null,
   }),
@@ -256,7 +261,8 @@ const openTab = (name: RegExp) => fireEvent.mouseDown(screen.getByRole("tab", { 
 
 describe("StrategyFormulation API workspace", () => {
   beforeEach(() => {
-    session.permissions = ["strategyformulation.view", "strategyformulation.manage"];
+    session.permissions = ["strategy.contribute", "strategy.approve"];
+    session.hasGovernance = true;
     session.create.mockResolvedValue({});
     session.createVersion.mockResolvedValue({});
     session.publish.mockResolvedValue({ current: true });
@@ -265,6 +271,7 @@ describe("StrategyFormulation API workspace", () => {
     session.progress.mockResolvedValue({});
     session.updateSettings.mockResolvedValue({});
     session.detailHasDraft = false;
+    session.detailApprovalStatus = null;
     session.orgNodes = [];
     vi.clearAllMocks();
   });
@@ -279,18 +286,18 @@ describe("StrategyFormulation API workspace", () => {
   });
 
   it("keeps users without manage permission read-only", () => {
-    session.permissions = ["strategyformulation.view"];
+    session.permissions = [];
     renderPage();
 
     expect(screen.getByText(/read-only formulation view/i)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /New element/ })).not.toBeInTheDocument();
   });
 
-  it("gates the workspace when view permission is absent", () => {
-    session.permissions = [];
+  it("gates the workspace when the Governance module is not allocated", () => {
+    session.hasGovernance = false;
     renderPage();
 
-    expect(screen.getByText("Strategy Formulation is restricted")).toBeInTheDocument();
+    expect(screen.getByText("Governance module not allocated")).toBeInTheDocument();
     expect(screen.queryByText("Publication health")).not.toBeInTheDocument();
   });
 
@@ -328,8 +335,8 @@ describe("StrategyFormulation API workspace", () => {
     const drawer = await screen.findByRole("dialog");
     expect(within(drawer).getAllByText("63.5 %").length).toBeGreaterThan(0);
     expect(within(drawer).getByText("Monthly observation")).toBeInTheDocument();
-    fireEvent.change(within(drawer).getByLabelText("Reported value"), { target: { value: "70" } });
-    fireEvent.change(within(drawer).getByLabelText("Observation note"), { target: { value: "Quarterly review" } });
+    fireEvent.change(within(drawer).getByLabelText("Value"), { target: { value: "70" } });
+    fireEvent.change(within(drawer).getByLabelText("Note"), { target: { value: "Quarterly review" } });
     fireEvent.click(within(drawer).getByRole("button", { name: "Record" }));
 
     await waitFor(() =>
@@ -382,7 +389,7 @@ describe("StrategyFormulation API workspace", () => {
   });
 
   it("prevents read-only viewers from recording KPI progress", async () => {
-    session.permissions = ["strategyformulation.view"];
+    session.permissions = [];
     renderPage();
     openTab(/KPIs & Progress/);
     fireEvent.click(screen.getByRole("button", { name: /View KPI/ }));
@@ -415,16 +422,33 @@ describe("StrategyFormulation API workspace", () => {
     }));
   });
 
-  it("exposes approval decisions only after a draft is submitted", async () => {
+  it("hides approval decisions until the server reports the draft as pending", async () => {
     session.detailHasDraft = true;
-    session.publish.mockResolvedValueOnce({ current: false, versionId: "kpi-v2" });
+    session.detailApprovalStatus = null;
+    session.permissions = ["strategy.approve"];
     renderPage();
     openTab(/KPIs & Progress/);
-    fireEvent.click(screen.getByRole("button", { name: /Log progress/ }));
+    fireEvent.click(screen.getByRole("button", { name: /View KPI/ }));
     const drawer = await screen.findByRole("dialog");
-    expect(within(drawer).queryByRole("button", { name: "Approve" })).not.toBeInTheDocument();
-    fireEvent.click(within(drawer).getByRole("button", { name: /Submit for publication/ }));
-    fireEvent.click(await within(drawer).findByRole("button", { name: "Approve" }));
+    expect(within(drawer).queryByRole("button", { name: /Approve/ })).not.toBeInTheDocument();
+    expect(within(drawer).queryByRole("button", { name: /Submit for publication/ })).not.toBeInTheDocument();
+  });
+
+  it("shows approval decisions when the server reports a pending draft", async () => {
+    session.detailHasDraft = true;
+    session.detailApprovalStatus = "PENDING";
+    session.permissions = ["strategy.approve"];
+    renderPage();
+    openTab(/KPIs & Progress/);
+    fireEvent.click(screen.getByRole("button", { name: /View KPI/ }));
+    const drawer = await screen.findByRole("dialog");
+    expect(within(drawer).getByRole("button", { name: /Approve/ })).toBeInTheDocument();
+    expect(within(drawer).getByRole("button", { name: /Request revision/ })).toBeInTheDocument();
+    expect(within(drawer).queryByRole("button", { name: /Submit for publication/ })).not.toBeInTheDocument();
+
+    fireEvent.click(within(drawer).getByRole("button", { name: /Approve/ }));
+    const modal = await screen.findByRole("dialog", { name: /Approve strategy version/ });
+    fireEvent.click(within(modal).getByRole("button", { name: "Confirm decision" }));
 
     await waitFor(() => expect(session.decide).toHaveBeenCalledWith({
       elementId: "kpi-1",
@@ -433,7 +457,29 @@ describe("StrategyFormulation API workspace", () => {
     }));
   });
 
+  it("requires comments when requesting a revision", async () => {
+    session.detailHasDraft = true;
+    session.detailApprovalStatus = "PENDING";
+    session.permissions = ["strategy.approve"];
+    renderPage();
+    openTab(/KPIs & Progress/);
+    fireEvent.click(screen.getByRole("button", { name: /View KPI/ }));
+    const drawer = await screen.findByRole("dialog");
+    fireEvent.click(within(drawer).getByRole("button", { name: /Request revision/ }));
+    const modal = await screen.findByRole("dialog", { name: /Request revisions/ });
+    const confirm = within(modal).getByRole("button", { name: "Confirm decision" });
+    expect(confirm).toBeDisabled();
+    fireEvent.change(within(modal).getByLabelText(/Comments/), { target: { value: "Clarify the target" } });
+    fireEvent.click(confirm);
+    await waitFor(() => expect(session.decide).toHaveBeenCalledWith({
+      elementId: "kpi-1",
+      versionId: "kpi-v2",
+      body: { decision: "REQUEST_REVISION", comments: "Clarify the target" },
+    }));
+  });
+
   it("updates publication settings through the settings dialog", async () => {
+    session.permissions = ["strategy.contribute", "organization.manage"];
     renderPage();
     fireEvent.click(screen.getByRole("button", { name: /Settings/ }));
     const dialog = await screen.findByRole("dialog");

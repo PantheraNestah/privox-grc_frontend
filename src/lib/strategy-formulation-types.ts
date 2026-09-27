@@ -7,6 +7,12 @@ export type StrategyElementType =
 
 export type StrategyVersionStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
 export type StrategyApprovalDecision = "APPROVE" | "REJECT" | "REQUEST_REVISION";
+export type StrategyApprovalStatus =
+  | "PENDING"
+  | "APPROVED"
+  | "REJECTED"
+  | "REVISION_REQUESTED"
+  | null;
 
 export interface StrategyFormulationSettings {
   organizationId: string;
@@ -43,6 +49,9 @@ export interface StrategyVersion extends StrategyVersionContent {
   elementCreatedAt: string;
   versionCreatedByUserId: string;
   versionCreatedAt: string;
+  /** Maker-Checker workflow status of this version (server-authoritative). */
+  approvalStatus?: StrategyApprovalStatus;
+  approvalRequestId?: string | null;
 }
 
 export interface StrategyElementDetailVersion extends StrategyVersionContent {
@@ -52,6 +61,9 @@ export interface StrategyElementDetailVersion extends StrategyVersionContent {
   status: StrategyVersionStatus;
   createdByUserId: string;
   createdAt: string;
+  /** Maker-Checker workflow status of this version (server-authoritative). */
+  approvalStatus?: StrategyApprovalStatus;
+  approvalRequestId?: string | null;
 }
 
 export interface StrategyElementDetail {
@@ -76,6 +88,8 @@ export interface StrategyTreeNode extends StrategyVersionContent {
   version: number;
   current: boolean;
   status: StrategyVersionStatus;
+  approvalStatus?: StrategyApprovalStatus;
+  approvalRequestId?: string | null;
   children: StrategyTreeNode[];
 }
 

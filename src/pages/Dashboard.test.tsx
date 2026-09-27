@@ -7,8 +7,14 @@ import * as organizationModules from "@/lib/organizationModules";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }));
 
+const auth = vi.hoisted(() => ({ permissions: ["organization.manage"] as string[] }));
+
 vi.mock("@/contexts/AuthContext", () => ({
-  useAuth: () => ({ organization: { id: "org-1", code: "ORG", name: "Org" } }),
+  useAuth: () => ({
+    organization: { id: "org-1", code: "ORG", name: "Org" },
+    permissions: auth.permissions,
+    hasModule: () => true,
+  }),
 }));
 
 vi.mock("@/hooks/use-active-user", () => ({
@@ -44,6 +50,7 @@ function renderPage() {
 
 describe("Dashboard", () => {
   beforeEach(() => {
+    auth.permissions = ["organization.manage"];
     vi.spyOn(organizationModules, "fetchOrganizationModules").mockResolvedValue([
       row("GOVERNANCE", "Governance", true, 10),
       row("USER_MANAGEMENT", "User Management", true, 20),
@@ -75,6 +82,14 @@ describe("Dashboard", () => {
     await screen.findByText("Governance Management");
 
     expect(screen.getByText("Quick actions")).toBeInTheDocument();
+  });
+
+  it("hides user management from non-admins even when the module is allocated", async () => {
+    auth.permissions = [];
+    renderPage();
+
+    expect(await screen.findByText("Governance Management")).toBeInTheDocument();
+    expect(screen.queryByText("User Management")).not.toBeInTheDocument();
   });
 
   it("shows an empty state when no module is enabled", async () => {

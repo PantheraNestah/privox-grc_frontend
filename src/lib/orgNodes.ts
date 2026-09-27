@@ -106,7 +106,7 @@ export async function updateOrgTreeSettings(
   return data;
 }
 
-/** Users placed at one node. Needs `orgnode.view` and the Governance module. */
+/** Users placed at one node. Requires the Governance module to be allocated. */
 export async function fetchOrgNodeMembers(
   orgId: string,
   nodeId: string,

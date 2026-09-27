@@ -1,0 +1,16 @@
+#!/bin/sh
+# Pre-commit guard: refuse to stage protected reference/secret files.
+# Policy: see rules.llm.  Enable with: git config core.hooksPath .githooks
+set -eu
+
+pattern='postman_collection|postman_environment|(^|/)ALL_APIs\.md$|(^|/)AUTHENTICATION_LOGIN_FLOW\.md$|_GUIDE\.md$|_IMPLEMENTATION_PLAN\.md$|\.pem$|\.key$|\.p12$|\.pfx$|\.keystore$|\.jks$|(^|/)\.env$'
+
+staged=$(git diff --cached --name-only --diff-filter=ACMR)
+bad=$(printf '%s\n' "$staged" | grep -Ei "$pattern" || true)
+
+if [ -n "$bad" ]; then
+  echo "✖ Refusing to commit protected reference/secret files (see rules.llm):" >&2
+  printf '%s\n' "$bad" | sed 's/^/   - /' >&2
+  echo "  Unstage them with: git restore --staged <path>" >&2
+  exit 1
+fi

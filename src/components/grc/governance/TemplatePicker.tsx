@@ -25,7 +25,7 @@ export interface TemplateParentOption {
 
 interface TemplatePickerProps {
   orgId: string;
-  /** Holds the `orgnode.manage` authority the clone endpoint requires. */
+  /** Holds the `organization.manage` authority the clone endpoint requires. */
   canManage: boolean;
   /**
    * Existing units the copy can be attached under. Omit for an empty
@@ -253,7 +253,7 @@ export function TemplatePicker({ orgId, canManage, parents, onCloned, className 
                 <p className="text-xs text-muted-foreground">
                   {canManage
                     ? "The template is copied into your organisation; you can edit every unit afterwards."
-                    : "You need the orgnode.manage permission to apply a template."}
+                    : "You need the organization.manage permission to apply a template."}
                 </p>
                 <Button
                   type="button"

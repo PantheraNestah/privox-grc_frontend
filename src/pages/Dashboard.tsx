@@ -18,7 +18,8 @@ import { PageHeader, TENANT_HOME } from "@/components/grc/common/PageHeader";
 import { CardGridSkeleton, EmptyState, ErrorState } from "@/components/grc/common/states";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActiveUser } from "@/hooks/use-active-user";
-import { useEnabledModules } from "@/hooks/use-organization-modules";
+import { useOrganizationModules } from "@/hooks/use-organization-modules";
+import { toEnabledModules } from "@/lib/organizationModules";
 import type { ModuleDef } from "@/data/modules";
 import type { QuickAction } from "@/data/quickActions";
 
@@ -32,9 +33,9 @@ const MODULE_ROUTES: Record<string, string> = {
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { organization } = useAuth();
+  const { organization, permissions, hasModule } = useAuth();
   const activeUser = useActiveUser();
-  const modules = useEnabledModules(organization?.id);
+  const modules = useOrganizationModules(organization?.id);
   const [openModule, setOpenModule] = useState<ModuleDef | null>(null);
   const [openAction, setOpenAction] = useState<QuickAction | null>(null);
   const [now, setNow] = useState(() => new Date());
@@ -44,7 +45,22 @@ const Dashboard = () => {
     return () => clearInterval(t);
   }, []);
 
-  const enabledModules = modules.data ?? [];
+  // Layer 1: only show modules allocated to this user (org admins bypass).
+  // USER_MANAGEMENT has no non-admin UI (its pages are admin-gated), so it is
+  // hidden from users who cannot administer users.
+  const canManageUsers = permissions.includes("organization.manage");
+  const enabledModules = useMemo(
+    () =>
+      toEnabledModules(
+        (modules.data ?? []).filter(
+          (row) =>
+            row.enabled &&
+            hasModule(row.code) &&
+            (canManageUsers || row.code.toUpperCase() !== "USER_MANAGEMENT"),
+        ),
+      ),
+    [modules.data, hasModule, canManageUsers],
+  );
   const firstName = activeUser?.name?.split(" ")[0] ?? "User";
   const greeting = useMemo(() => greetingFor(now.getHours()), [now]);
   const dateStr = useMemo(
