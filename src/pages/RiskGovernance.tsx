@@ -579,7 +579,7 @@ const RiskGovernance = () => {
           </DialogHeader>
 
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="org-name">Name *</Label>
                 <Input
@@ -671,7 +671,7 @@ const RiskGovernance = () => {
               ) : (
                 <div className="space-y-2">
                   {form.offerings.map((o, idx) => (
-                    <div key={o.id} className="flex gap-2 items-center">
+                    <div key={o.id} className="flex flex-col gap-2 sm:flex-row sm:items-center">
                       <Select
                         value={o.kind}
                         onValueChange={(v) => setForm(f => ({
@@ -679,7 +679,7 @@ const RiskGovernance = () => {
                           offerings: f.offerings.map((x, i) => i === idx ? { ...x, kind: v as OfferingKind } : x),
                         }))}
                       >
-                        <SelectTrigger className="w-[180px] h-9"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="h-9 w-full sm:w-[180px]"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           {(Object.keys(OFFERING_KIND_LABELS) as OfferingKind[]).map(k => (
                             <SelectItem key={k} value={k}>{OFFERING_KIND_LABELS[k]}</SelectItem>
@@ -687,6 +687,7 @@ const RiskGovernance = () => {
                         </SelectContent>
                       </Select>
                       <Input
+                        className="w-full sm:flex-1"
                         value={o.label}
                         placeholder="e.g. Privox GRC Platform"
                         onChange={(e) => setForm(f => ({
@@ -698,7 +699,7 @@ const RiskGovernance = () => {
                         type="button"
                         size="icon"
                         variant="ghost"
-                        className="h-9 w-9 text-destructive"
+                        className="h-9 w-9 shrink-0 self-end text-destructive sm:self-auto"
                         onClick={() => setForm(f => ({
                           ...f,
                           offerings: f.offerings.filter((_, i) => i !== idx),

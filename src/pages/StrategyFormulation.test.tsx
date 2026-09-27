@@ -335,8 +335,8 @@ describe("StrategyFormulation API workspace", () => {
     const drawer = await screen.findByRole("dialog");
     expect(within(drawer).getAllByText("63.5 %").length).toBeGreaterThan(0);
     expect(within(drawer).getByText("Monthly observation")).toBeInTheDocument();
-    fireEvent.change(within(drawer).getByLabelText("Reported value"), { target: { value: "70" } });
-    fireEvent.change(within(drawer).getByLabelText("Observation note"), { target: { value: "Quarterly review" } });
+    fireEvent.change(within(drawer).getByLabelText("Value"), { target: { value: "70" } });
+    fireEvent.change(within(drawer).getByLabelText("Note"), { target: { value: "Quarterly review" } });
     fireEvent.click(within(drawer).getByRole("button", { name: "Record" }));
 
     await waitFor(() =>

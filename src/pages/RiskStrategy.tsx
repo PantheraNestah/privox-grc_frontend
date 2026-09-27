@@ -241,7 +241,7 @@ const RiskStrategy = () => {
           </div>
         }
         actions={
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
             {versions.length > 0 && (
               <Select
                 value={displayedVersion?.id ?? ""}
@@ -250,7 +250,7 @@ const RiskStrategy = () => {
                   setDraft(null);
                 }}
               >
-                <SelectTrigger className="h-10 w-[190px] text-xs">
+                <SelectTrigger className="h-10 w-full text-xs sm:w-[190px]">
                   <SelectValue placeholder="Select version" />
                 </SelectTrigger>
                 <SelectContent>
