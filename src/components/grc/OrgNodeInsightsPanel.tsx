@@ -41,7 +41,17 @@ export const OrgNodeInsightsPanel = ({
   orgId, node, open, onClose, descendantIds, documents, strategy, assessments,
 }: Props) => {
   const membersQuery = useOrgNodeMembers(orgId, open ? node?.id : undefined);
-  if (!node) return null;
+  // Keep the Sheet mounted across the open -> closed transition. Radix cleans up
+  // its body scroll-lock and `pointer-events` styles on close; unmounting the
+  // Sheet in the same commit as `open` flipping to false can leave them behind
+  // (and freeze the page). Render a closed, empty Sheet when there is no node.
+  if (!node) {
+    return (
+      <Sheet open={false} onOpenChange={(o) => { if (!o) onClose(); }}>
+        <SheetContent className="hidden" />
+      </Sheet>
+    );
+  }
 
   // ---- Documents linked to this node OR any descendant ----
   const linkedDocs = documents.filter(d => d.linkedOrgNodeIds.some(id => descendantIds.has(id)));

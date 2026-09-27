@@ -22,6 +22,7 @@ const session = vi.hoisted(() => ({
   progress: vi.fn(),
   updateSettings: vi.fn(),
   detailHasDraft: false,
+  detailApprovalStatus: null as null | "PENDING" | "REVISION_REQUESTED" | "REJECTED",
   orgNodes: [] as Array<Record<string, unknown>>,
 }));
 
@@ -224,7 +225,9 @@ vi.mock("@/hooks/use-strategy-formulation", () => ({
   useRecordStrategyProgress: () => mutation(session.progress),
   useUpdateStrategyFormulationSettings: () => mutation(session.updateSettings),
   useStrategyElementDetail: () => ({
-    data: session.detailHasDraft ? { ...detail, draftVersion } : detail,
+    data: session.detailHasDraft
+      ? { ...detail, draftVersion: { ...draftVersion, approvalStatus: session.detailApprovalStatus } }
+      : detail,
     isLoading: false,
     error: null,
   }),
@@ -268,6 +271,7 @@ describe("StrategyFormulation API workspace", () => {
     session.progress.mockResolvedValue({});
     session.updateSettings.mockResolvedValue({});
     session.detailHasDraft = false;
+    session.detailApprovalStatus = null;
     session.orgNodes = [];
     vi.clearAllMocks();
   });
@@ -418,16 +422,33 @@ describe("StrategyFormulation API workspace", () => {
     }));
   });
 
-  it("exposes approval decisions only after a draft is submitted", async () => {
+  it("hides approval decisions until the server reports the draft as pending", async () => {
     session.detailHasDraft = true;
-    session.publish.mockResolvedValueOnce({ current: false, versionId: "kpi-v2" });
+    session.detailApprovalStatus = null;
+    session.permissions = ["strategy.approve"];
     renderPage();
     openTab(/KPIs & Progress/);
-    fireEvent.click(screen.getByRole("button", { name: /Log progress/ }));
+    fireEvent.click(screen.getByRole("button", { name: /View KPI/ }));
     const drawer = await screen.findByRole("dialog");
-    expect(within(drawer).queryByRole("button", { name: "Approve" })).not.toBeInTheDocument();
-    fireEvent.click(within(drawer).getByRole("button", { name: /Submit for publication/ }));
-    fireEvent.click(await within(drawer).findByRole("button", { name: "Approve" }));
+    expect(within(drawer).queryByRole("button", { name: /Approve/ })).not.toBeInTheDocument();
+    expect(within(drawer).queryByRole("button", { name: /Submit for publication/ })).not.toBeInTheDocument();
+  });
+
+  it("shows approval decisions when the server reports a pending draft", async () => {
+    session.detailHasDraft = true;
+    session.detailApprovalStatus = "PENDING";
+    session.permissions = ["strategy.approve"];
+    renderPage();
+    openTab(/KPIs & Progress/);
+    fireEvent.click(screen.getByRole("button", { name: /View KPI/ }));
+    const drawer = await screen.findByRole("dialog");
+    expect(within(drawer).getByRole("button", { name: /Approve/ })).toBeInTheDocument();
+    expect(within(drawer).getByRole("button", { name: /Request revision/ })).toBeInTheDocument();
+    expect(within(drawer).queryByRole("button", { name: /Submit for publication/ })).not.toBeInTheDocument();
+
+    fireEvent.click(within(drawer).getByRole("button", { name: /Approve/ }));
+    const modal = await screen.findByRole("dialog", { name: /Approve strategy version/ });
+    fireEvent.click(within(modal).getByRole("button", { name: "Confirm decision" }));
 
     await waitFor(() => expect(session.decide).toHaveBeenCalledWith({
       elementId: "kpi-1",
@@ -436,7 +457,29 @@ describe("StrategyFormulation API workspace", () => {
     }));
   });
 
+  it("requires comments when requesting a revision", async () => {
+    session.detailHasDraft = true;
+    session.detailApprovalStatus = "PENDING";
+    session.permissions = ["strategy.approve"];
+    renderPage();
+    openTab(/KPIs & Progress/);
+    fireEvent.click(screen.getByRole("button", { name: /View KPI/ }));
+    const drawer = await screen.findByRole("dialog");
+    fireEvent.click(within(drawer).getByRole("button", { name: /Request revision/ }));
+    const modal = await screen.findByRole("dialog", { name: /Request revisions/ });
+    const confirm = within(modal).getByRole("button", { name: "Confirm decision" });
+    expect(confirm).toBeDisabled();
+    fireEvent.change(within(modal).getByLabelText(/Comments/), { target: { value: "Clarify the target" } });
+    fireEvent.click(confirm);
+    await waitFor(() => expect(session.decide).toHaveBeenCalledWith({
+      elementId: "kpi-1",
+      versionId: "kpi-v2",
+      body: { decision: "REQUEST_REVISION", comments: "Clarify the target" },
+    }));
+  });
+
   it("updates publication settings through the settings dialog", async () => {
+    session.permissions = ["strategy.contribute", "organization.manage"];
     renderPage();
     fireEvent.click(screen.getByRole("button", { name: /Settings/ }));
     const dialog = await screen.findByRole("dialog");

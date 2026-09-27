@@ -60,11 +60,13 @@ const StrategyFormulation = () => {
   const canView = hasModule("GOVERNANCE");
 
   // Question 2: can the user MUTATE? (elevated SoD permissions)
+  // Strict Segregation of Duties: authoring, approving and module settings are
+  // three distinct capabilities. Never collapse them into one `canManage` flag.
   const canContribute =
     permissions.includes("strategy.contribute") || permissions.includes("organization.manage");
   const canApprove =
     permissions.includes("strategy.approve") || permissions.includes("organization.manage");
-  const canManage = canContribute || canApprove;
+  const canManageSettings = permissions.includes("organization.manage");
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get("tab");
   const activeTab: Section = isSection(requestedTab) ? requestedTab : "overview";
@@ -79,8 +81,8 @@ const StrategyFormulation = () => {
   const settingsQuery = useStrategyFormulationSettings(canView ? orgId : undefined);
   const orgNodesQuery = useOrgNodes(canContribute ? orgId : undefined);
 
-  const changeTab = (value: string) => {
-    setSearchParams(value === "overview" ? {} : { tab: value });
+  const changeTab = (value: string, params?: Record<string, string>) => {
+    setSearchParams(value === "overview" ? {} : { tab: value, ...params });
   };
   const openCreate = (type: StrategyElementType = "PILLAR") => {
     setCreateType(type);
@@ -92,9 +94,10 @@ const StrategyFormulation = () => {
     insights: insightsQuery.data,
     loading: treeQuery.isPending || summaryQuery.isPending || insightsQuery.isPending,
     error: treeQuery.error ?? summaryQuery.error ?? insightsQuery.error,
-    canManage,
+    canManage: canContribute,
     onOpen: setSelectedElementId,
     onNew: openCreate,
+    onNavigateTab: changeTab,
   };
 
   return (
@@ -115,10 +118,10 @@ const StrategyFormulation = () => {
             <Button asChild variant="outline">
               <Link to="/governance/strategy-assessment"><ClipboardCheck /> Go to assessment</Link>
             </Button>
-            {canManage && settingsQuery.data && (
+            {canManageSettings && settingsQuery.data && (
               <Button variant="outline" onClick={() => setSettingsOpen(true)}><Settings2 /> Settings</Button>
             )}
-            {canManage && <Button variant="brand" onClick={() => openCreate()}><Plus /> New element</Button>}
+            {canContribute && <Button variant="brand" onClick={() => openCreate()}><Plus /> New element</Button>}
           </>
         }
       />
@@ -190,7 +193,8 @@ const StrategyFormulation = () => {
           elementId={selectedElementId}
           open={!!selectedElementId}
           onOpenChange={(open) => !open && setSelectedElementId(null)}
-          canManage={canManage}
+          canContribute={canContribute}
+          canApprove={canApprove}
         />
       )}
     </>

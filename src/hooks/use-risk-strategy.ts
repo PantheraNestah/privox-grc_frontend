@@ -17,7 +17,6 @@ import {
 import type {
   ApprovalDecisionRequest,
   CreateRiskStrategyVersionRequest,
-  RiskStrategyConfigResponse,
   UpdateRiskStrategySettingsRequest,
 } from "@/lib/governance-types";
 
@@ -85,37 +84,21 @@ function useInvalidateRiskStrategy(orgId: string) {
     queryClient.invalidateQueries({ queryKey: riskStrategyKeys.all(orgId) });
 }
 
-/**
- * Once a version is the active one, write it straight into the "current" cache
- * entry so the UI shows the saved values immediately, then invalidate so the
- * server stays the source of truth.
- */
-function usePrimeCurrentStrategy(orgId: string) {
-  const queryClient = useQueryClient();
-  const invalidate = useInvalidateRiskStrategy(orgId);
-  return (version: RiskStrategyConfigResponse) => {
-    if (version.current) {
-      queryClient.setQueryData(riskStrategyKeys.current(orgId), version);
-    }
-    return invalidate();
-  };
-}
-
 export function useCreateRiskStrategyVersion(orgId: string) {
-  const onSaved = usePrimeCurrentStrategy(orgId);
+  const invalidate = useInvalidateRiskStrategy(orgId);
   return useMutation({
     mutationFn: (body: CreateRiskStrategyVersionRequest) =>
       createRiskStrategyVersion(orgId, body),
-    onSuccess: onSaved,
+    onSuccess: () => invalidate(),
   });
 }
 
 export function useDecideRiskStrategyVersion(orgId: string) {
-  const onSaved = usePrimeCurrentStrategy(orgId);
+  const invalidate = useInvalidateRiskStrategy(orgId);
   return useMutation({
     mutationFn: ({ configId, body }: { configId: string; body: ApprovalDecisionRequest }) =>
       decideRiskStrategyVersion(orgId, configId, body),
-    onSuccess: onSaved,
+    onSuccess: () => invalidate(),
   });
 }
 

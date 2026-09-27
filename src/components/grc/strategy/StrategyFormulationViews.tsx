@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { isAxiosError } from "axios";
+import { useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
   ArrowRight,
@@ -69,6 +70,7 @@ import {
 } from "@/hooks/use-strategy-formulation";
 import type {
   CreateStrategyElementRequest,
+  StrategyApprovalStatus,
   StrategyElementType,
   StrategyFormulationSettings,
   StrategyInsights,
@@ -104,6 +106,8 @@ interface SharedViewProps {
   canManage: boolean;
   onOpen: (elementId: string) => void;
   onNew: (type?: StrategyElementType) => void;
+  /** Switch tabs (optionally with extra query params, e.g. a status filter). */
+  onNavigateTab?: (tab: string, params?: Record<string, string>) => void;
 }
 
 function errorMessage(error: unknown, fallback: string): string {
@@ -125,7 +129,37 @@ function numericValue(value: string, label: string, required: boolean): number |
   return parsed;
 }
 
-export function StrategyStatusBadge({ status }: { status: StrategyVersionStatus }) {
+export function StrategyStatusBadge({
+  status,
+  approvalStatus,
+}: {
+  status: StrategyVersionStatus;
+  approvalStatus?: StrategyApprovalStatus;
+}) {
+  if (approvalStatus === "PENDING") {
+    return (
+      <Badge variant="outline" className="gap-1.5 border-amber-500/40 bg-amber-500/10 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
+        Pending approval
+      </Badge>
+    );
+  }
+  if (approvalStatus === "REVISION_REQUESTED") {
+    return (
+      <Badge variant="outline" className="gap-1.5 border-orange-500/40 bg-orange-500/10 text-[11px] font-medium text-orange-700 dark:text-orange-400">
+        <span className="h-1.5 w-1.5 rounded-full bg-orange-500" />
+        Revision requested
+      </Badge>
+    );
+  }
+  if (approvalStatus === "REJECTED") {
+    return (
+      <Badge variant="outline" className="gap-1.5 border-destructive/40 bg-destructive/10 text-[11px] font-medium text-destructive">
+        <span className="h-1.5 w-1.5 rounded-full bg-destructive" />
+        Rejected
+      </Badge>
+    );
+  }
   return (
     <Badge
       variant="outline"
@@ -349,7 +383,7 @@ export function StrategyOverviewView(props: SharedViewProps) {
                         <span className="block truncate text-sm font-medium text-foreground">{row.node.title}</span>
                         <span className="block text-[11px] text-muted-foreground">{row.path.join("  ›  ")}</span>
                       </span>
-                      <StrategyStatusBadge status={row.node.status} />
+                      <StrategyStatusBadge status={row.node.status} approvalStatus={row.node.approvalStatus} />
                       <ArrowRight className="h-4 w-4 text-muted-foreground" />
                     </button>
                   ))}
@@ -399,7 +433,7 @@ function TreeNodeRow({
             <span>{completion.score}% complete</span>
           </span>
         </span>
-        <StrategyStatusBadge status={row.node.status} />
+        <StrategyStatusBadge status={row.node.status} approvalStatus={row.node.approvalStatus} />
         <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
       </button>
       {row.node.children.map((child) => (
@@ -444,21 +478,34 @@ export function StrategyBlueprintView(props: SharedViewProps) {
 
 export function StrategyElementsView(props: SharedViewProps) {
   const { tree, loading, error, canManage, onOpen, onNew } = props;
+  const [searchParams] = useSearchParams();
   const [search, setSearch] = useState("");
   const [type, setType] = useState<StrategyElementType | "ALL">("ALL");
+  const requestedFilter = searchParams.get("filter");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "PUBLISHED" | "PENDING_APPROVAL" | "DRAFT">(
+    requestedFilter === "PENDING_APPROVAL" || requestedFilter === "PUBLISHED" || requestedFilter === "DRAFT"
+      ? requestedFilter
+      : "ALL",
+  );
   const rows = useMemo(() => {
     const term = search.trim().toLowerCase();
-    return flattenStrategyTree(tree).filter(
-      (row) =>
-        (type === "ALL" || row.node.type === type) &&
-        (!term || row.node.title.toLowerCase().includes(term) || row.node.description?.toLowerCase().includes(term)),
-    );
-  }, [search, tree, type]);
+    return flattenStrategyTree(tree).filter((row) => {
+      const matchesType = type === "ALL" || row.node.type === type;
+      const matchesSearch =
+        !term || row.node.title.toLowerCase().includes(term) || row.node.description?.toLowerCase().includes(term);
+      let matchesStatus = true;
+      if (statusFilter === "PUBLISHED") matchesStatus = row.node.status === "PUBLISHED";
+      else if (statusFilter === "PENDING_APPROVAL") matchesStatus = row.node.approvalStatus === "PENDING";
+      else if (statusFilter === "DRAFT")
+        matchesStatus = row.node.status === "DRAFT" && row.node.approvalStatus !== "PENDING";
+      return matchesType && matchesSearch && matchesStatus;
+    });
+  }, [search, tree, type, statusFilter]);
   return (
     <QueryState loading={loading} error={error} label="strategy elements">
       <div className="space-y-4">
         <Card>
-          <CardContent className="grid gap-3 p-4 sm:grid-cols-[1fr_220px_auto] sm:items-end">
+          <CardContent className="grid gap-3 p-4 sm:grid-cols-[1fr_180px_180px_auto] sm:items-end">
             <div className="space-y-1.5">
               <Label htmlFor="strategy-search">Search elements</Label>
               <div className="relative">
@@ -473,6 +520,18 @@ export function StrategyElementsView(props: SharedViewProps) {
                 <SelectContent>
                   <SelectItem value="ALL">All element types</SelectItem>
                   {STRATEGY_TYPE_ORDER.map((value) => <SelectItem key={value} value={value}>{STRATEGY_TYPE_LABELS[value]}s</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="strategy-status-filter">Workflow status</Label>
+              <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}>
+                <SelectTrigger id="strategy-status-filter"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All statuses</SelectItem>
+                  <SelectItem value="PUBLISHED">Published</SelectItem>
+                  <SelectItem value="PENDING_APPROVAL">Pending approval</SelectItem>
+                  <SelectItem value="DRAFT">Drafts in progress</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -496,7 +555,7 @@ export function StrategyElementsView(props: SharedViewProps) {
                     <span className="mt-1 block truncate text-xs text-muted-foreground">{row.path.join("  ›  ")}</span>
                   </span>
                   <span className="hidden text-xs text-muted-foreground md:block">{formatDateRange(row.node.periodStart, row.node.periodEnd)}</span>
-                  <StrategyStatusBadge status={row.node.status} />
+                  <StrategyStatusBadge status={row.node.status} approvalStatus={row.node.approvalStatus} />
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </button>
               ))}
@@ -522,7 +581,7 @@ export function StrategyKpisView(props: SharedViewProps) {
               <CardContent className="p-5">
                 <div className="flex items-start justify-between gap-3">
                   <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-accent/10 text-brand-accent"><TrendingUp className="h-5 w-5" /></span>
-                  <StrategyStatusBadge status={node.status} />
+                  <StrategyStatusBadge status={node.status} approvalStatus={node.approvalStatus} />
                 </div>
                 <h3 className="mt-4 text-sm font-semibold text-foreground">{node.title}</h3>
                 <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{node.description || "No KPI description"}</p>
@@ -546,7 +605,7 @@ export function StrategyKpisView(props: SharedViewProps) {
 }
 
 export function StrategyInsightsView(props: SharedViewProps) {
-  const { tree, insights, loading, error, onOpen } = props;
+  const { tree, insights, loading, error, onOpen, onNavigateTab } = props;
   return (
     <QueryState loading={loading} error={error} label="strategy insights">
       <div className="grid gap-5 lg:grid-cols-3">
@@ -562,7 +621,7 @@ export function StrategyInsightsView(props: SharedViewProps) {
               <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Action required</p>
               <div className="mt-3 grid grid-cols-2 gap-3">
                 <div><p className="text-2xl font-semibold text-warn">{insights?.outstandingDraftCount ?? "—"}</p><p className="text-[11px] text-muted-foreground">Outstanding drafts</p></div>
-                <div><p className="text-2xl font-semibold text-brand-accent">{insights?.pendingApprovalCount ?? "—"}</p><p className="text-[11px] text-muted-foreground">Pending approval</p></div>
+                <button type="button" onClick={() => onNavigateTab?.("elements", { filter: "PENDING_APPROVAL" })} className="rounded-md text-left transition hover:bg-brand-accent/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"><p className="text-2xl font-semibold text-brand-accent">{insights?.pendingApprovalCount ?? "—"}</p><p className="flex items-center gap-1 text-[11px] text-muted-foreground">Pending approval <ArrowRight className="h-3 w-3" /></p></button>
               </div>
             </div>
             <div className="rounded-xl border p-5 sm:col-span-2">
@@ -784,7 +843,7 @@ function VersionTimeline({ versions, onSelect, selectedId }: { versions: Strateg
       {versions.map((version, index) => (
         <button key={version.versionId} type="button" onClick={() => onSelect(version.versionId)} className={cn("relative flex w-full gap-3 pb-4 text-left last:pb-0", selectedId === version.versionId && "text-brand-accent")}>
           <span className="relative flex w-5 shrink-0 justify-center"><span className={cn("relative z-10 mt-1.5 h-2.5 w-2.5 rounded-full ring-4 ring-background", version.current ? "bg-success" : version.status === "DRAFT" ? "bg-warn" : "bg-muted-foreground")} />{index < versions.length - 1 && <span className="absolute bottom-0 top-4 w-px bg-border" />}</span>
-          <span className="min-w-0 flex-1"><span className="flex items-center gap-2"><span className="text-sm font-medium text-foreground">Version {version.version}</span><StrategyStatusBadge status={version.status} />{version.current && <span className="text-[11px] font-medium text-success">Current</span>}</span><span className="mt-1 block text-xs text-muted-foreground">{version.title}</span><span className="mt-1 block text-[11px] text-muted-foreground">{new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(version.versionCreatedAt))}</span></span>
+          <span className="min-w-0 flex-1"><span className="flex items-center gap-2"><span className="text-sm font-medium text-foreground">Version {version.version}</span><StrategyStatusBadge status={version.status} approvalStatus={version.approvalStatus} />{version.current && <span className="text-[11px] font-medium text-success">Current</span>}</span><span className="mt-1 block text-xs text-muted-foreground">{version.title}</span><span className="mt-1 block text-[11px] text-muted-foreground">{new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(version.versionCreatedAt))}</span></span>
         </button>
       ))}
     </div>
@@ -796,13 +855,15 @@ export function StrategyElementDetailSheet({
   elementId,
   open,
   onOpenChange,
-  canManage,
+  canContribute,
+  canApprove,
 }: {
   orgId: string;
   elementId: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  canManage: boolean;
+  canContribute: boolean;
+  canApprove: boolean;
 }) {
   const detailQuery = useStrategyElementDetail(orgId, open ? elementId ?? undefined : undefined);
   const historyQuery = useStrategyVersionHistory(orgId, open ? elementId ?? undefined : undefined);
@@ -820,7 +881,10 @@ export function StrategyElementDetailSheet({
   const [unit, setUnit] = useState("");
   const [periodStart, setPeriodStart] = useState("");
   const [periodEnd, setPeriodEnd] = useState("");
-  const [pendingApprovalVersionId, setPendingApprovalVersionId] = useState<string>();
+  // Approver decision modal state
+  const [decisionModalOpen, setDecisionModalOpen] = useState(false);
+  const [activeDecision, setActiveDecision] = useState<"APPROVE" | "REJECT" | "REQUEST_REVISION">("APPROVE");
+  const [decisionComments, setDecisionComments] = useState("");
   const initializedElementId = useRef<string>();
   const detail = detailQuery.data;
   const source = detail?.draftVersion ?? detail?.currentVersion;
@@ -829,7 +893,6 @@ export function StrategyElementDetailSheet({
     initializedElementId.current = detail.id;
     setSelectedVersionId(undefined);
     setEditing(false);
-    setPendingApprovalVersionId(undefined);
     setTitle(source?.title ?? "");
     setDescription(source?.description ?? "");
     setOutcomeSummary(source?.outcomeSummary ?? "");
@@ -838,6 +901,15 @@ export function StrategyElementDetailSheet({
     setPeriodStart(source?.periodStart ?? "");
     setPeriodEnd(source?.periodEnd ?? "");
   }, [detail, source]);
+
+  // Server-authoritative workflow state. Never keep this in component state:
+  // it must survive sheet closes, page reloads and a different user signing in.
+  const draft = detail?.draftVersion;
+  const isPendingApproval = draft?.approvalStatus === "PENDING";
+  const isRevisionRequested = draft?.approvalStatus === "REVISION_REQUESTED";
+  const isRejected = draft?.approvalStatus === "REJECTED";
+  const isUnsubmittedDraft = !!draft && !isPendingApproval && !isRevisionRequested && !isRejected;
+
   const saveVersion = async () => {
     if (!elementId || !title.trim()) { toast.error("Element title required"); return; }
     if (!validPeriod(periodStart, periodEnd)) { toast.error("Period end must be on or after period start"); return; }
@@ -855,13 +927,31 @@ export function StrategyElementDetailSheet({
   };
   const publishDraft = async () => {
     if (!elementId || !detail?.draftVersion) return;
-    try { const result = await publish.mutateAsync({ elementId, versionId: detail.draftVersion.id }); if (!result.current) setPendingApprovalVersionId(result.versionId); toast.success(result.current ? "Version published" : "Version submitted for approval"); }
-    catch (error) { toast.error(errorMessage(error, "Failed to publish version")); }
+    try {
+      const result = await publish.mutateAsync({ elementId, versionId: detail.draftVersion.id });
+      toast.success(result.current ? "Version published" : "Version submitted for approval");
+    } catch (error) { toast.error(errorMessage(error, "Failed to publish version")); }
   };
-  const recordDecision = async (value: "APPROVE" | "REJECT" | "REQUEST_REVISION") => {
-    if (!elementId || !detail?.draftVersion) return;
-    try { await decision.mutateAsync({ elementId, versionId: detail.draftVersion.id, body: { decision: value, comments: null } }); setPendingApprovalVersionId(undefined); toast.success(value === "APPROVE" ? "Version approved and published" : value === "REJECT" ? "Version rejected" : "Revision requested"); }
-    catch (error) { toast.error(errorMessage(error, "Failed to record approval decision")); }
+  const openDecision = (value: "APPROVE" | "REJECT" | "REQUEST_REVISION") => {
+    setActiveDecision(value);
+    setDecisionComments("");
+    setDecisionModalOpen(true);
+  };
+  const submitDecision = async () => {
+    if (!elementId || !draft) return;
+    if (activeDecision !== "APPROVE" && !decisionComments.trim()) {
+      toast.error("Comments are required for this decision");
+      return;
+    }
+    try {
+      await decision.mutateAsync({
+        elementId,
+        versionId: draft.id,
+        body: { decision: activeDecision, comments: decisionComments.trim() || null },
+      });
+      setDecisionModalOpen(false);
+      toast.success(activeDecision === "APPROVE" ? "Version approved and published" : activeDecision === "REJECT" ? "Version rejected" : "Revision requested");
+    } catch (error) { toast.error(errorMessage(error, "Failed to record approval decision")); }
   };
   const archiveElement = async () => {
     if (!elementId) return;
@@ -869,22 +959,77 @@ export function StrategyElementDetailSheet({
     catch (error) { toast.error(errorMessage(error, "Failed to archive element")); }
   };
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="overflow-y-auto sm:max-w-xl">
-        <SheetHeader><SheetTitle className="pr-8">{detail?.type ? STRATEGY_TYPE_LABELS[detail.type] : "Strategy element"}</SheetTitle><SheetDescription>Server-authoritative element, immutable versions and lifecycle actions.</SheetDescription></SheetHeader>
-        {detailQuery.isLoading ? <div className="mt-6"><ListSkeleton label="element detail" rows={3} /></div> : detailQuery.error || !detail ? <div className="mt-6"><ErrorState title="Couldn't load element" message={errorMessage(detailQuery.error, "The element may be outside your assigned scope.")} /></div> : (
-          <div className="mt-6 space-y-5">
-            <div className="flex flex-wrap items-center gap-2"><StrategyTypeBadge type={detail.type} />{detail.currentVersion && <StrategyStatusBadge status={detail.currentVersion.status} />}{detail.draftVersion && <Badge variant="outline" className="border-brand-accent/40 bg-brand-accent/10 text-brand-accent">Draft v{detail.draftVersion.version}</Badge>}</div>
-            <div className="rounded-xl border bg-muted/25 p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-lg font-semibold text-foreground">{source?.title ?? "Untitled element"}</p><p className="mt-1 text-sm text-muted-foreground">{source?.description || "No description provided."}</p></div>{canManage && !detail.draftVersion && !editing && <Button size="sm" variant="outline" onClick={() => setEditing(true)}><FileClock /> New version</Button>}</div></div>
-            {editing ? <div className="space-y-3 rounded-xl border border-brand-accent/30 bg-brand-accent/5 p-4"><div className="space-y-1.5"><Label htmlFor="version-title">Title *</Label><Input id="version-title" value={title} onChange={(event) => setTitle(event.target.value)} /></div><div className="space-y-1.5"><Label htmlFor="version-description">Description</Label><Textarea id="version-description" value={description} onChange={(event) => setDescription(event.target.value)} /></div>{detail.type === "ACTIVITY" && <div className="space-y-1.5"><Label htmlFor="version-outcome">Outcome summary</Label><Textarea id="version-outcome" value={outcomeSummary} onChange={(event) => setOutcomeSummary(event.target.value)} /></div>}{["ACTIVITY", "KPI"].includes(detail.type) && <div className="grid grid-cols-2 gap-3"><div className="space-y-1.5"><Label htmlFor="version-target">Target</Label><Input id="version-target" type="number" value={targetValue} onChange={(event) => setTargetValue(event.target.value)} /></div><div className="space-y-1.5"><Label htmlFor="version-unit">Unit</Label><Input id="version-unit" value={unit} onChange={(event) => setUnit(event.target.value)} /></div></div>}{["INITIATIVE", "ACTIVITY", "KPI"].includes(detail.type) && <div className="grid grid-cols-2 gap-3"><div className="space-y-1.5"><Label htmlFor="version-period-start">Period start</Label><Input id="version-period-start" type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} /></div><div className="space-y-1.5"><Label htmlFor="version-period-end">Period end</Label><Input id="version-period-end" type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} /></div></div>}<div className="flex justify-end gap-2"><Button variant="ghost" onClick={() => setEditing(false)}>Cancel</Button><Button variant="brand" onClick={saveVersion} disabled={createVersion.isPending}>{createVersion.isPending ? "Saving…" : "Create draft"}</Button></div></div> : null}
-            <div className="grid grid-cols-2 gap-3 text-xs"><div className="rounded-lg border p-3"><p className="text-muted-foreground">Current version</p><p className="mt-1 font-medium text-foreground">{detail.currentVersion ? `v${detail.currentVersion.version} · ${detail.currentVersion.status.toLowerCase()}` : "Not published"}</p></div><div className="rounded-lg border p-3"><p className="text-muted-foreground">Draft version</p><p className="mt-1 font-medium text-foreground">{detail.draftVersion ? `v${detail.draftVersion.version}` : "None"}</p></div></div>
-            {canManage && detail.draftVersion && !editing && <div className="rounded-xl border border-warn/30 bg-warn/5 p-4"><p className="text-sm font-semibold text-foreground">Draft workflow</p><p className="mt-1 text-xs text-muted-foreground">{pendingApprovalVersionId === detail.draftVersion.id ? "This draft is awaiting an approval decision." : "Submit this draft to begin the publication workflow."}</p><div className="mt-3 flex flex-wrap gap-2">{pendingApprovalVersionId === detail.draftVersion.id ? <><Button size="sm" variant="brand" onClick={() => recordDecision("APPROVE")} disabled={decision.isPending}><CheckCircle2 /> Approve</Button><Button size="sm" variant="outline" onClick={() => recordDecision("REQUEST_REVISION")} disabled={decision.isPending}><History /> Request revision</Button><Button size="sm" variant="outline" onClick={() => recordDecision("REJECT")} disabled={decision.isPending}><XCircle /> Reject</Button></> : <Button size="sm" variant="brand" onClick={publishDraft} disabled={publish.isPending}><Send /> {publish.isPending ? "Submitting…" : "Submit for publication"}</Button>}</div></div>}
-            {detail.type === "KPI" && <KpiProgressPanel orgId={orgId} elementId={detail.id} target={detail.currentVersion?.targetValue ?? null} unit={detail.currentVersion?.unit ?? null} canManage={canManage} />}
-            <div className="grid gap-5 md:grid-cols-2"><div><div className="mb-3 flex items-center gap-2"><History className="h-4 w-4 text-brand-accent" /><p className="text-sm font-semibold text-foreground">Version history</p></div>{historyQuery.error ? <p className="text-xs text-destructive">{errorMessage(historyQuery.error, "Failed to load version history")}</p> : <VersionTimeline versions={historyQuery.data ?? []} onSelect={setSelectedVersionId} selectedId={selectedVersionId} />}</div><div><div className="mb-3 flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-brand-accent" /><p className="text-sm font-semibold text-foreground">Selected version</p></div>{versionQuery.isLoading ? <p className="text-xs text-muted-foreground">Loading exact version…</p> : versionQuery.error ? <p className="text-xs text-destructive">{errorMessage(versionQuery.error, "Failed to load the exact version")}</p> : versionQuery.data ? <div className="rounded-lg border p-3 text-xs"><p className="font-medium text-foreground">Version {versionQuery.data.version} · {versionQuery.data.status}</p><p className="mt-2 text-muted-foreground">{versionQuery.data.description || "No description"}</p><p className="mt-2 text-muted-foreground">Created {new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(versionQuery.data.versionCreatedAt))}</p></div> : <p className="text-xs text-muted-foreground">Select a version to inspect its exact stored value.</p>}</div></div>
-            {canManage && detail.currentVersion?.current && <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-semibold text-foreground">Archive element</p><p className="mt-1 text-xs text-muted-foreground">The stable element and full version history remain available.</p></div><Button size="sm" variant="outline" className="border-destructive/40 text-destructive hover:bg-destructive/10" onClick={archiveElement} disabled={archive.isPending}>{archive.isPending ? "Archiving…" : "Archive"}</Button></div></div>}
+    <>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent className="overflow-y-auto sm:max-w-xl">
+          <SheetHeader><SheetTitle className="pr-8">{detail?.type ? STRATEGY_TYPE_LABELS[detail.type] : "Strategy element"}</SheetTitle><SheetDescription>Server-authoritative element, immutable versions and lifecycle actions.</SheetDescription></SheetHeader>
+          {detailQuery.isLoading ? <div className="mt-6"><ListSkeleton label="element detail" rows={3} /></div> : detailQuery.error || !detail ? <div className="mt-6"><ErrorState title="Couldn't load element" message={errorMessage(detailQuery.error, "The element may be outside your assigned scope.")} /></div> : (
+            <div className="mt-6 space-y-5">
+              <div className="flex flex-wrap items-center gap-2"><StrategyTypeBadge type={detail.type} />{detail.currentVersion && <StrategyStatusBadge status={detail.currentVersion.status} approvalStatus={detail.currentVersion.approvalStatus} />}{detail.draftVersion && <StrategyStatusBadge status={detail.draftVersion.status} approvalStatus={detail.draftVersion.approvalStatus} />}</div>
+              <div className="rounded-xl border bg-muted/25 p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-lg font-semibold text-foreground">{source?.title ?? "Untitled element"}</p><p className="mt-1 text-sm text-muted-foreground">{source?.description || "No description provided."}</p></div>{canContribute && !detail.draftVersion && !editing && <Button size="sm" variant="outline" onClick={() => setEditing(true)}><FileClock /> New version</Button>}</div></div>
+              {editing ? <div className="space-y-3 rounded-xl border border-brand-accent/30 bg-brand-accent/5 p-4"><div className="space-y-1.5"><Label htmlFor="version-title">Title *</Label><Input id="version-title" value={title} onChange={(event) => setTitle(event.target.value)} /></div><div className="space-y-1.5"><Label htmlFor="version-description">Description</Label><Textarea id="version-description" value={description} onChange={(event) => setDescription(event.target.value)} /></div>{detail.type === "ACTIVITY" && <div className="space-y-1.5"><Label htmlFor="version-outcome">Outcome summary</Label><Textarea id="version-outcome" value={outcomeSummary} onChange={(event) => setOutcomeSummary(event.target.value)} /></div>}{["ACTIVITY", "KPI"].includes(detail.type) && <div className="grid grid-cols-2 gap-3"><div className="space-y-1.5"><Label htmlFor="version-target">Target</Label><Input id="version-target" type="number" value={targetValue} onChange={(event) => setTargetValue(event.target.value)} /></div><div className="space-y-1.5"><Label htmlFor="version-unit">Unit</Label><Input id="version-unit" value={unit} onChange={(event) => setUnit(event.target.value)} /></div></div>}{["INITIATIVE", "ACTIVITY", "KPI"].includes(detail.type) && <div className="grid grid-cols-2 gap-3"><div className="space-y-1.5"><Label htmlFor="version-period-start">Period start</Label><Input id="version-period-start" type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} /></div><div className="space-y-1.5"><Label htmlFor="version-period-end">Period end</Label><Input id="version-period-end" type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} /></div></div>}<div className="flex justify-end gap-2"><Button variant="ghost" onClick={() => setEditing(false)}>Cancel</Button><Button variant="brand" onClick={saveVersion} disabled={createVersion.isPending}>{createVersion.isPending ? "Saving…" : "Create draft"}</Button></div></div> : null}
+              <div className="grid grid-cols-2 gap-3 text-xs"><div className="rounded-lg border p-3"><p className="text-muted-foreground">Current version</p><p className="mt-1 font-medium text-foreground">{detail.currentVersion ? `v${detail.currentVersion.version} · ${detail.currentVersion.status.toLowerCase()}` : "Not published"}</p></div><div className="rounded-lg border p-3"><p className="text-muted-foreground">Draft version</p><p className="mt-1 font-medium text-foreground">{detail.draftVersion ? `v${detail.draftVersion.version} · ${(detail.draftVersion.approvalStatus ?? "in preparation").toLowerCase().replace("_", " ")}` : "None"}</p></div></div>
+              {draft && !editing && (
+                <div className="space-y-3 rounded-xl border border-warn/30 bg-warn/5 p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-semibold text-foreground">Draft workflow (v{draft.version})</p>
+                    <StrategyStatusBadge status={draft.status} approvalStatus={draft.approvalStatus} />
+                  </div>
+                  {isPendingApproval && canApprove && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">This draft is awaiting your approval decision before publication.</p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Button size="sm" variant="brand" onClick={() => openDecision("APPROVE")} disabled={decision.isPending}><CheckCircle2 /> Approve &amp; Publish</Button>
+                        <Button size="sm" variant="outline" onClick={() => openDecision("REQUEST_REVISION")} disabled={decision.isPending}><History /> Request revision</Button>
+                        <Button size="sm" variant="outline" className="border-destructive/40 text-destructive hover:bg-destructive/10" onClick={() => openDecision("REJECT")} disabled={decision.isPending}><XCircle /> Reject</Button>
+                      </div>
+                    </div>
+                  )}
+                  {isPendingApproval && !canApprove && (
+                    <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs">
+                      <p className="font-medium text-amber-700 dark:text-amber-300">Submitted for approval</p>
+                      <p className="mt-1 text-muted-foreground">Awaiting review by a Governance Approver. The draft is locked while in review.</p>
+                    </div>
+                  )}
+                  {(isRevisionRequested || isRejected) && (
+                    <div className={cn("rounded-lg border p-3 text-xs", isRejected ? "border-destructive/20 bg-destructive/10" : "border-orange-500/20 bg-orange-500/10")}>
+                      <p className={cn("font-medium", isRejected ? "text-destructive" : "text-orange-700 dark:text-orange-300")}>{isRejected ? "Rejected by approver" : "Revisions requested by approver"}</p>
+                      <p className="mt-1 text-muted-foreground">{isRejected ? "Update the element and create a new draft version to re-submit." : "Address the feedback and re-submit this draft."}</p>
+                      {canContribute && <Button size="sm" variant="outline" className="mt-2" onClick={() => setEditing(true)}><FileClock /> Edit &amp; re-submit</Button>}
+                    </div>
+                  )}
+                  {isUnsubmittedDraft && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">{canContribute ? "Submit this draft to begin the governance approval workflow." : "This draft has not yet been submitted for publication."}</p>
+                      {canContribute && <div className="mt-3"><Button size="sm" variant="brand" onClick={publishDraft} disabled={publish.isPending}><Send /> {publish.isPending ? "Submitting…" : "Submit for publication"}</Button></div>}
+                    </div>
+                  )}
+                </div>
+              )}
+              {detail.type === "KPI" && <KpiProgressPanel orgId={orgId} elementId={detail.id} target={detail.currentVersion?.targetValue ?? null} unit={detail.currentVersion?.unit ?? null} canManage={canContribute} />}
+              <div className="grid gap-5 md:grid-cols-2"><div><div className="mb-3 flex items-center gap-2"><History className="h-4 w-4 text-brand-accent" /><p className="text-sm font-semibold text-foreground">Version history</p></div>{historyQuery.error ? <p className="text-xs text-destructive">{errorMessage(historyQuery.error, "Failed to load version history")}</p> : <VersionTimeline versions={historyQuery.data ?? []} onSelect={setSelectedVersionId} selectedId={selectedVersionId} />}</div><div><div className="mb-3 flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-brand-accent" /><p className="text-sm font-semibold text-foreground">Selected version</p></div>{versionQuery.isLoading ? <p className="text-xs text-muted-foreground">Loading exact version…</p> : versionQuery.error ? <p className="text-xs text-destructive">{errorMessage(versionQuery.error, "Failed to load the exact version")}</p> : versionQuery.data ? <div className="rounded-lg border p-3 text-xs"><p className="font-medium text-foreground">Version {versionQuery.data.version} · {versionQuery.data.status}</p><p className="mt-2 text-muted-foreground">{versionQuery.data.description || "No description"}</p><p className="mt-2 text-muted-foreground">Created {new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(versionQuery.data.versionCreatedAt))}</p></div> : <p className="text-xs text-muted-foreground">Select a version to inspect its exact stored value.</p>}</div></div>
+              {canApprove && detail.currentVersion?.current && <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-semibold text-foreground">Archive element</p><p className="mt-1 text-xs text-muted-foreground">The stable element and full version history remain available.</p></div><Button size="sm" variant="outline" className="border-destructive/40 text-destructive hover:bg-destructive/10" onClick={archiveElement} disabled={archive.isPending}>{archive.isPending ? "Archiving…" : "Archive"}</Button></div></div>}
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+
+      <Dialog open={decisionModalOpen} onOpenChange={setDecisionModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{activeDecision === "APPROVE" ? "Approve strategy version" : activeDecision === "REQUEST_REVISION" ? "Request revisions" : "Reject strategy draft"}</DialogTitle>
+            <DialogDescription>{activeDecision === "APPROVE" ? "Approving this version makes it authoritative and publishes it across the enterprise." : "Provide specific feedback on the required corrections or reasons for rejection."}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Label htmlFor="decision-comments">Comments {activeDecision !== "APPROVE" && <span className="text-destructive">*</span>}</Label>
+            <Textarea id="decision-comments" rows={4} value={decisionComments} onChange={(event) => setDecisionComments(event.target.value)} placeholder={activeDecision === "APPROVE" ? "Optional approval remarks…" : "Detail the revisions required before this version can be approved…"} />
           </div>
-        )}
-      </SheetContent>
-    </Sheet>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDecisionModalOpen(false)}>Cancel</Button>
+            <Button variant={activeDecision === "REJECT" ? "destructive" : "brand"} onClick={submitDecision} disabled={decision.isPending || (activeDecision !== "APPROVE" && !decisionComments.trim())}>{decision.isPending ? "Submitting…" : "Confirm decision"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

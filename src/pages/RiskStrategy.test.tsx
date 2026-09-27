@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AxiosError, type AxiosResponse } from "axios";
 import { HelmetProvider } from "react-helmet-async";
@@ -110,6 +110,33 @@ describe("RiskStrategy", () => {
       ),
     );
     await waitFor(() => expect(screen.queryByText("Unsaved changes")).not.toBeInTheDocument());
+  });
+
+  it("lets an approver approve a pending draft with a comment", async () => {
+    session.permissions = ["strategy.approve"];
+    const pending = { ...saved, id: "cfg-2", version: 2, current: false, approvalStatus: "PENDING" as const };
+    vi.spyOn(riskStrategyApi, "fetchRiskStrategyHistory").mockResolvedValue([pending, saved]);
+    const decide = vi
+      .spyOn(riskStrategyApi, "decideRiskStrategyVersion")
+      .mockResolvedValue({ ...pending, current: true, approvalStatus: "APPROVED" });
+    renderPage();
+
+    expect(await screen.findByText(/Draft version v2 pending approval/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Save/ })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Approve version/ }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText(/Decision comments/), {
+      target: { value: "Aligned with the enterprise risk assessment." },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: /Confirm & activate/ }));
+
+    await waitFor(() =>
+      expect(decide).toHaveBeenCalledWith("org-1", "cfg-2", {
+        decision: "APPROVE",
+        comments: "Aligned with the enterprise risk assessment.",
+      }),
+    );
   });
 
   it("asks for confirmation before resetting to defaults", async () => {
