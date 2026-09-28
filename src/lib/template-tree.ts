@@ -1,5 +1,5 @@
 import type { OrgNodeType } from "./governance-types";
-import type { OrgTreeViewNode } from "@/components/grc/OrgTreeGraph";
+import type { OrgTreeViewNode } from "@/components/grc/org-tree-view";
 
 export const NODE_TYPES: OrgNodeType[] = [
   "GROUP",

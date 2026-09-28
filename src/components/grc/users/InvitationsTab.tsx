@@ -25,7 +25,9 @@ import {
 } from "@/hooks/use-organization";
 import type { Invitation } from "@/lib/auth-types";
 import { cn } from "@/lib/utils";
-import { EmptyRow, StatusBadge, TableCard, TableSkeleton, errorMessage } from "./shared";
+import { EmptyRow, StatusBadge, TableCard, TableSkeleton } from "./shared";
+
+import { errorMessage } from "./user-management-utils";
 import { formatDate } from "./user-management-utils";
 
 type StatusFilter = "all" | InvitationStatus;

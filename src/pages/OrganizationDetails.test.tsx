@@ -14,8 +14,10 @@ vi.mock("@/contexts/AuthContext", () => ({
 
 // React Flow needs real layout; the map is exercised through this stand-in.
 vi.mock("@/components/grc/OrgTreeGraph", () => ({
-  flatOrgNodesToView: (rows: unknown[]) => rows,
   OrgTreeGraph: ({ roots }: { roots: unknown[] }) => <div data-testid="graph">{roots.length} roots</div>,
+}));
+vi.mock("@/components/grc/org-tree-view", () => ({
+  flatOrgNodesToView: (rows: unknown[]) => rows,
 }));
 
 const details = {

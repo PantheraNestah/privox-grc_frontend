@@ -14,7 +14,9 @@ import { ErrorState } from "@/components/grc/common/states";
 import { useMemberTransition, useOrganizationMembers } from "@/hooks/use-organization";
 import type { OrganizationMember } from "@/lib/auth-types";
 import { MembersTable } from "./MembersTable";
-import { EmptyRow, TableCard, TableSkeleton, errorMessage } from "./shared";
+import { EmptyRow, TableCard, TableSkeleton } from "./shared";
+
+import { errorMessage } from "./user-management-utils";
 import { isInactiveStatus } from "./user-management-utils";
 
 export function UsersTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean }) {

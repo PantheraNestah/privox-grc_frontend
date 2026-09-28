@@ -16,7 +16,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PageHeader, TENANT_HOME } from "@/components/grc/common/PageHeader";
+import { PageHeader } from "@/components/grc/common/PageHeader";
+import { TENANT_HOME } from "@/components/grc/common/home-links";
 import { EmptyState } from "@/components/grc/common/states";
 import { DocumentDialog, type DocumentDialogState } from "@/components/grc/documents/DocumentDialog";
 import { DocumentFiltersBar } from "@/components/grc/documents/DocumentFilters";

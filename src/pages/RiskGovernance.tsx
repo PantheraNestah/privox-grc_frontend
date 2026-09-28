@@ -40,12 +40,11 @@ import {
   type OrgNode, type OrgNodeType, type OrgOffering, type OfferingKind, type OrgTypeDef,
 } from "@/data/orgStore";
 import { loadDocuments, type PolicyDocument } from "@/data/documentsStore";
-import { loadStrategy, type StrategyConfig } from "@/data/strategyStore";
-import { loadAssessments, type InitiativeAssessment } from "@/data/assessmentStore";
 import { loadUsers, type AppUser } from "@/data/userStore";
 import { useActiveUser } from "@/hooks/use-active-user";
 import { useAuth } from "@/contexts/AuthContext";
-import { PageHeader, TENANT_HOME } from "@/components/grc/common/PageHeader";
+import { PageHeader } from "@/components/grc/common/PageHeader";
+import { TENANT_HOME } from "@/components/grc/common/home-links";
 import { EmptyState, ErrorState } from "@/components/grc/common/states";
 import { TemplatePicker } from "@/components/grc/governance/TemplatePicker";
 import { OrgNodeInsightsPanel } from "@/components/grc/OrgNodeInsightsPanel";
@@ -53,7 +52,14 @@ import { OrgMapGraph } from "@/components/grc/OrgMapGraph";
 import {
   useOrgNodes, useCreateOrgNode, useUpdateOrgNode, useMoveOrgNode, useSoftDeleteOrgNode,
 } from "@/hooks/use-org-nodes";
+import { useStrategyTree } from "@/hooks/use-strategy-formulation";
+import type { StrategyTreeNode } from "@/lib/strategy-formulation-types";
 import { fromOrgNodeResponse, toCreateOrgNodeRequest, toUpdateOrgNodeRequest } from "@/lib/org-node-mapping";
+import {
+  computeOrgNodeStrategyCounts,
+  computeOrgNodeStrategyRollup,
+  emptyOrgNodeStrategyRollup,
+} from "@/lib/org-node-rollup";
 import { downloadTextFile, orgNodesToCsv, orgNodesToJson } from "@/lib/orgTreeExport";
 
 // Hierarchy types are now admin-managed; see the "Hierarchy Types" card.
@@ -67,6 +73,9 @@ interface NodeFormState {
   lineOfDefense?: 1 | 2 | 3;
   offerings: OrgOffering[];
 }
+
+const EMPTY_STRATEGY_TREE: StrategyTreeNode[] = [];
+const EMPTY_NODE_ID_SET: Set<string> = new Set();
 
 const emptyForm = (parentId: string | null = null, type: OrgNodeType = "company"): NodeFormState => ({
   name: "", type, parentId, description: "", offerings: [],
@@ -85,6 +94,12 @@ const RiskGovernance = () => {
     permissions.includes("orgnode.approve") || permissions.includes("organization.manage");
   const isAdmin = permissions.includes("organization.manage");
   const canApplyTemplates = isAdmin;
+  // Placing/ending people at a unit is a `orgnode.manage` action server-side
+  // (a leader of the unit may also do it, which the client cannot determine —
+  // a 403 is surfaced as a toast). Node approvers already move/delete units,
+  // so they are granted the editor too.
+  const canManageMembers =
+    permissions.includes("orgnode.manage") || canApprove;
   const orgNodesQuery = useOrgNodes(orgId);
   const { data: orgNodeResponses } = orgNodesQuery;
   const createNode = useCreateOrgNode(orgId ?? "");
@@ -114,9 +129,17 @@ const RiskGovernance = () => {
 
   // Roll-up data sources for the insights panel
   const [documents, setDocuments] = useState<PolicyDocument[]>([]);
-  const [strategy, setStrategy] = useState<StrategyConfig>({ pillars: [], objectives: [] });
-  const [assessments, setAssessments] = useState<InitiativeAssessment[]>([]);
   const [users, setUsers] = useState<AppUser[]>([]);
+  // Objectives and initiatives come from the strategy-formulation API, which
+  // links elements to units by orgNodeId; the local strategy/assessment stores
+  // hold no data and are not used for the roll-up. Those endpoints need the
+  // Governance module, so the request is only issued for users who can already
+  // work with the tree — otherwise everyone else would just collect a 403.
+  const canViewStrategy = canContribute || canApprove;
+  const strategyTreeQuery = useStrategyTree(canViewStrategy ? orgId : undefined);
+  // A module-level constant keeps this reference stable, so the roll-up memos
+  // below don't re-run on every render while the tree is still loading.
+  const strategyTree = strategyTreeQuery.data ?? EMPTY_STRATEGY_TREE;
 
   // Selected node for side panel
   const [insightNodeId, setInsightNodeId] = useState<string | null>(null);
@@ -127,8 +150,6 @@ const RiskGovernance = () => {
 
   useEffect(() => {
     setDocuments(loadDocuments());
-    setStrategy(loadStrategy());
-    setAssessments(loadAssessments());
     setUsers(loadUsers());
     setOrgTypes(loadOrgTypes());
     const refresh = () => setOrgTypes(loadOrgTypes());
@@ -170,17 +191,22 @@ const RiskGovernance = () => {
   }, [nodes, childrenOf]);
 
   const countsByNode = useMemo(() => {
+    const strategyCounts = computeOrgNodeStrategyCounts(strategyTree, descendantsOf);
     const map = new Map<string, { objectives: number; initiatives: number; documents: number; users: number }>();
     nodes.forEach(n => {
       const desc = descendantsOf.get(n.id) ?? new Set([n.id]);
-      const objs = strategy.objectives.filter(o => o.linkedOrgNodeIds.some(id => desc.has(id)));
-      const initiatives = objs.reduce((s, o) => s + o.initiatives.length, 0);
+      const strategy = strategyCounts.get(n.id) ?? { objectives: 0, initiatives: 0 };
       const documentsCount = documents.filter(d => d.linkedOrgNodeIds.some(id => desc.has(id))).length;
       const usersCount = users.filter(u => u.orgNodeId && desc.has(u.orgNodeId)).length;
-      map.set(n.id, { objectives: objs.length, initiatives, documents: documentsCount, users: usersCount });
+      map.set(n.id, {
+        objectives: strategy.objectives,
+        initiatives: strategy.initiatives,
+        documents: documentsCount,
+        users: usersCount,
+      });
     });
     return map;
-  }, [nodes, descendantsOf, strategy, documents, users]);
+    }, [nodes, descendantsOf, strategyTree, documents, users]);
 
 
   const roots = childrenOf.get(null) ?? [];
@@ -326,7 +352,18 @@ const RiskGovernance = () => {
   const processCount = nodes.filter(n => n.type === "process" || n.type === "subprocess").length;
 
   const insightNode = insightNodeId ? nodes.find(n => n.id === insightNodeId) ?? null : null;
-  const insightDescendants = insightNodeId ? descendantsOf.get(insightNodeId) ?? new Set([insightNodeId]) : new Set<string>();
+  const insightDescendants = useMemo(
+    () => (insightNodeId
+      ? descendantsOf.get(insightNodeId) ?? new Set([insightNodeId])
+      : EMPTY_NODE_ID_SET),
+    [insightNodeId, descendantsOf],
+  );
+  const insightRollup = useMemo(
+    () => (insightNode
+      ? computeOrgNodeStrategyRollup(strategyTree, insightDescendants)
+      : emptyOrgNodeStrategyRollup),
+    [strategyTree, insightNode, insightDescendants],
+  );
 
   return (
     <>
@@ -793,8 +830,8 @@ const RiskGovernance = () => {
         onClose={() => setInsightNodeId(null)}
         descendantIds={insightDescendants}
         documents={documents}
-        strategy={strategy}
-        assessments={assessments}
+        rollup={insightRollup}
+        canManageMembers={canManageMembers}
       />
     </>
   );

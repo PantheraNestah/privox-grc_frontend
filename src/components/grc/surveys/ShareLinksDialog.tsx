@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import type { Survey } from "@/data/surveyStore";
 
 /** Stable per-recipient token for the prototype (no server issuing yet). */
-export const externalToken = (surveyId: string, email: string) =>
+const externalToken = (surveyId: string, email: string) =>
   btoa(`${surveyId}:${email}`).replace(/=/g, "").slice(0, 12);
 
 function LinkRow({ label, url }: { label: string; url: string }) {

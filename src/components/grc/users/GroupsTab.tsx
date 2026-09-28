@@ -33,7 +33,9 @@ import {
   useSetGroupActive,
 } from "@/hooks/use-organization";
 import type { OrganizationGroup } from "@/lib/auth-types";
-import { EmptyRow, StatusBadge, TableCard, TableSkeleton, errorMessage } from "./shared";
+import { EmptyRow, StatusBadge, TableCard, TableSkeleton } from "./shared";
+
+import { errorMessage } from "./user-management-utils";
 import { FALLBACK_TEXT, deriveGroupCode, isInactiveStatus } from "./user-management-utils";
 
 export function GroupsTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean }) {

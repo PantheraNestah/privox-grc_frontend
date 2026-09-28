@@ -2,7 +2,6 @@ import { type ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import {
   FALLBACK_TEXT,
@@ -14,12 +13,6 @@ import {
   statusLabel,
   type PermissionDisplay,
 } from "./user-management-utils";
-
-/** Id of the signed-in organization; empty string when the session has none. */
-export function useOrganizationId() {
-  const { organization } = useAuth();
-  return organization?.id ?? "";
-}
 
 export function StatusBadge({ status, active }: { status?: string; active?: boolean }) {
   const inactive = isInactiveStatus(status, active);
@@ -165,6 +158,3 @@ export function DetailSkeleton({ label }: { label: string }) {
     </div>
   );
 }
-
-export const errorMessage = (error: unknown, fallback: string) =>
-  error instanceof Error ? error.message : fallback;

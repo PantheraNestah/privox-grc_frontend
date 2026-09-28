@@ -9,6 +9,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import { PLATFORM_HOME } from "@/components/grc/common/home-links";
 
 export interface Crumb {
   label: string;
@@ -33,11 +34,6 @@ interface PageHeaderProps {
  * Shared page heading for both portals: shadcn breadcrumb,
  * title block and a responsive action group (full-width buttons on phones).
  */
-const PLATFORM_HOME = { label: "Platform", to: "/platform/dashboard" };
-
-/** Breadcrumb root for organization-workspace pages: `<PageHeader home={TENANT_HOME} …/>`. */
-export const TENANT_HOME = { label: "Home", to: "/dashboard" };
-
 export function PageHeader({
   crumbs,
   home = PLATFORM_HOME,

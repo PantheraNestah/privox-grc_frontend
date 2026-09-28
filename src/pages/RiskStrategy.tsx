@@ -40,7 +40,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { PageHeader, TENANT_HOME } from "@/components/grc/common/PageHeader";
+import { PageHeader } from "@/components/grc/common/PageHeader";
+import { TENANT_HOME } from "@/components/grc/common/home-links";
 import { ErrorState } from "@/components/grc/common/states";
 import { AppetiteTab, ImpactTab, LikelihoodTab } from "@/components/grc/strategy/RiskScaleEditors";
 import { withScaleLevel } from "@/components/grc/strategy/risk-config";

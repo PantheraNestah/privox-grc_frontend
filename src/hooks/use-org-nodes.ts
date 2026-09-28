@@ -13,6 +13,8 @@ import {
   fetchOrgTreeSettings,
   hardDeleteOrgNode,
   moveOrgNode,
+  placeOrgNodeMember,
+  removeOrgNodeMember,
   softDeleteOrgNode,
   updateOrgNode,
   updateOrgTreeSettings,
@@ -21,6 +23,7 @@ import type {
   CloneOrgNodeTemplateRequest,
   CreateOrgNodeRequest,
   MoveOrgNodeRequest,
+  PlaceOrgNodeMemberRequest,
   UpdateOrgNodeRequest,
   UpdateOrgTreeSettingsRequest,
 } from "@/lib/governance-types";
@@ -126,6 +129,30 @@ export function useHardDeleteOrgNode(orgId: string) {
   return useMutation({
     mutationFn: (nodeId: string) => hardDeleteOrgNode(orgId, nodeId),
     onSuccess: invalidate,
+  });
+}
+
+/**
+ * Placements are scoped to a single node and never change the tree shape or
+ * any node's own fields, so only that node's member list needs refetching.
+ */
+export function usePlaceOrgNodeMember(orgId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ nodeId, body }: { nodeId: string; body: PlaceOrgNodeMemberRequest }) =>
+      placeOrgNodeMember(orgId, nodeId, body),
+    onSuccess: (_placed, { nodeId }) =>
+      queryClient.invalidateQueries({ queryKey: orgNodeKeys.members(orgId, nodeId) }),
+  });
+}
+
+export function useRemoveOrgNodeMember(orgId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ nodeId, userId }: { nodeId: string; userId: string }) =>
+      removeOrgNodeMember(orgId, nodeId, userId),
+    onSuccess: (_data, { nodeId }) =>
+      queryClient.invalidateQueries({ queryKey: orgNodeKeys.members(orgId, nodeId) }),
   });
 }
 

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import RiskGovernance from "./RiskGovernance";
 import * as orgNodes from "@/lib/orgNodes";
 import * as orgNodeTemplates from "@/lib/orgNodeTemplates";
+import * as strategyFormulation from "@/lib/strategy-formulation";
 import type { OrgNodeResponse } from "@/lib/governance-types";
 
 const auth = vi.hoisted(() => ({
@@ -213,5 +214,33 @@ describe("RiskGovernance template cloning", () => {
 
     await screen.findByText("Acme Holdings");
     expect(screen.queryByRole("button", { name: "Add from template" })).not.toBeInTheDocument();
+  });
+});
+
+describe("RiskGovernance strategy roll-up", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.spyOn(orgNodes, "fetchOrgNodes").mockResolvedValue([existingNode]);
+    vi.spyOn(strategyFormulation, "fetchStrategyTree").mockResolvedValue([]);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.clearAllMocks();
+  });
+
+  it("loads the strategy tree for a user who can work with the org tree", async () => {
+    auth.permissions = ["orgnode.contribute"];
+    renderPage();
+
+    await waitFor(() => expect(strategyFormulation.fetchStrategyTree).toHaveBeenCalledWith("org-1"));
+  });
+
+  it("skips the strategy request for a read-only user instead of collecting a 403", async () => {
+    auth.permissions = [];
+    renderPage();
+
+    expect(await screen.findByText("Read-only view")).toBeInTheDocument();
+    expect(strategyFormulation.fetchStrategyTree).not.toHaveBeenCalled();
   });
 });

@@ -589,9 +589,9 @@ export function StrategyKpisView(props: SharedViewProps) {
                   <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Target</p>
                   <p className="mt-1 text-xl font-semibold text-foreground">{node.targetValue ?? "—"} {node.unit || ""}</p>
                 </div>
-                <div className="mt-4 flex items-center justify-between gap-3">
-                  <span className="truncate text-[11px] text-muted-foreground">{path.slice(0, -1).join(" › ")}</span>
-                  <Button size="sm" variant="outline" onClick={() => onOpen(node.id)}>{canManage ? "Log progress" : "View KPI"}<ArrowRight /></Button>
+                <div className="mt-4 space-y-3">
+                  <span className="block truncate text-[11px] text-muted-foreground">{path.slice(0, -1).join(" › ")}</span>
+                  <Button size="sm" variant="outline" className="w-full" onClick={() => onOpen(node.id)}>{canManage ? "Log progress" : "View KPI"}<ArrowRight /></Button>
                 </div>
               </CardContent>
             </Card>

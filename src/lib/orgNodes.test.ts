@@ -2,8 +2,11 @@ import { api } from "./api";
 import {
   createOrgNode,
   fetchOrgNode,
+  fetchOrgNodeMembers,
   fetchOrgNodes,
   moveOrgNode,
+  placeOrgNodeMember,
+  removeOrgNodeMember,
   softDeleteOrgNode,
   updateOrgNode,
 } from "./orgNodes";
@@ -89,5 +92,35 @@ describe("softDeleteOrgNode", () => {
 
     await softDeleteOrgNode("org-1", "node-1");
     expect(api.delete).toHaveBeenCalledWith("/v1/organizations/org-1/org-nodes/node-1");
+  });
+});
+
+describe("org node members", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("fetches the people placed at a node", async () => {
+    vi.spyOn(api, "get").mockResolvedValue({ data: [{ id: "m1" }] });
+
+    await expect(fetchOrgNodeMembers("org-1", "node-1")).resolves.toEqual([{ id: "m1" }]);
+    expect(api.get).toHaveBeenCalledWith("/v1/organizations/org-1/org-nodes/node-1/members");
+  });
+
+  it("posts the user id to the members endpoint and returns the placement", async () => {
+    vi.spyOn(api, "post").mockResolvedValue({ data: { id: "m1", userId: "u1" } });
+
+    await expect(placeOrgNodeMember("org-1", "node-1", { userId: "u1" })).resolves.toEqual({
+      id: "m1",
+      userId: "u1",
+    });
+    expect(api.post).toHaveBeenCalledWith("/v1/organizations/org-1/org-nodes/node-1/members", {
+      userId: "u1",
+    });
+  });
+
+  it("deletes by user id, not by placement id", async () => {
+    vi.spyOn(api, "delete").mockResolvedValue({ data: undefined });
+
+    await removeOrgNodeMember("org-1", "node-1", "u1");
+    expect(api.delete).toHaveBeenCalledWith("/v1/organizations/org-1/org-nodes/node-1/members/u1");
   });
 });

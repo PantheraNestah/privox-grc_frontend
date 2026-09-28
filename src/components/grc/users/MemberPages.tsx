@@ -10,7 +10,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PageHeader, TENANT_HOME } from "@/components/grc/common/PageHeader";
+import { PageHeader } from "@/components/grc/common/PageHeader";
+import { TENANT_HOME } from "@/components/grc/common/home-links";
 import { ErrorState } from "@/components/grc/common/states";
 import {
   useMemberGroups,
@@ -21,14 +22,10 @@ import {
 } from "@/hooks/use-organization";
 import { useOrganizationModules } from "@/hooks/use-organization-modules";
 import type { OrganizationMember } from "@/lib/auth-types";
-import {
-  DetailField,
-  DetailSkeleton,
-  SectionCard,
-  StatusBadge,
-  errorMessage,
-  useOrganizationId,
-} from "./shared";
+import { DetailField, DetailSkeleton, SectionCard, StatusBadge } from "./shared";
+
+import { useOrganizationId } from "@/hooks/use-organization";
+import { errorMessage } from "./user-management-utils";
 import { FALLBACK_TEXT, formatDate, statusLabel } from "./user-management-utils";
 
 const MEMBERS_CRUMBS = [

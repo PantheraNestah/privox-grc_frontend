@@ -13,7 +13,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import { PageHeader, TENANT_HOME } from "@/components/grc/common/PageHeader";
+import { PageHeader } from "@/components/grc/common/PageHeader";
+import { TENANT_HOME } from "@/components/grc/common/home-links";
 import { ErrorState } from "@/components/grc/common/states";
 import { useActiveUser } from "@/hooks/use-active-user";
 import {
@@ -29,18 +30,10 @@ import {
 } from "@/hooks/use-organization";
 import { can } from "@/data/userStore";
 import type { GroupMember, OrganizationGroupDetail, OrganizationPermission } from "@/lib/auth-types";
-import {
-  DetailField,
-  DetailSkeleton,
-  EmptyRow,
-  PermissionsList,
-  SectionCard,
-  StatusBadge,
-  TableCard,
-  TableSkeleton,
-  errorMessage,
-  useOrganizationId,
-} from "./shared";
+import { DetailField, DetailSkeleton, EmptyRow, PermissionsList, SectionCard, StatusBadge, TableCard, TableSkeleton } from "./shared";
+
+import { useOrganizationId } from "@/hooks/use-organization";
+import { errorMessage } from "./user-management-utils";
 import { statusLabel } from "./user-management-utils";
 
 const GROUPS_CRUMBS = [

@@ -23,4 +23,17 @@ export default tseslint.config(
       "@typescript-eslint/no-unused-vars": "off",
     },
   },
+  {
+    // shadcn/ui primitives are vendored from upstream and deliberately export
+    // their `cva` variant maps (and sonner's `toast` singleton) next to the
+    // component. Splitting them would fork the vendored files.
+    files: ["src/components/ui/**/*.{ts,tsx}"],
+    rules: { "react-refresh/only-export-components": "off" },
+  },
+  {
+    // A context legitimately exports its provider alongside the hook that
+    // consumes it; that pair is the canonical shape of the pattern.
+    files: ["src/contexts/**/*.{ts,tsx}"],
+    rules: { "react-refresh/only-export-components": "off" },
+  },
 );

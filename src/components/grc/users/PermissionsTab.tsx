@@ -4,7 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ErrorState } from "@/components/grc/common/states";
 import { usePermissionCatalog } from "@/hooks/use-organization";
-import { EmptyRow, TableCard, TableSkeleton, errorMessage } from "./shared";
+import { EmptyRow, TableCard, TableSkeleton } from "./shared";
+
+import { errorMessage } from "./user-management-utils";
 import { FALLBACK_TEXT } from "./user-management-utils";
 
 /** Mounted only while its tab is open, so the catalogue is fetched (and cached) on demand. */

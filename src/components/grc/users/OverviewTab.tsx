@@ -5,7 +5,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/grc/common/states";
 import { useOrganizationGroups, useOrganizationMembers } from "@/hooks/use-organization";
 import { MembersTable } from "./MembersTable";
-import { EmptyRow, TableCard, TableSkeleton, errorMessage } from "./shared";
+import { EmptyRow, TableCard, TableSkeleton } from "./shared";
+
+import { errorMessage } from "./user-management-utils";
 import { isInactiveStatus } from "./user-management-utils";
 
 function StatCard({
