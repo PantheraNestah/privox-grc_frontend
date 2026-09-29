@@ -130,6 +130,33 @@ export async function reactivatePlatformOrganization(
   return data;
 }
 
+export interface RejectPlatformOrganizationRequest {
+  /** Mandatory justification recorded against the registration. */
+  reason: string;
+}
+
+/** `POST /v1/platform/organizations/{organizationId}/reject` — PENDING_VALIDATION -> REJECTED. */
+export async function rejectPlatformOrganization(
+  organizationId: string,
+  body: RejectPlatformOrganizationRequest,
+): Promise<PlatformOrganization> {
+  const { data } = await platformApi.post<PlatformOrganization>(
+    `/v1/platform/organizations/${organizationId}/reject`,
+    body,
+  );
+  return data;
+}
+
+/** `POST /v1/platform/organizations/{organizationId}/deactivate` — terminal DEACTIVATED state. */
+export async function deactivatePlatformOrganization(
+  organizationId: string,
+): Promise<PlatformOrganization> {
+  const { data } = await platformApi.post<PlatformOrganization>(
+    `/v1/platform/organizations/${organizationId}/deactivate`,
+  );
+  return data;
+}
+
 // ─── Modules ───────────────────────────────────────────────
 
 export interface PlatformModule {

@@ -78,6 +78,8 @@ describe("StrategyAssessment", () => {
   it("renders the header, viewer context and an empty state without a strategy", () => {
     renderPage();
 
+    expect(screen.getByText("Prototype module")).toBeInTheDocument();
+
     expect(screen.getByRole("heading", { name: "Performance Assessment" })).toBeInTheDocument();
     expect(screen.getByText(/Viewing as/)).toHaveTextContent("Ada Admin");
     expect(screen.getByText("No initiatives to assess")).toBeInTheDocument();

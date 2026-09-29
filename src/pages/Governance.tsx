@@ -11,7 +11,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ModuleCard } from "@/components/grc/ModuleCard";
-import { PageHeader, TENANT_HOME } from "@/components/grc/common/PageHeader";
+import { PageHeader } from "@/components/grc/common/PageHeader";
+import { TENANT_HOME } from "@/components/grc/common/home-links";
 import { GOVERNANCE_MODULES } from "@/data/governanceModules";
 import type { ModuleDef } from "@/data/modules";
 

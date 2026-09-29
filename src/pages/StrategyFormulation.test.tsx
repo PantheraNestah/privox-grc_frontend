@@ -22,7 +22,9 @@ const session = vi.hoisted(() => ({
   progress: vi.fn(),
   updateSettings: vi.fn(),
   detailHasDraft: false,
+  detailStaleDraft: false,
   detailApprovalStatus: null as null | "PENDING" | "REVISION_REQUESTED" | "REJECTED",
+  detailApprovalComments: null as string | null,
   orgNodes: [] as Array<Record<string, unknown>>,
 }));
 
@@ -225,9 +227,28 @@ vi.mock("@/hooks/use-strategy-formulation", () => ({
   useRecordStrategyProgress: () => mutation(session.progress),
   useUpdateStrategyFormulationSettings: () => mutation(session.updateSettings),
   useStrategyElementDetail: () => ({
-    data: session.detailHasDraft
-      ? { ...detail, draftVersion: { ...draftVersion, approvalStatus: session.detailApprovalStatus } }
-      : detail,
+    data: session.detailStaleDraft
+      ? {
+          ...detail,
+          currentVersion: { ...detail.currentVersion!, id: "kpi-v2", version: 2, title: "Digital adoption published" },
+          draftVersion: {
+            ...draftVersion,
+            id: "kpi-v1-draft",
+            version: 1,
+            approvalStatus: "REVISION_REQUESTED" as const,
+            approvalComments: "Stale revision comment",
+          },
+        }
+      : session.detailHasDraft
+        ? {
+            ...detail,
+            draftVersion: {
+              ...draftVersion,
+              approvalStatus: session.detailApprovalStatus,
+              approvalComments: session.detailApprovalComments,
+            },
+          }
+        : detail,
     isLoading: false,
     error: null,
   }),
@@ -271,7 +292,9 @@ describe("StrategyFormulation API workspace", () => {
     session.progress.mockResolvedValue({});
     session.updateSettings.mockResolvedValue({});
     session.detailHasDraft = false;
+    session.detailStaleDraft = false;
     session.detailApprovalStatus = null;
+    session.detailApprovalComments = null;
     session.orgNodes = [];
     vi.clearAllMocks();
   });
@@ -476,6 +499,38 @@ describe("StrategyFormulation API workspace", () => {
       versionId: "kpi-v2",
       body: { decision: "REQUEST_REVISION", comments: "Clarify the target" },
     }));
+  });
+
+  it("shows the approver's comments and a new-draft action when revisions are requested", async () => {
+    session.detailHasDraft = true;
+    session.detailApprovalStatus = "REVISION_REQUESTED";
+    session.detailApprovalComments = "Kindly review this appropriately to include specifics before we can publish.";
+    session.permissions = ["strategy.contribute"];
+    renderPage();
+    openTab(/KPIs & Progress/);
+    fireEvent.click(screen.getByRole("button", { name: /Log progress/ }));
+    const drawer = await screen.findByRole("dialog");
+
+    expect(within(drawer).getByText(/Revisions requested by approver/)).toBeInTheDocument();
+    expect(within(drawer).getByText(/Kindly review this appropriately/)).toBeInTheDocument();
+    fireEvent.click(within(drawer).getByRole("button", { name: /Revise in new draft \(v3\)/ }));
+    expect(within(drawer).getByText(/Propose Revision \(v3\)/)).toBeInTheDocument();
+    expect(within(drawer).getByRole("button", { name: "Create Revision Draft" })).toBeInTheDocument();
+  });
+
+  it("ignores a stale draft and keeps rendering the published version", async () => {
+    session.detailStaleDraft = true;
+    session.permissions = ["strategy.contribute"];
+    renderPage();
+    openTab(/KPIs & Progress/);
+    fireEvent.click(screen.getByRole("button", { name: /Log progress/ }));
+    const drawer = await screen.findByRole("dialog");
+
+    expect(within(drawer).queryByText(/Revisions requested by approver/)).not.toBeInTheDocument();
+    expect(within(drawer).queryByText(/Stale revision comment/)).not.toBeInTheDocument();
+    expect(within(drawer).queryByText("Digital adoption revised")).not.toBeInTheDocument();
+    expect(within(drawer).getByText("Digital adoption published")).toBeInTheDocument();
+    expect(within(drawer).getByRole("button", { name: /New version/ })).toBeInTheDocument();
   });
 
   it("updates publication settings through the settings dialog", async () => {

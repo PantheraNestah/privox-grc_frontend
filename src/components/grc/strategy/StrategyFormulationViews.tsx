@@ -589,9 +589,9 @@ export function StrategyKpisView(props: SharedViewProps) {
                   <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Target</p>
                   <p className="mt-1 text-xl font-semibold text-foreground">{node.targetValue ?? "—"} {node.unit || ""}</p>
                 </div>
-                <div className="mt-4 flex items-center justify-between gap-3">
-                  <span className="truncate text-[11px] text-muted-foreground">{path.slice(0, -1).join(" › ")}</span>
-                  <Button size="sm" variant="outline" onClick={() => onOpen(node.id)}>{canManage ? "Log progress" : "View KPI"}<ArrowRight /></Button>
+                <div className="mt-4 space-y-3">
+                  <span className="block truncate text-[11px] text-muted-foreground">{path.slice(0, -1).join(" › ")}</span>
+                  <Button size="sm" variant="outline" className="w-full" onClick={() => onOpen(node.id)}>{canManage ? "Log progress" : "View KPI"}<ArrowRight /></Button>
                 </div>
               </CardContent>
             </Card>
@@ -895,7 +895,13 @@ export function StrategyElementDetailSheet({
   const [decisionComments, setDecisionComments] = useState("");
   const initializedElementId = useRef<string>();
   const detail = detailQuery.data;
-  const source = detail?.draftVersion ?? detail?.currentVersion;
+  // A draft only shadows the published version when it is genuinely newer.
+  // A stale draft (draftVersion.version <= currentVersion.version) must never
+  // hide a published version or resurface an outdated revision warning.
+  const hasActiveDraft =
+    Boolean(detail?.draftVersion) &&
+    (!detail?.currentVersion || detail.draftVersion!.version > detail.currentVersion.version);
+  const source = hasActiveDraft ? detail?.draftVersion : (detail?.currentVersion ?? detail?.draftVersion);
   useEffect(() => {
     if (!detail || initializedElementId.current === detail.id) return;
     initializedElementId.current = detail.id;
@@ -912,7 +918,8 @@ export function StrategyElementDetailSheet({
 
   // Server-authoritative workflow state. Never keep this in component state:
   // it must survive sheet closes, page reloads and a different user signing in.
-  const draft = detail?.draftVersion;
+  // Stale drafts are ignored so a published version is never shadowed.
+  const draft = hasActiveDraft ? detail?.draftVersion : undefined;
   const isPendingApproval = draft?.approvalStatus === "PENDING";
   const isRevisionRequested = draft?.approvalStatus === "REVISION_REQUESTED";
   const isRejected = draft?.approvalStatus === "REJECTED";
@@ -973,10 +980,10 @@ export function StrategyElementDetailSheet({
           <SheetHeader><SheetTitle className="pr-8">{detail?.type ? STRATEGY_TYPE_LABELS[detail.type] : "Strategy element"}</SheetTitle><SheetDescription>Server-authoritative element, immutable versions and lifecycle actions.</SheetDescription></SheetHeader>
           {detailQuery.isLoading ? <div className="mt-6"><ListSkeleton label="element detail" rows={3} /></div> : detailQuery.error || !detail ? <div className="mt-6"><ErrorState title="Couldn't load element" message={errorMessage(detailQuery.error, "The element may be outside your assigned scope.")} /></div> : (
             <div className="mt-6 space-y-5">
-              <div className="flex flex-wrap items-center gap-2"><StrategyTypeBadge type={detail.type} />{detail.currentVersion && <StrategyStatusBadge status={detail.currentVersion.status} approvalStatus={detail.currentVersion.approvalStatus} />}{detail.draftVersion && <StrategyStatusBadge status={detail.draftVersion.status} approvalStatus={detail.draftVersion.approvalStatus} />}</div>
-              <div className="rounded-xl border bg-muted/25 p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-lg font-semibold text-foreground">{source?.title ?? "Untitled element"}</p><p className="mt-1 text-sm text-muted-foreground">{source?.description || "No description provided."}</p></div>{canContribute && !detail.draftVersion && !editing && <Button size="sm" variant="outline" onClick={() => setEditing(true)}><FileClock /> New version</Button>}</div></div>
-              {editing ? <div className="space-y-3 rounded-xl border border-brand-accent/30 bg-brand-accent/5 p-4"><div className="space-y-1.5"><Label htmlFor="version-title">Title *</Label><Input id="version-title" value={title} onChange={(event) => setTitle(event.target.value)} /></div><div className="space-y-1.5"><Label htmlFor="version-description">Description</Label><Textarea id="version-description" value={description} onChange={(event) => setDescription(event.target.value)} /></div>{detail.type === "ACTIVITY" && <div className="space-y-1.5"><Label htmlFor="version-outcome">Outcome summary</Label><Textarea id="version-outcome" value={outcomeSummary} onChange={(event) => setOutcomeSummary(event.target.value)} /></div>}{["ACTIVITY", "KPI"].includes(detail.type) && <div className="grid gap-3 sm:grid-cols-2"><div className="space-y-1.5"><Label htmlFor="version-target">Target</Label><Input id="version-target" type="number" value={targetValue} onChange={(event) => setTargetValue(event.target.value)} /></div><div className="space-y-1.5"><Label htmlFor="version-unit">Unit</Label><Input id="version-unit" value={unit} onChange={(event) => setUnit(event.target.value)} /></div></div>}{["INITIATIVE", "ACTIVITY", "KPI"].includes(detail.type) && <div className="grid gap-3 sm:grid-cols-2"><div className="space-y-1.5"><Label htmlFor="version-period-start">Period start</Label><Input id="version-period-start" type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} /></div><div className="space-y-1.5"><Label htmlFor="version-period-end">Period end</Label><Input id="version-period-end" type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} /></div></div>}<div className="flex justify-end gap-2"><Button variant="ghost" onClick={() => setEditing(false)}>Cancel</Button><Button variant="brand" onClick={saveVersion} disabled={createVersion.isPending}>{createVersion.isPending ? "Saving…" : "Create draft"}</Button></div></div> : null}
-              <div className="grid gap-3 text-xs sm:grid-cols-2"><div className="rounded-lg border p-3"><p className="text-muted-foreground">Current version</p><p className="mt-1 font-medium text-foreground">{detail.currentVersion ? `v${detail.currentVersion.version} · ${detail.currentVersion.status.toLowerCase()}` : "Not published"}</p></div><div className="rounded-lg border p-3"><p className="text-muted-foreground">Draft version</p><p className="mt-1 font-medium text-foreground">{detail.draftVersion ? `v${detail.draftVersion.version} · ${(detail.draftVersion.approvalStatus ?? "in preparation").toLowerCase().replace("_", " ")}` : "None"}</p></div></div>
+              <div className="flex flex-wrap items-center gap-2"><StrategyTypeBadge type={detail.type} />{detail.currentVersion && <StrategyStatusBadge status={detail.currentVersion.status} approvalStatus={detail.currentVersion.approvalStatus} />}{draft && <StrategyStatusBadge status={draft.status} approvalStatus={draft.approvalStatus} />}</div>
+              <div className="rounded-xl border bg-muted/25 p-4"><p className="text-lg font-semibold text-foreground">{source?.title ?? "Untitled element"}</p><p className="mt-1 text-sm text-muted-foreground">{source?.description || "No description provided."}</p>{canContribute && !draft && !editing && <Button size="sm" variant="brand" className="mt-3" onClick={() => setEditing(true)}><FileClock /> New version</Button>}</div>
+              {editing ? <div className="space-y-3 rounded-xl border border-brand-accent/30 bg-brand-accent/5 p-4">{isRevisionRequested && <div><p className="text-sm font-semibold text-foreground">Propose Revision (v{(source?.version ?? 1) + 1})</p><p className="mt-1 text-xs text-muted-foreground">Respond to the approver's feedback. Saving creates a new immutable draft version; the existing draft is preserved.</p></div>}<div className="space-y-1.5"><Label htmlFor="version-title">Title *</Label><Input id="version-title" value={title} onChange={(event) => setTitle(event.target.value)} /></div><div className="space-y-1.5"><Label htmlFor="version-description">Description</Label><Textarea id="version-description" value={description} onChange={(event) => setDescription(event.target.value)} /></div>{detail.type === "ACTIVITY" && <div className="space-y-1.5"><Label htmlFor="version-outcome">Outcome summary</Label><Textarea id="version-outcome" value={outcomeSummary} onChange={(event) => setOutcomeSummary(event.target.value)} /></div>}{["ACTIVITY", "KPI"].includes(detail.type) && <div className="grid gap-3 sm:grid-cols-2"><div className="space-y-1.5"><Label htmlFor="version-target">Target</Label><Input id="version-target" type="number" value={targetValue} onChange={(event) => setTargetValue(event.target.value)} /></div><div className="space-y-1.5"><Label htmlFor="version-unit">Unit</Label><Input id="version-unit" value={unit} onChange={(event) => setUnit(event.target.value)} /></div></div>}{["INITIATIVE", "ACTIVITY", "KPI"].includes(detail.type) && <div className="grid gap-3 sm:grid-cols-2"><div className="space-y-1.5"><Label htmlFor="version-period-start">Period start</Label><Input id="version-period-start" type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} /></div><div className="space-y-1.5"><Label htmlFor="version-period-end">Period end</Label><Input id="version-period-end" type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} /></div></div>}<div className="flex justify-end gap-2"><Button variant="ghost" onClick={() => setEditing(false)}>Cancel</Button><Button variant="brand" onClick={saveVersion} disabled={createVersion.isPending}>{createVersion.isPending ? "Saving…" : isRevisionRequested ? "Create Revision Draft" : "Create draft"}</Button></div></div> : null}
+              <div className="grid gap-3 text-xs sm:grid-cols-2"><div className="rounded-lg border p-3"><p className="text-muted-foreground">Current version</p><p className="mt-1 font-medium text-foreground">{detail.currentVersion ? `v${detail.currentVersion.version} · ${detail.currentVersion.status.toLowerCase()}` : "Not published"}</p></div><div className="rounded-lg border p-3"><p className="text-muted-foreground">Draft version</p><p className="mt-1 font-medium text-foreground">{draft ? `v${draft.version} · ${(draft.approvalStatus ?? "in preparation").toLowerCase().replace("_", " ")}` : "None"}</p></div></div>
               {draft && !editing && (
                 <div className="space-y-3 rounded-xl border border-warn/30 bg-warn/5 p-4">
                   <div className="flex items-center justify-between gap-2">
@@ -1002,8 +1009,17 @@ export function StrategyElementDetailSheet({
                   {(isRevisionRequested || isRejected) && (
                     <div className={cn("rounded-lg border p-3 text-xs", isRejected ? "border-destructive/20 bg-destructive/10" : "border-orange-500/20 bg-orange-500/10")}>
                       <p className={cn("font-medium", isRejected ? "text-destructive" : "text-orange-700 dark:text-orange-300")}>{isRejected ? "Rejected by approver" : "Revisions requested by approver"}</p>
-                      <p className="mt-1 text-muted-foreground">{isRejected ? "Update the element and create a new draft version to re-submit." : "Address the feedback and re-submit this draft."}</p>
-                      {canContribute && <Button size="sm" variant="outline" className="mt-2" onClick={() => setEditing(true)}><FileClock /> Edit &amp; re-submit</Button>}
+                      {source?.approvalComments && (
+                        <blockquote className={cn("mt-1.5 border-l-2 pl-2 italic text-muted-foreground", isRejected ? "border-destructive/40" : "border-orange-400")}>
+                          "{source.approvalComments}"
+                        </blockquote>
+                      )}
+                      <p className="mt-2 text-muted-foreground">{isRejected ? "Update the element and create a new draft version to re-submit." : "Create a new draft version to address this feedback and re-submit."}</p>
+                      {canContribute && (
+                        <Button size="sm" variant="outline" className="mt-2" onClick={() => setEditing(true)}>
+                          <FileClock className="mr-1 h-3.5 w-3.5" /> Revise in new draft (v{(source?.version ?? 1) + 1})
+                        </Button>
+                      )}
                     </div>
                   )}
                   {isUnsubmittedDraft && (

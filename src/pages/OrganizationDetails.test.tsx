@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HelmetProvider } from "react-helmet-async";
 import { MemoryRouter } from "react-router-dom";
@@ -8,14 +8,21 @@ import * as organization from "@/lib/organization";
 import * as orgNodes from "@/lib/orgNodes";
 import type { OrgNodeResponse } from "@/lib/governance-types";
 
+const auth = vi.hoisted(() => ({ permissions: ["organization.manage"] as string[] }));
+
 vi.mock("@/contexts/AuthContext", () => ({
-  useAuth: () => ({ organization: { id: "org-1", code: "GNC", name: "G & Nestahs Co." } }),
+  useAuth: () => ({
+    organization: { id: "org-1", code: "GNC", name: "G & Nestahs Co." },
+    permissions: auth.permissions,
+  }),
 }));
 
 // React Flow needs real layout; the map is exercised through this stand-in.
 vi.mock("@/components/grc/OrgTreeGraph", () => ({
-  flatOrgNodesToView: (rows: unknown[]) => rows,
   OrgTreeGraph: ({ roots }: { roots: unknown[] }) => <div data-testid="graph">{roots.length} roots</div>,
+}));
+vi.mock("@/components/grc/org-tree-view", () => ({
+  flatOrgNodesToView: (rows: unknown[]) => rows,
 }));
 
 const details = {
@@ -43,6 +50,7 @@ function renderPage() {
 
 describe("OrganizationDetails", () => {
   beforeEach(() => {
+    auth.permissions = ["organization.manage"];
     vi.spyOn(organization, "fetchOrganization").mockResolvedValue(details);
   });
 
@@ -77,5 +85,31 @@ describe("OrganizationDetails", () => {
     renderPage();
 
     expect(await screen.findByText("Organization exploded")).toBeInTheDocument();
+  });
+
+  it("hides the edit action for users without organization.manage", async () => {
+    auth.permissions = [];
+    vi.spyOn(orgNodes, "fetchOrgNodes").mockResolvedValue([]);
+    renderPage();
+
+    expect(await screen.findByText("KE")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Edit profile/ })).not.toBeInTheDocument();
+  });
+
+  it("submits organization profile edits", async () => {
+    vi.spyOn(orgNodes, "fetchOrgNodes").mockResolvedValue([]);
+    const update = vi
+      .spyOn(organization, "updateOrganizationDetail")
+      .mockResolvedValue({ ...details, name: "Renamed Co." });
+    renderPage();
+    await screen.findByText("KE");
+
+    fireEvent.click(screen.getByRole("button", { name: /Edit profile/ }));
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Renamed Co." } });
+    fireEvent.click(screen.getByRole("button", { name: /Save changes/ }));
+
+    await waitFor(() =>
+      expect(update).toHaveBeenCalledWith("org-1", expect.objectContaining({ name: "Renamed Co." })),
+    );
   });
 });

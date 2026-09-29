@@ -28,6 +28,15 @@ export interface OrgNodeMemberResponse {
   createdAt: string;
 }
 
+/**
+ * Places a user at an org node (`POST …/org-nodes/{nodeId}/members`).
+ * The target user is identified by their platform user id, not the org
+ * membership id, so it must come from the organization members endpoint.
+ */
+export interface PlaceOrgNodeMemberRequest {
+  userId: string;
+}
+
 export interface OrgNodeResponse {
   id: string;
   organizationId: string | null;

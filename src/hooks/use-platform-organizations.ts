@@ -7,14 +7,17 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import {
   approvePlatformOrganization,
   createPlatformOrganization,
+  deactivatePlatformOrganization,
   getPlatformOrganization,
   listPlatformOrganizations,
   reactivatePlatformOrganization,
+  rejectPlatformOrganization,
   suspendPlatformOrganization,
   type ApprovePlatformOrganizationRequest,
   type CreatePlatformOrganizationRequest,
   type OrganizationStatus,
   type PlatformOrganization,
+  type RejectPlatformOrganizationRequest,
 } from "@/lib/platformAdmin";
 
 export const platformOrganizationKeys = {
@@ -108,6 +111,28 @@ export function useReactivatePlatformOrganization() {
   const invalidate = useInvalidatePlatformOrganizations();
   return useMutation({
     mutationFn: (organizationId: string) => reactivatePlatformOrganization(organizationId),
+    onSuccess: invalidate,
+  });
+}
+
+export function useRejectPlatformOrganization() {
+  const invalidate = useInvalidatePlatformOrganizations();
+  return useMutation({
+    mutationFn: ({
+      organizationId,
+      body,
+    }: {
+      organizationId: string;
+      body: RejectPlatformOrganizationRequest;
+    }) => rejectPlatformOrganization(organizationId, body),
+    onSuccess: invalidate,
+  });
+}
+
+export function useDeactivatePlatformOrganization() {
+  const invalidate = useInvalidatePlatformOrganizations();
+  return useMutation({
+    mutationFn: (organizationId: string) => deactivatePlatformOrganization(organizationId),
     onSuccess: invalidate,
   });
 }

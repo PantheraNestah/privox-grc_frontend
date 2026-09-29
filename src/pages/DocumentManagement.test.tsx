@@ -52,6 +52,8 @@ describe("DocumentManagement", () => {
   it("lists the stored documents with their details", () => {
     renderPage();
 
+    expect(screen.getByText("Prototype module")).toBeInTheDocument();
+
     expect(screen.getByText("Password Policy")).toBeInTheDocument();
     expect(screen.getByText("Backup Procedure")).toBeInTheDocument();
     expect(screen.getByText("Rules for passwords")).toBeInTheDocument();

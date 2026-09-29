@@ -22,7 +22,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { PageHeader, TENANT_HOME } from "@/components/grc/common/PageHeader";
+import { PageHeader } from "@/components/grc/common/PageHeader";
+import { PrototypeNotice } from "@/components/grc/common/PrototypeNotice";
+import { TENANT_HOME } from "@/components/grc/common/home-links";
 import { EmptyState } from "@/components/grc/common/states";
 import { ResultsDialog } from "@/components/grc/surveys/ResultsDialog";
 import { ShareLinksDialog } from "@/components/grc/surveys/ShareLinksDialog";
@@ -121,6 +123,8 @@ const SurveyManagement = () => {
           )
         }
       />
+
+      <PrototypeNotice module="Questionnaires & Surveys" />
 
       {!allowed && (
         <Alert className="mb-6">

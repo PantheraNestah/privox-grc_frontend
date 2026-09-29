@@ -4,7 +4,7 @@ import { HelmetProvider } from "react-helmet-async";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import PlatformTemplateRegister from "./PlatformTemplateRegister";
 import * as orgNodeTemplates from "@/lib/orgNodeTemplates";
-import type { OrgTreeViewNode } from "@/components/grc/OrgTreeGraph";
+import type { OrgTreeViewNode } from "@/components/grc/org-tree-view";
 
 const auth = vi.hoisted(() => ({ permissions: ["platform.orgnode.manage"] as string[] }));
 
@@ -18,7 +18,6 @@ vi.mock("@/contexts/PlatformAuthContext", () => ({
 
 // React Flow needs real layout; the preview is exercised through this stand-in.
 vi.mock("@/components/grc/OrgTreeGraph", () => ({
-  colorForType: () => "231 51% 50%",
   OrgTreeGraph: ({ roots, onNodeClick }: { roots: OrgTreeViewNode[]; onNodeClick?: (id: string) => void }) => {
     const flat = (n: OrgTreeViewNode): OrgTreeViewNode[] => [n, ...n.children.flatMap(flat)];
     return (
@@ -31,6 +30,10 @@ vi.mock("@/components/grc/OrgTreeGraph", () => ({
       </ul>
     );
   },
+}));
+
+vi.mock("@/components/grc/org-tree-view", () => ({
+  colorForType: () => "231 51% 50%",
 }));
 
 function renderPage() {

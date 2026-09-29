@@ -13,6 +13,7 @@ export const PLATFORM_PERMISSIONS = {
   organizationReject: "platform.organization.reject",
   organizationSuspend: "platform.organization.suspend",
   organizationDeactivate: "platform.organization.deactivate",
+  organizationReactivate: "platform.organization.reactivate",
   moduleAssign: "platform.module.assign",
   moduleCreate: "platform.module.create",
   orgNodeManage: "platform.orgnode.manage",

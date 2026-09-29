@@ -132,7 +132,7 @@ const ForgotEmailView = ({ go }: { go: (v: View) => void }) => {
       <ViewHeader
         tag="Password Reset"
         title="Verify your identity"
-        sub="Enter the email address registered to your organisation account."
+        sub="Enter the email address registered to your organisation account. Demo only — no email is sent and your password will not change."
       />
       <div className="mb-4">
         <Label htmlFor="fp-email" className="mb-1.5 block text-[12.5px] text-navy-dark">
@@ -432,9 +432,9 @@ const ForgotDoneView = ({ go }: { go: (v: View) => void }) => (
       <CheckCircle2 className="h-8 w-8 text-success" />
     </span>
     <ViewHeader
-      tag="All Done"
-      title="Password updated"
-      sub="Your password has been successfully changed. Sign in with your new credentials."
+      tag="Demo Only"
+      title="No password was changed"
+      sub="This prototype does not connect to the account service yet, so your password has not been changed. Sign in with your existing credentials."
       center
     />
     <Button variant="brand" onClick={() => go("login")} className="h-auto w-full rounded-[10px] py-3 text-[15px] font-semibold">

@@ -14,7 +14,9 @@ vi.mock("@/contexts/PlatformAuthContext", () => ({
     permissions: [
       "platform.organization.view",
       "platform.organization.approve",
+      "platform.organization.reject",
       "platform.organization.suspend",
+      "platform.organization.reactivate",
       "platform.organization.deactivate",
       "platform.module.assign",
     ],
@@ -87,6 +89,8 @@ describe("PlatformOrganizationDetails", () => {
     vi.spyOn(platformAdmin, "listPlatformOrganizationModules").mockResolvedValue(assignments);
     vi.spyOn(platformAdmin, "suspendPlatformOrganization").mockResolvedValue(organization);
     vi.spyOn(platformAdmin, "reactivatePlatformOrganization").mockResolvedValue(organization);
+    vi.spyOn(platformAdmin, "rejectPlatformOrganization").mockResolvedValue(organization);
+    vi.spyOn(platformAdmin, "deactivatePlatformOrganization").mockResolvedValue(organization);
   });
 
   afterEach(() => vi.restoreAllMocks());
@@ -125,5 +129,56 @@ describe("PlatformOrganizationDetails", () => {
     await waitFor(() =>
       expect(disable).toHaveBeenCalledWith("org-1", "mod-1"),
     );
+  });
+
+  it("reactivates a suspended organization", async () => {
+    vi.mocked(platformAdmin.getPlatformOrganization).mockResolvedValue({
+      ...organization,
+      status: "SUSPENDED",
+    });
+    renderDetails();
+    await screen.findByRole("heading", { name: "G & Nestahs Co." });
+
+    fireEvent.click(screen.getByRole("button", { name: /Reactivate/ }));
+    const dialog = await screen.findByRole("alertdialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Reactivate" }));
+
+    await waitFor(() => expect(platformAdmin.reactivatePlatformOrganization).toHaveBeenCalledWith("org-1"));
+  });
+
+  it("rejects a pending organization with a mandatory reason", async () => {
+    vi.mocked(platformAdmin.getPlatformOrganization).mockResolvedValue({
+      ...organization,
+      status: "PENDING_VALIDATION",
+    });
+    renderDetails();
+    await screen.findByRole("heading", { name: "G & Nestahs Co." });
+
+    fireEvent.click(screen.getByRole("button", { name: /Reject/ }));
+    const dialog = await screen.findByRole("alertdialog");
+    const confirm = within(dialog).getByRole("button", { name: "Reject" });
+    expect(confirm).toBeDisabled();
+
+    fireEvent.change(within(dialog).getByLabelText("Reason"), {
+      target: { value: "Failed regulatory documentation verification." },
+    });
+    fireEvent.click(confirm);
+
+    await waitFor(() =>
+      expect(platformAdmin.rejectPlatformOrganization).toHaveBeenCalledWith("org-1", {
+        reason: "Failed regulatory documentation verification.",
+      }),
+    );
+  });
+
+  it("deactivates an active organization after confirmation", async () => {
+    renderDetails();
+    await screen.findByRole("heading", { name: "G & Nestahs Co." });
+
+    fireEvent.click(screen.getByRole("button", { name: /Deactivate/ }));
+    const dialog = await screen.findByRole("alertdialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Deactivate" }));
+
+    await waitFor(() => expect(platformAdmin.deactivatePlatformOrganization).toHaveBeenCalledWith("org-1"));
   });
 });

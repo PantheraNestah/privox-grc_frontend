@@ -3,6 +3,7 @@ import {
   approvePlatformOrganization,
   createPlatformModule,
   createPlatformOrganization,
+  deactivatePlatformOrganization,
   disablePlatformOrganizationModule,
   enablePlatformOrganizationModule,
   getPlatformOrganization,
@@ -11,6 +12,7 @@ import {
   listPlatformOrganizations,
   loginPlatformAdmin,
   reactivatePlatformOrganization,
+  rejectPlatformOrganization,
   suspendPlatformOrganization,
 } from "./platformAdmin";
 
@@ -75,6 +77,24 @@ describe("platform organizations", () => {
 
     expect(post).toHaveBeenNthCalledWith(1, "/v1/platform/organizations/org-1/suspend");
     expect(post).toHaveBeenNthCalledWith(2, "/v1/platform/organizations/org-1/reactivate");
+  });
+
+  it("rejects a tenant with a reason", async () => {
+    vi.spyOn(platformApi, "post").mockResolvedValue({ data: { id: "org-1" } });
+    const body = { reason: "Failed regulatory documentation verification." };
+
+    await rejectPlatformOrganization("org-1", body);
+    expect(platformApi.post).toHaveBeenCalledWith(
+      "/v1/platform/organizations/org-1/reject",
+      body,
+    );
+  });
+
+  it("deactivates a tenant", async () => {
+    vi.spyOn(platformApi, "post").mockResolvedValue({ data: { id: "org-1" } });
+
+    await deactivatePlatformOrganization("org-1");
+    expect(platformApi.post).toHaveBeenCalledWith("/v1/platform/organizations/org-1/deactivate");
   });
 });
 

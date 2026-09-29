@@ -47,6 +47,13 @@ import type {
   UpdateOrganizationGroupRequest,
   UpdateOrganizationRequest,
 } from "@/lib/auth-types";
+import { useAuth } from "@/contexts/AuthContext";
+
+/** Id of the signed-in organization; empty string when the session has none. */
+export function useOrganizationId() {
+  const { organization } = useAuth();
+  return organization?.id ?? "";
+}
 
 export type InvitationStatus = "PENDING" | "ACCEPTED" | "REVOKED" | "EXPIRED";
 export type MemberAction = "activate" | "suspend" | "reactivate" | "deactivate";

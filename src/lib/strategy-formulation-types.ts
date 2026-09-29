@@ -52,6 +52,8 @@ export interface StrategyVersion extends StrategyVersionContent {
   /** Maker-Checker workflow status of this version (server-authoritative). */
   approvalStatus?: StrategyApprovalStatus;
   approvalRequestId?: string | null;
+  /** Reviewer comments captured on the latest approval decision (if any). */
+  approvalComments?: string | null;
 }
 
 export interface StrategyElementDetailVersion extends StrategyVersionContent {
@@ -64,6 +66,8 @@ export interface StrategyElementDetailVersion extends StrategyVersionContent {
   /** Maker-Checker workflow status of this version (server-authoritative). */
   approvalStatus?: StrategyApprovalStatus;
   approvalRequestId?: string | null;
+  /** Reviewer comments captured on the latest approval decision (if any). */
+  approvalComments?: string | null;
 }
 
 export interface StrategyElementDetail {
@@ -90,6 +94,8 @@ export interface StrategyTreeNode extends StrategyVersionContent {
   status: StrategyVersionStatus;
   approvalStatus?: StrategyApprovalStatus;
   approvalRequestId?: string | null;
+  /** Reviewer comments captured on the latest approval decision (if any). */
+  approvalComments?: string | null;
   children: StrategyTreeNode[];
 }
 

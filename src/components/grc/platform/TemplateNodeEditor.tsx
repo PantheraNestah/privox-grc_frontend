@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { colorForType } from "@/components/grc/OrgTreeGraph";
+import { colorForType } from "@/components/grc/org-tree-view";
 import { NODE_TYPES, countNodes, type TreeNode } from "@/lib/template-tree";
 import type { OrgNodeType } from "@/lib/governance-types";
 import { cn } from "@/lib/utils";

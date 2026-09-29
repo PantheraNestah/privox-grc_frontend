@@ -3,14 +3,15 @@ import { useSearchParams } from "react-router-dom";
 import { Layers, LayoutDashboard, MailPlus, ShieldAlert, ShieldCheck, Users } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PageHeader, TENANT_HOME } from "@/components/grc/common/PageHeader";
+import { PageHeader } from "@/components/grc/common/PageHeader";
+import { TENANT_HOME } from "@/components/grc/common/home-links";
 import { ErrorState } from "@/components/grc/common/states";
 import { GroupsTab } from "@/components/grc/users/GroupsTab";
 import { InvitationsTab } from "@/components/grc/users/InvitationsTab";
 import { OverviewTab } from "@/components/grc/users/OverviewTab";
 import { PermissionsTab } from "@/components/grc/users/PermissionsTab";
 import { UsersTab } from "@/components/grc/users/UsersTab";
-import { useOrganizationId } from "@/components/grc/users/shared";
+import { useOrganizationId } from "@/hooks/use-organization";
 import { useAuth } from "@/contexts/AuthContext";
 
 const SECTIONS = [

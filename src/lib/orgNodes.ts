@@ -14,6 +14,7 @@ import type {
   UpdateOrgTreeSettingsRequest,
   CloneOrgNodeTemplateRequest,
   OrgNodeMemberResponse,
+  PlaceOrgNodeMemberRequest,
 } from "./governance-types";
 
 export async function fetchOrgNodes(
@@ -115,6 +116,34 @@ export async function fetchOrgNodeMembers(
     `/v1/organizations/${orgId}/org-nodes/${nodeId}/members`,
   );
   return data;
+}
+
+/**
+ * Places a user at a node. Placing someone who also holds a system-default
+ * group (ORG_NODE_LEADER, RISK_CONTRIBUTOR, RISK_APPROVER) grants them
+ * node-scoped authority over that unit and its subtree.
+ */
+export async function placeOrgNodeMember(
+  orgId: string,
+  nodeId: string,
+  body: PlaceOrgNodeMemberRequest,
+): Promise<OrgNodeMemberResponse> {
+  const { data } = await api.post<OrgNodeMemberResponse>(
+    `/v1/organizations/${orgId}/org-nodes/${nodeId}/members`,
+    body,
+  );
+  return data;
+}
+
+/** Ends a placement. The path variable is the user id, not the placement id. */
+export async function removeOrgNodeMember(
+  orgId: string,
+  nodeId: string,
+  userId: string,
+): Promise<void> {
+  await api.delete(
+    `/v1/organizations/${orgId}/org-nodes/${nodeId}/members/${userId}`,
+  );
 }
 
 export async function cloneOrgNodeTemplate(

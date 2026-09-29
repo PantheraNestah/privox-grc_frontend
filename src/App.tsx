@@ -6,6 +6,7 @@ import { queryClient } from "@/lib/query-client";
 import { PlatformAuthProvider } from "@/contexts/PlatformAuthContext";
 import { RequireAuth } from "@/components/grc/RequireAuth";
 import { RequireOrgAdmin } from "@/components/grc/RequireOrgAdmin";
+import { RequireModule } from "@/components/grc/RequireModule";
 import { RequirePlatformAuth } from "@/components/grc/RequirePlatformAuth";
 import { PlatformLayout } from "@/components/grc/PlatformLayout";
 import { TenantLayout } from "@/components/grc/TenantLayout";
@@ -24,6 +25,7 @@ import DocumentManagement from "./pages/DocumentManagement.tsx";
 import SurveyManagement from "./pages/SurveyManagement.tsx";
 import SurveyRespond from "./pages/SurveyRespond.tsx";
 import OrganizationDetails from "./pages/OrganizationDetails.tsx";
+import AccountSettings from "./pages/AccountSettings.tsx";
 import ModuleSettings from "./pages/ModuleSettings.tsx";
 import UserManagement, {
   GroupEdit,
@@ -58,14 +60,18 @@ const App = () => (
                 <Route element={<RequireAuth />}>
                   <Route element={<TenantLayout />}>
                     <Route path="/dashboard" element={<Dashboard />} />
-                    <Route path="/governance" element={<Governance />} />
-                    <Route path="/governance/risk-governance" element={<RiskGovernance />} />
-                    <Route path="/governance/strategy-formulation" element={<StrategyFormulation />} />
-                    <Route path="/governance/strategy-assessment" element={<StrategyAssessment />} />
-                    <Route path="/governance/risk-strategy" element={<RiskStrategy />} />
-                    <Route path="/governance/documents" element={<DocumentManagement />} />
-                    <Route path="/governance/surveys" element={<SurveyManagement />} />
+                    {/* Governance section: gated by the GOVERNANCE module allocation. */}
+                    <Route element={<RequireModule code="GOVERNANCE" staticId="governance" label="Governance" />}>
+                      <Route path="/governance" element={<Governance />} />
+                      <Route path="/governance/risk-governance" element={<RiskGovernance />} />
+                      <Route path="/governance/strategy-formulation" element={<StrategyFormulation />} />
+                      <Route path="/governance/strategy-assessment" element={<StrategyAssessment />} />
+                      <Route path="/governance/risk-strategy" element={<RiskStrategy />} />
+                      <Route path="/governance/documents" element={<DocumentManagement />} />
+                      <Route path="/governance/surveys" element={<SurveyManagement />} />
+                    </Route>
                     <Route path="/settings/organization" element={<OrganizationDetails />} />
+                    <Route path="/settings/account" element={<AccountSettings />} />
                     <Route path="/settings/modules" element={<ModuleSettings />} />
                     <Route element={<RequireOrgAdmin />}>
                       <Route path="/settings/users" element={<UserManagement />} />

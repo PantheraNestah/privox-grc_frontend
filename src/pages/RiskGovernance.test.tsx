@@ -7,10 +7,12 @@ import { toast } from "sonner";
 import RiskGovernance from "./RiskGovernance";
 import * as orgNodes from "@/lib/orgNodes";
 import * as orgNodeTemplates from "@/lib/orgNodeTemplates";
+import * as strategyFormulation from "@/lib/strategy-formulation";
 import type { OrgNodeResponse } from "@/lib/governance-types";
 
 const auth = vi.hoisted(() => ({
   permissions: ["organization.manage"] as string[],
+  hasModule: true,
 }));
 
 vi.mock("sonner", () => ({
@@ -23,7 +25,7 @@ vi.mock("@/contexts/AuthContext", () => ({
     user: { id: "u1", email: "admin@org.com", username: "admin", fullName: "Org Admin" },
     organization: { id: "org-1", code: "ORG", name: "Org" },
     permissions: auth.permissions,
-    hasModule: () => true,
+    hasModule: () => auth.hasModule,
   }),
 }));
 
@@ -109,6 +111,7 @@ function renderPage() {
 describe("RiskGovernance template cloning", () => {
   beforeEach(() => {
     auth.permissions = ["organization.manage"];
+    auth.hasModule = true;
     localStorage.clear();
     vi.spyOn(orgNodes, "fetchOrgNodes").mockResolvedValue([]);
     vi.spyOn(orgNodeTemplates, "fetchOrgNodeTemplates").mockResolvedValue(templates);
@@ -119,6 +122,16 @@ describe("RiskGovernance template cloning", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.clearAllMocks();
+  });
+
+  it("blocks unallocated users and issues no organisation-tree request", async () => {
+    auth.permissions = [];
+    auth.hasModule = false;
+    renderPage();
+
+    expect(await screen.findByText("Governance module not allocated")).toBeInTheDocument();
+    expect(screen.queryByText("Organisation Structure")).not.toBeInTheDocument();
+    expect(orgNodes.fetchOrgNodes).not.toHaveBeenCalled();
   });
 
   it("offers templates when the organisation has no units yet", async () => {
@@ -213,5 +226,33 @@ describe("RiskGovernance template cloning", () => {
 
     await screen.findByText("Acme Holdings");
     expect(screen.queryByRole("button", { name: "Add from template" })).not.toBeInTheDocument();
+  });
+});
+
+describe("RiskGovernance strategy roll-up", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.spyOn(orgNodes, "fetchOrgNodes").mockResolvedValue([existingNode]);
+    vi.spyOn(strategyFormulation, "fetchStrategyTree").mockResolvedValue([]);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.clearAllMocks();
+  });
+
+  it("loads the strategy tree for a user who can work with the org tree", async () => {
+    auth.permissions = ["orgnode.contribute"];
+    renderPage();
+
+    await waitFor(() => expect(strategyFormulation.fetchStrategyTree).toHaveBeenCalledWith("org-1"));
+  });
+
+  it("skips the strategy request for a read-only user instead of collecting a 403", async () => {
+    auth.permissions = [];
+    renderPage();
+
+    expect(await screen.findByText("Read-only view")).toBeInTheDocument();
+    expect(strategyFormulation.fetchStrategyTree).not.toHaveBeenCalled();
   });
 });

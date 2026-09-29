@@ -15,7 +15,8 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PageHeader, TENANT_HOME } from "@/components/grc/common/PageHeader";
+import { PageHeader } from "@/components/grc/common/PageHeader";
+import { TENANT_HOME } from "@/components/grc/common/home-links";
 import { ErrorState } from "@/components/grc/common/states";
 import {
   CreateStrategyElementDialog,

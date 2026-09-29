@@ -51,6 +51,8 @@ export interface LoginResponse {
    * Baseline read entitlement — presence means the module is visible.
    */
   allocatedModules?: string[];
+  /** Active organizational-unit placements for this user (optional; V3). */
+  orgNodeIds?: string[];
 }
 
 export interface MeResponse {
@@ -63,6 +65,12 @@ export interface MeResponse {
   accessTokenExpiresAt: string;
   /** New in V3: active module codes allocated to this user (optional). */
   allocatedModules?: string[];
+  /**
+   * Active organizational-unit placements for this user. Optional and
+   * additive: when the backend omits it, scope-aware UI falls back to its
+   * previous (unscoped) behaviour.
+   */
+  orgNodeIds?: string[];
 }
 
 export interface RefreshRequest {
@@ -90,6 +98,8 @@ export interface AuthState {
   permissions: string[];
   /** New in V3: list of allocated module codes for the tenant session. */
   allocatedModules: string[];
+  /** Active organizational-unit placements for the signed-in user (V3). */
+  orgNodeIds: string[];
   accessToken: string | null;
   refreshToken: string | null;
   accessTokenExpiresAt: string | null;

@@ -14,7 +14,8 @@ import {
 import { ModuleCard } from "@/components/grc/ModuleCard";
 import { QuickActionsPanel } from "@/components/grc/QuickActionsPanel";
 import { InstallAppButton } from "@/components/grc/InstallAppButton";
-import { PageHeader, TENANT_HOME } from "@/components/grc/common/PageHeader";
+import { PageHeader } from "@/components/grc/common/PageHeader";
+import { TENANT_HOME } from "@/components/grc/common/home-links";
 import { CardGridSkeleton, EmptyState, ErrorState } from "@/components/grc/common/states";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActiveUser } from "@/hooks/use-active-user";

@@ -4,10 +4,11 @@ import { AxiosError, type AxiosResponse } from "axios";
 import { HelmetProvider } from "react-helmet-async";
 import { MemoryRouter } from "react-router-dom";
 import RiskStrategy from "./RiskStrategy";
+import * as orgNodesApi from "@/lib/orgNodes";
 import * as riskStrategyApi from "@/lib/riskStrategy";
-import type { RiskStrategyConfigResponse } from "@/lib/governance-types";
+import type { OrgNodeResponse, RiskStrategyConfigResponse } from "@/lib/governance-types";
 
-const session = vi.hoisted(() => ({ permissions: ["organization.manage"] as string[] }));
+const session = vi.hoisted(() => ({ permissions: ["organization.manage"] as string[], hasModule: true }));
 
 vi.mock("sonner", () => ({
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
@@ -16,6 +17,7 @@ vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({
     organization: { id: "org-1", code: "ORG", name: "Org" },
     permissions: session.permissions,
+    hasModule: () => session.hasModule,
   }),
 }));
 
@@ -42,6 +44,36 @@ const saved = {
 const httpError = (status: number) =>
   new AxiosError("failed", String(status), undefined, undefined, { status } as AxiosResponse);
 
+const orgNode = (overrides: Partial<OrgNodeResponse>): OrgNodeResponse =>
+  ({
+    id: "node-1",
+    organizationId: "org-1",
+    parentId: null,
+    name: "Unit",
+    type: "DEPARTMENT",
+    description: null,
+    headcount: null,
+    location: null,
+    riskRating: null,
+    regulatoryBody: null,
+    contactEmail: null,
+    costCenterCode: null,
+    metadata: null,
+    effectiveFrom: "2026-01-01T00:00:00Z",
+    effectiveTo: null,
+    createdAt: "2026-01-01T00:00:00Z",
+    updatedAt: "2026-01-01T00:00:00Z",
+    ...overrides,
+  }) as OrgNodeResponse;
+
+const deptNode = orgNode({ id: "node-ap", name: "Accounts Payable" });
+const retiredNode = orgNode({ id: "node-old", name: "Retired Unit", effectiveTo: "2026-06-01T00:00:00Z" });
+
+async function selectScope(name: string) {
+  fireEvent.click(screen.getByRole("combobox", { name: /Risk strategy scope/i }));
+  fireEvent.click(await screen.findByRole("option", { name }));
+}
+
 function renderPage() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 }, mutations: { retry: false } },
@@ -60,8 +92,11 @@ function renderPage() {
 describe("RiskStrategy", () => {
   beforeEach(() => {
     session.permissions = ["organization.manage"];
+    session.hasModule = true;
     vi.spyOn(riskStrategyApi, "fetchCurrentRiskStrategy").mockResolvedValue(saved);
+    vi.spyOn(riskStrategyApi, "fetchRiskStrategyHistory").mockResolvedValue([]);
     vi.spyOn(riskStrategyApi, "createRiskStrategyVersion").mockResolvedValue({ ...saved, id: "cfg-2", version: 2 });
+    vi.spyOn(orgNodesApi, "fetchOrgNodes").mockResolvedValue([]);
   });
 
   afterEach(() => vi.restoreAllMocks());
@@ -156,5 +191,88 @@ describe("RiskStrategy", () => {
       ),
     );
     expect(dialog).toBeDefined();
+  });
+
+  it("blocks unallocated users and issues no risk-strategy requests", async () => {
+    session.permissions = [];
+    session.hasModule = false;
+    renderPage();
+
+    expect(await screen.findByText("Governance module not allocated")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Save/ })).not.toBeInTheDocument();
+    expect(riskStrategyApi.fetchCurrentRiskStrategy).not.toHaveBeenCalled();
+    expect(riskStrategyApi.fetchRiskStrategyHistory).not.toHaveBeenCalled();
+    expect(orgNodesApi.fetchOrgNodes).not.toHaveBeenCalled();
+  });
+
+  it("lists active units in the scope selector and hides retired ones", async () => {
+    vi.mocked(orgNodesApi.fetchOrgNodes).mockResolvedValue([deptNode, retiredNode]);
+    renderPage();
+    await screen.findByDisplayValue("Low appetite");
+
+    fireEvent.click(screen.getByRole("combobox", { name: /Risk strategy scope/i }));
+
+    expect(await screen.findByRole("option", { name: "Accounts Payable" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /Enterprise Baseline/ })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Retired Unit" })).not.toBeInTheDocument();
+  });
+
+  it("loads a unit's localized strategy and scopes the saved proposal to it", async () => {
+    const localized = {
+      ...saved,
+      id: "cfg-ap",
+      orgNodeId: "node-ap",
+      version: 3,
+      appetiteCategories: [{ id: "a-ap", name: "Strategic", statement: "Localized appetite" }],
+    } as unknown as RiskStrategyConfigResponse;
+
+    vi.mocked(orgNodesApi.fetchOrgNodes).mockResolvedValue([deptNode]);
+    vi.mocked(riskStrategyApi.fetchCurrentRiskStrategy).mockImplementation(async (_orgId, orgNodeId) =>
+      orgNodeId === "node-ap" ? localized : saved,
+    );
+    vi.mocked(riskStrategyApi.fetchRiskStrategyHistory).mockImplementation(async (_orgId, orgNodeId) =>
+      orgNodeId === "node-ap" ? [localized] : [saved],
+    );
+
+    renderPage();
+    await screen.findByDisplayValue("Low appetite");
+
+    await selectScope("Accounts Payable");
+    const localizedField = await screen.findByDisplayValue("Localized appetite");
+    expect(riskStrategyApi.fetchCurrentRiskStrategy).toHaveBeenCalledWith("org-1", "node-ap");
+
+    fireEvent.change(localizedField, { target: { value: "Unit appetite" } });
+    fireEvent.click(screen.getByRole("button", { name: /Save/ }));
+
+    await waitFor(() =>
+      expect(riskStrategyApi.createRiskStrategyVersion).toHaveBeenCalledWith(
+        "org-1",
+        expect.objectContaining({
+          orgNodeId: "node-ap",
+          appetiteCategories: [{ name: "Strategic", statement: "Unit appetite" }],
+        }),
+      ),
+    );
+  });
+
+  it("flags an inherited configuration when the selected unit has no localized strategy", async () => {
+    vi.mocked(orgNodesApi.fetchOrgNodes).mockResolvedValue([deptNode]);
+    // The backend's hierarchical fallback returns the parent/enterprise version.
+    const inherited = { ...saved, orgNodeId: "node-parent" } as RiskStrategyConfigResponse;
+    vi.mocked(riskStrategyApi.fetchCurrentRiskStrategy).mockImplementation(async (_orgId, orgNodeId) =>
+      orgNodeId === "node-ap" ? inherited : saved,
+    );
+    vi.mocked(riskStrategyApi.fetchRiskStrategyHistory).mockImplementation(async (_orgId, orgNodeId) =>
+      orgNodeId === "node-ap" ? [inherited] : [saved],
+    );
+
+    renderPage();
+    await screen.findByDisplayValue("Low appetite");
+    expect(screen.queryByText("Inherited Configuration")).not.toBeInTheDocument();
+
+    await selectScope("Accounts Payable");
+
+    expect(await screen.findByText("Inherited Configuration")).toBeInTheDocument();
+    expect(screen.getByText(/a parent unit/)).toBeInTheDocument();
   });
 });
