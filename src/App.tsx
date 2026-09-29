@@ -25,6 +25,7 @@ import DocumentManagement from "./pages/DocumentManagement.tsx";
 import SurveyManagement from "./pages/SurveyManagement.tsx";
 import SurveyRespond from "./pages/SurveyRespond.tsx";
 import OrganizationDetails from "./pages/OrganizationDetails.tsx";
+import AccountSettings from "./pages/AccountSettings.tsx";
 import ModuleSettings from "./pages/ModuleSettings.tsx";
 import UserManagement, {
   GroupEdit,
@@ -70,6 +71,7 @@ const App = () => (
                       <Route path="/governance/surveys" element={<SurveyManagement />} />
                     </Route>
                     <Route path="/settings/organization" element={<OrganizationDetails />} />
+                    <Route path="/settings/account" element={<AccountSettings />} />
                     <Route path="/settings/modules" element={<ModuleSettings />} />
                     <Route element={<RequireOrgAdmin />}>
                       <Route path="/settings/users" element={<UserManagement />} />

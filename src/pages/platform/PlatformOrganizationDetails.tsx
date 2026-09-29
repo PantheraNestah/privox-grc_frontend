@@ -9,13 +9,17 @@ import {
   Hash,
   Layers,
   MapPin,
+  PowerOff,
   RefreshCw,
+  XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,8 +36,10 @@ import { PlatformStatusBadge } from "@/components/grc/platform/PlatformStatusBad
 import { ErrorState } from "@/components/grc/common/states";
 import { ApproveOrganizationDialog } from "@/components/grc/platform/ApproveOrganizationDialog";
 import {
+  useDeactivatePlatformOrganization,
   usePlatformOrganization,
   useReactivatePlatformOrganization,
+  useRejectPlatformOrganization,
   useSuspendPlatformOrganization,
 } from "@/hooks/use-platform-organizations";
 import {
@@ -41,7 +47,7 @@ import {
   useSetPlatformOrganizationModule,
 } from "@/hooks/use-platform-modules";
 import { usePlatformAuth } from "@/contexts/PlatformAuthContext";
-import { canAnyPlatform, canPlatform, PLATFORM_PERMISSIONS } from "@/lib/platformPermissions";
+import { canPlatform, PLATFORM_PERMISSIONS } from "@/lib/platformPermissions";
 import { platformModuleStyle } from "@/data/platformModules";
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -88,7 +94,7 @@ function TimelineItem({
   );
 }
 
-type ConfirmAction = "suspend" | "reactivate";
+type ConfirmAction = "suspend" | "reactivate" | "reject" | "deactivate";
 
 const PlatformOrganizationDetails = () => {
   const { orgId } = useParams<{ orgId: string }>();
@@ -98,26 +104,62 @@ const PlatformOrganizationDetails = () => {
 
   const { permissions } = usePlatformAuth();
   const canApprove = canPlatform(permissions, PLATFORM_PERMISSIONS.organizationApprove);
+  const canReject = canPlatform(permissions, PLATFORM_PERMISSIONS.organizationReject);
   const canSuspend = canPlatform(permissions, PLATFORM_PERMISSIONS.organizationSuspend);
-  // Reactivating is the inverse of suspending; either lifecycle authority may do it.
-  // (There is no `organization.reactivate` code in the catalogue.)
-  const canReactivate = canAnyPlatform(permissions, [
-    PLATFORM_PERMISSIONS.organizationSuspend,
-    PLATFORM_PERMISSIONS.organizationApprove,
-  ]);
+  const canReactivate = canPlatform(permissions, PLATFORM_PERMISSIONS.organizationReactivate);
+  const canDeactivate = canPlatform(permissions, PLATFORM_PERMISSIONS.organizationDeactivate);
   const canAssignModules = canPlatform(permissions, PLATFORM_PERMISSIONS.moduleAssign);
 
   const suspend = useSuspendPlatformOrganization();
   const reactivate = useReactivatePlatformOrganization();
+  const reject = useRejectPlatformOrganization();
+  const deactivate = useDeactivatePlatformOrganization();
 
   const [approveOpen, setApproveOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
 
   const org = organization.data;
   const moduleRows = modules.data ?? [];
   const status = (org?.status ?? "").toUpperCase();
   const enabledCount = moduleRows.filter((row) => row.enabled).length;
-  const statusActionPending = suspend.isPending || reactivate.isPending;
+  const statusActionPending =
+    suspend.isPending || reactivate.isPending || reject.isPending || deactivate.isPending;
+
+  const confirmInfo = (() => {
+    switch (confirmAction) {
+      case "suspend":
+        return {
+          title: "Suspend organization?",
+          description: `"${org?.name ?? "This organization"}" will lose access until it is reactivated.`,
+          action: "Suspend",
+          destructive: true,
+        };
+      case "reactivate":
+        return {
+          title: "Reactivate organization?",
+          description: `"${org?.name ?? "This organization"}" will regain access to the platform.`,
+          action: "Reactivate",
+          destructive: false,
+        };
+      case "reject":
+        return {
+          title: "Reject organization?",
+          description: `"${org?.name ?? "This organization"}" will be rejected. Provide a reason for the audit trail.`,
+          action: "Reject",
+          destructive: true,
+        };
+      case "deactivate":
+        return {
+          title: "Deactivate organization?",
+          description: `"${org?.name ?? "This organization"}" will be permanently deactivated. This cannot be undone.`,
+          action: "Deactivate",
+          destructive: true,
+        };
+      default:
+        return null;
+    }
+  })();
 
   const handleConfirm = async () => {
     if (!orgId || !confirmAction) return;
@@ -125,18 +167,21 @@ const PlatformOrganizationDetails = () => {
       if (confirmAction === "suspend") {
         await suspend.mutateAsync(orgId);
         toast.success("Organization suspended");
-      } else {
+      } else if (confirmAction === "reactivate") {
         await reactivate.mutateAsync(orgId);
         toast.success("Organization reactivated");
+      } else if (confirmAction === "reject") {
+        await reject.mutateAsync({ organizationId: orgId, body: { reason: rejectReason.trim() } });
+        toast.success("Organization rejected");
+      } else {
+        await deactivate.mutateAsync(orgId);
+        toast.success("Organization deactivated");
       }
     } catch (err) {
-      toast.error(
-        err instanceof Error
-          ? err.message
-          : `Failed to ${confirmAction === "suspend" ? "suspend" : "reactivate"} organization`,
-      );
+      toast.error(err instanceof Error ? err.message : `Failed to ${confirmAction} organization`);
     } finally {
       setConfirmAction(null);
+      setRejectReason("");
     }
   };
 
@@ -207,6 +252,18 @@ const PlatformOrganizationDetails = () => {
                     <BadgeCheck /> Approve
                   </Button>
                 )}
+                {status === "PENDING_VALIDATION" && canReject && (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setRejectReason("");
+                      setConfirmAction("reject");
+                    }}
+                    className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <XCircle /> Reject
+                  </Button>
+                )}
                 {status === "ACTIVE" && canSuspend && (
                   <Button
                     variant="outline"
@@ -219,6 +276,15 @@ const PlatformOrganizationDetails = () => {
                 {status === "SUSPENDED" && canReactivate && (
                   <Button variant="brand" onClick={() => setConfirmAction("reactivate")}>
                     <RefreshCw /> Reactivate
+                  </Button>
+                )}
+                {(status === "ACTIVE" || status === "SUSPENDED") && canDeactivate && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setConfirmAction("deactivate")}
+                    className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <PowerOff /> Deactivate
                   </Button>
                 )}
                 <Button asChild variant="outline">
@@ -419,15 +485,21 @@ const PlatformOrganizationDetails = () => {
           >
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>
-                  {confirmAction === "suspend" ? "Suspend organization?" : "Reactivate organization?"}
-                </AlertDialogTitle>
-                <AlertDialogDescription>
-                  {confirmAction === "suspend"
-                    ? `"${org.name}" will lose access until it is reactivated.`
-                    : `"${org.name}" will regain access to the platform.`}
-                </AlertDialogDescription>
+                <AlertDialogTitle>{confirmInfo?.title}</AlertDialogTitle>
+                <AlertDialogDescription>{confirmInfo?.description}</AlertDialogDescription>
               </AlertDialogHeader>
+              {confirmAction === "reject" && (
+                <div className="space-y-1.5 py-2">
+                  <Label htmlFor="reject-reason">Reason</Label>
+                  <Textarea
+                    id="reject-reason"
+                    rows={3}
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                    placeholder="e.g. Failed regulatory documentation verification."
+                  />
+                </div>
+              )}
               <AlertDialogFooter>
                 <AlertDialogCancel disabled={statusActionPending}>Cancel</AlertDialogCancel>
                 <AlertDialogAction
@@ -435,16 +507,10 @@ const PlatformOrganizationDetails = () => {
                     event.preventDefault();
                     void handleConfirm();
                   }}
-                  disabled={statusActionPending}
-                  className={
-                    confirmAction === "suspend" ? "bg-destructive hover:bg-destructive/90" : ""
-                  }
+                  disabled={statusActionPending || (confirmAction === "reject" && !rejectReason.trim())}
+                  className={confirmInfo?.destructive ? "bg-destructive hover:bg-destructive/90" : ""}
                 >
-                  {statusActionPending
-                    ? "Working…"
-                    : confirmAction === "suspend"
-                      ? "Suspend"
-                      : "Reactivate"}
+                  {statusActionPending ? "Working…" : confirmInfo?.action}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>

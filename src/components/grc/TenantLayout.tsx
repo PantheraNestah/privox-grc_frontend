@@ -12,6 +12,7 @@ import {
   LineChart,
   LogOut,
   ShieldAlert,
+  UserCircle,
   Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -63,6 +64,7 @@ export function TenantLayout() {
         items: [
           { label: "Organization", href: "/settings/organization", icon: Building2 },
           { label: "Modules", href: "/settings/modules", icon: Layers },
+          { label: "Account", href: "/settings/account", icon: UserCircle },
           ...(canManageUsers ? [{ label: "Users", href: "/settings/users", icon: Users }] : []),
         ],
       },

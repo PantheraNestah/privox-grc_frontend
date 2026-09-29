@@ -4,7 +4,7 @@ import { TenantLayout } from "./TenantLayout";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 const modules = vi.hoisted(() => ({ disabled: new Set<string>() }));
-const auth = vi.hoisted(() => ({ permissions: ["organization.manage"] as string[] }));
+const auth = vi.hoisted(() => ({ permissions: ["organization.manage"] as string[], hasModule: true }));
 
 vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({
@@ -12,7 +12,7 @@ vi.mock("@/contexts/AuthContext", () => ({
     organization: { id: "org-1", code: "ORG", name: "Acme Insurance" },
     permissions: auth.permissions,
     allocatedModules: ["CORE", "USER_MANAGEMENT", "GOVERNANCE"],
-    hasModule: (code: string) => code === "GOVERNANCE",
+    hasModule: () => auth.hasModule,
     logout: vi.fn(),
   }),
 }));
@@ -40,6 +40,7 @@ describe("TenantLayout navigation", () => {
     localStorage.clear();
     modules.disabled = new Set();
     auth.permissions = ["organization.manage"];
+    auth.hasModule = true;
   });
 
   it("renders the workspace nav with governance and settings links", () => {
@@ -69,6 +70,15 @@ describe("TenantLayout navigation", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Notifications" }));
     expect(screen.getByText(/Sample content/)).toBeInTheDocument();
+  });
+
+  it("hides the Governance section when the module is not allocated to the user", () => {
+    auth.permissions = [];
+    auth.hasModule = false;
+    renderLayout();
+
+    expect(screen.queryByRole("link", { name: "Risk Governance" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Overview" })).not.toBeInTheDocument();
   });
 
   it("shows the organization in the top bar and starts with the sidebar expanded", () => {
