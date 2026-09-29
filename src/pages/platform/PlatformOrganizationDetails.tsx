@@ -41,7 +41,7 @@ import {
   useSetPlatformOrganizationModule,
 } from "@/hooks/use-platform-modules";
 import { usePlatformAuth } from "@/contexts/PlatformAuthContext";
-import { canPlatform, PLATFORM_PERMISSIONS } from "@/lib/platformPermissions";
+import { canAnyPlatform, canPlatform, PLATFORM_PERMISSIONS } from "@/lib/platformPermissions";
 import { platformModuleStyle } from "@/data/platformModules";
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -99,7 +99,12 @@ const PlatformOrganizationDetails = () => {
   const { permissions } = usePlatformAuth();
   const canApprove = canPlatform(permissions, PLATFORM_PERMISSIONS.organizationApprove);
   const canSuspend = canPlatform(permissions, PLATFORM_PERMISSIONS.organizationSuspend);
-  const canReactivate = canPlatform(permissions, PLATFORM_PERMISSIONS.organizationDeactivate);
+  // Reactivating is the inverse of suspending; either lifecycle authority may do it.
+  // (There is no `organization.reactivate` code in the catalogue.)
+  const canReactivate = canAnyPlatform(permissions, [
+    PLATFORM_PERMISSIONS.organizationSuspend,
+    PLATFORM_PERMISSIONS.organizationApprove,
+  ]);
   const canAssignModules = canPlatform(permissions, PLATFORM_PERMISSIONS.moduleAssign);
 
   const suspend = useSuspendPlatformOrganization();

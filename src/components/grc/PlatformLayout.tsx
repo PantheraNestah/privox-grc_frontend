@@ -58,6 +58,7 @@ export function PlatformLayout() {
           }
           notifications={NOTIFICATIONS}
           notificationsTitle="Platform activity"
+          notificationsNote="Sample content — platform activity notifications are not yet live."
           user={{ name, email: user?.email, detail }}
           onSignOut={signOut}
         />

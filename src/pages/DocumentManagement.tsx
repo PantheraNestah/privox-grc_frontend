@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/grc/common/PageHeader";
+import { PrototypeNotice } from "@/components/grc/common/PrototypeNotice";
 import { TENANT_HOME } from "@/components/grc/common/home-links";
 import { EmptyState } from "@/components/grc/common/states";
 import { DocumentDialog, type DocumentDialogState } from "@/components/grc/documents/DocumentDialog";
@@ -180,6 +181,8 @@ const DocumentManagement = () => {
           )
         }
       />
+
+      <PrototypeNotice module="Document Management" />
 
       {!canManage && (
         <Alert className="mb-5">

@@ -35,6 +35,13 @@ describe("PlatformLayout sidebar", () => {
     expect(screen.getByRole("link", { name: "Organizations" })).toHaveTextContent("Organizations");
   });
 
+  it("labels the notifications panel as sample content", () => {
+    renderLayout();
+
+    fireEvent.click(screen.getByRole("button", { name: "Notifications" }));
+    expect(screen.getByText(/Sample content/)).toBeInTheDocument();
+  });
+
   it("collapses to an icon rail and remembers the choice", () => {
     const { unmount } = renderLayout();
 

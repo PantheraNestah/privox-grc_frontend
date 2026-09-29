@@ -43,6 +43,8 @@ interface AppTopNavProps {
   chip?: ReactNode;
   notifications: Notification[];
   notificationsTitle: string;
+  /** Optional caveat rendered under the title (e.g. when the list is demo data). */
+  notificationsNote?: string;
   user: { name: string; email?: string; detail?: string };
   onSignOut: () => void | Promise<void>;
 }
@@ -57,6 +59,7 @@ export function AppTopNav({
   chip,
   notifications: initial,
   notificationsTitle,
+  notificationsNote,
   user,
   onSignOut,
 }: AppTopNavProps) {
@@ -103,6 +106,11 @@ export function AppTopNav({
               Mark all read
             </button>
           </div>
+          {notificationsNote && (
+            <p className="border-t border-border bg-offwhite px-4 py-2 text-[11px] text-brand-muted">
+              {notificationsNote}
+            </p>
+          )}
           <Separator />
           <div className="max-h-[360px] overflow-y-auto">
             {notifs.map((n) => (

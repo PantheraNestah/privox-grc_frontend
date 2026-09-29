@@ -11,6 +11,8 @@ export interface AppUser {
   email: string;
   role: UserRole;
   orgNodeId?: string;       // optional link into Risk Governance hierarchy
+  /** All active organizational-unit placements (when known). */
+  orgNodeIds?: string[];
   title?: string;
   createdAt: string;
 }

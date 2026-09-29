@@ -45,7 +45,6 @@ function renderPanel(open = true, canManageMembers = false, rollup?: OrgNodeStra
         open={open}
         onClose={vi.fn()}
         descendantIds={new Set(["node-1"])}
-        documents={[]}
         rollup={rollup}
         canManageMembers={canManageMembers}
       />

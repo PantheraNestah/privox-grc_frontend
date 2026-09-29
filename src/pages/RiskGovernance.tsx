@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import {
   ChevronRight, ChevronDown, Plus, Pencil, Trash2, Building2, Network, Lock, Layers, Info,
-  LayoutTemplate, MoreHorizontal, X, Download,
+  LayoutTemplate, MoreHorizontal, X, Download, ShieldAlert,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,9 +39,8 @@ import {
   effectiveLod,
   type OrgNode, type OrgNodeType, type OrgOffering, type OfferingKind, type OrgTypeDef,
 } from "@/data/orgStore";
-import { loadDocuments, type PolicyDocument } from "@/data/documentsStore";
-import { loadUsers, type AppUser } from "@/data/userStore";
 import { useActiveUser } from "@/hooks/use-active-user";
+import type { AppUser } from "@/data/userStore";
 import { useAuth } from "@/contexts/AuthContext";
 import { PageHeader } from "@/components/grc/common/PageHeader";
 import { TENANT_HOME } from "@/components/grc/common/home-links";
@@ -76,6 +75,9 @@ interface NodeFormState {
 
 const EMPTY_STRATEGY_TREE: StrategyTreeNode[] = [];
 const EMPTY_NODE_ID_SET: Set<string> = new Set();
+// Per-node people pins should come from the live placements API; the local
+// `userStore` is browser-only and would make the map disagree between users.
+const EMPTY_USERS: AppUser[] = [];
 
 const emptyForm = (parentId: string | null = null, type: OrgNodeType = "company"): NodeFormState => ({
   name: "", type, parentId, description: "", offerings: [],
@@ -84,8 +86,11 @@ const emptyForm = (parentId: string | null = null, type: OrgNodeType = "company"
 const RiskGovernance = () => {
   const activeUser = useActiveUser();
 
-  const { organization, permissions } = useAuth();
+  const { organization, permissions, hasModule } = useAuth();
   const orgId = organization?.id;
+  // Baseline read entitlement: the GOVERNANCE module allocation gates data
+  // loading; functional permissions below only control mutations.
+  const canView = hasModule("GOVERNANCE");
   // Segregation of duties: contributors draft/edit nodes; approvers move/delete
   // them; template cloning stays a full organization-administrator action.
   const canContribute =
@@ -94,13 +99,12 @@ const RiskGovernance = () => {
     permissions.includes("orgnode.approve") || permissions.includes("organization.manage");
   const isAdmin = permissions.includes("organization.manage");
   const canApplyTemplates = isAdmin;
-  // Placing/ending people at a unit is a `orgnode.manage` action server-side
-  // (a leader of the unit may also do it, which the client cannot determine —
-  // a 403 is surfaced as a toast). Node approvers already move/delete units,
-  // so they are granted the editor too.
-  const canManageMembers =
-    permissions.includes("orgnode.manage") || canApprove;
-  const orgNodesQuery = useOrgNodes(orgId);
+  // Placing/ending people at a unit is authorised server-side by
+  // `orgnode.approve` (or `organization.manage`, included in `canApprove`) or
+  // by leading the unit. A node leader's capability cannot be derived on the
+  // client, so a 403 is surfaced as a toast by `OrgNodeInsightsPanel`.
+  const canManageMembers = canApprove;
+  const orgNodesQuery = useOrgNodes(canView ? orgId : undefined);
   const { data: orgNodeResponses } = orgNodesQuery;
   const createNode = useCreateOrgNode(orgId ?? "");
   const updateNode = useUpdateOrgNode(orgId ?? "");
@@ -127,15 +131,12 @@ const RiskGovernance = () => {
   const [bulkType, setBulkType] = useState<OrgNodeType>("company");
   const [bulkNames, setBulkNames] = useState("");
 
-  // Roll-up data sources for the insights panel
-  const [documents, setDocuments] = useState<PolicyDocument[]>([]);
-  const [users, setUsers] = useState<AppUser[]>([]);
   // Objectives and initiatives come from the strategy-formulation API, which
   // links elements to units by orgNodeId; the local strategy/assessment stores
   // hold no data and are not used for the roll-up. Those endpoints need the
   // Governance module, so the request is only issued for users who can already
   // work with the tree — otherwise everyone else would just collect a 403.
-  const canViewStrategy = canContribute || canApprove;
+  const canViewStrategy = canView && (canContribute || canApprove);
   const strategyTreeQuery = useStrategyTree(canViewStrategy ? orgId : undefined);
   // A module-level constant keeps this reference stable, so the roll-up memos
   // below don't re-run on every render while the tree is still loading.
@@ -149,8 +150,6 @@ const RiskGovernance = () => {
   const TYPE_OPTIONS = useMemo<OrgNodeType[]>(() => orgTypes.map(t => t.key), [orgTypes]);
 
   useEffect(() => {
-    setDocuments(loadDocuments());
-    setUsers(loadUsers());
     setOrgTypes(loadOrgTypes());
     const refresh = () => setOrgTypes(loadOrgTypes());
     window.addEventListener("rsolve:org-types-changed", refresh);
@@ -172,7 +171,8 @@ const RiskGovernance = () => {
     return map;
   }, [nodes]);
 
-  // Pre-compute per-node roll-up counts (objectives, initiatives, docs, users)
+  // Pre-compute per-node roll-up counts (objectives and initiatives only;
+  // documents/users are browser-local and excluded from authoritative counts)
   // including descendants so a Department reflects everything beneath it.
   const descendantsOf = useMemo(() => {
     const map = new Map<string, Set<string>>();
@@ -192,21 +192,16 @@ const RiskGovernance = () => {
 
   const countsByNode = useMemo(() => {
     const strategyCounts = computeOrgNodeStrategyCounts(strategyTree, descendantsOf);
-    const map = new Map<string, { objectives: number; initiatives: number; documents: number; users: number }>();
+    const map = new Map<string, { objectives: number; initiatives: number }>();
     nodes.forEach(n => {
-      const desc = descendantsOf.get(n.id) ?? new Set([n.id]);
       const strategy = strategyCounts.get(n.id) ?? { objectives: 0, initiatives: 0 };
-      const documentsCount = documents.filter(d => d.linkedOrgNodeIds.some(id => desc.has(id))).length;
-      const usersCount = users.filter(u => u.orgNodeId && desc.has(u.orgNodeId)).length;
       map.set(n.id, {
         objectives: strategy.objectives,
         initiatives: strategy.initiatives,
-        documents: documentsCount,
-        users: usersCount,
       });
     });
     return map;
-    }, [nodes, descendantsOf, strategyTree, documents, users]);
+  }, [nodes, descendantsOf, strategyTree]);
 
 
   const roots = childrenOf.get(null) ?? [];
@@ -365,6 +360,31 @@ const RiskGovernance = () => {
     [strategyTree, insightNode, insightDescendants],
   );
 
+  if (!canView) {
+    return (
+      <>
+        <Helmet>
+          <title>Risk Governance · Rsolve GRC Platform</title>
+          <link rel="canonical" href="/governance/risk-governance" />
+        </Helmet>
+        <PageHeader
+          home={TENANT_HOME}
+          crumbs={[{ label: "Governance", to: "/governance" }, { label: "Risk Governance" }]}
+          title="Risk Governance"
+          description="Define your organisation structure — group of companies, departments, divisions, sections, processes and sub-processes."
+        />
+        <Alert variant="destructive" className="bg-destructive/5">
+          <ShieldAlert className="h-4 w-4" />
+          <AlertTitle>Governance module not allocated</AlertTitle>
+          <AlertDescription>
+            You do not have access to the Governance module. Please contact your organization administrator
+            to allocate this module to your account.
+          </AlertDescription>
+        </Alert>
+      </>
+    );
+  }
+
   return (
     <>
       <Helmet>
@@ -409,7 +429,7 @@ const RiskGovernance = () => {
             <div className="space-y-1.5">
               <CardTitle className="text-base text-navy-deep">Organisation Structure</CardTitle>
               <CardDescription className="text-xs">
-                Select any unit to see roll-up insights (objectives, initiatives, documents, users) for it and everything beneath it.
+                Select any unit to see roll-up insights (objectives and initiatives) for it and everything beneath it.
               </CardDescription>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -576,12 +596,12 @@ const RiskGovernance = () => {
               <OrgMapGraph
                 nodes={nodes}
                 childrenOf={childrenOf}
-                users={users}
+                users={EMPTY_USERS}
                 onNodeSelect={(id) => setInsightNodeId(id)}
               />
             )}
 
-            <ThreeLodSummary nodes={nodes} users={users} />
+            <ThreeLodSummary nodes={nodes} />
 
             {/* Legend */}
             <div className="space-y-2 border-t border-border pt-4">
@@ -829,7 +849,6 @@ const RiskGovernance = () => {
         open={!!insightNode}
         onClose={() => setInsightNodeId(null)}
         descendantIds={insightDescendants}
-        documents={documents}
         rollup={insightRollup}
         canManageMembers={canManageMembers}
       />
@@ -872,7 +891,7 @@ const StatCard = ({ icon, label, value }: StatCardProps) => (
   </Card>
 );
 
-interface NodeCounts { objectives: number; initiatives: number; documents: number; users: number; }
+interface NodeCounts { objectives: number; initiatives: number; }
 
 interface TreeRowProps {
   node: OrgNode;
@@ -896,12 +915,10 @@ const TreeRow = ({
 }: TreeRowProps) => {
   const kids = childrenOf.get(node.id) ?? [];
   const isOpen = expanded.has(node.id);
-  const c = counts.get(node.id) ?? { objectives: 0, initiatives: 0, documents: 0, users: 0 };
+  const c = counts.get(node.id) ?? { objectives: 0, initiatives: 0 };
   const rollups: [string, string, number][] = [
     ["O", "objective", c.objectives],
     ["I", "initiative", c.initiatives],
-    ["D", "document", c.documents],
-    ["U", "user", c.users],
   ];
 
   return (
@@ -1028,7 +1045,7 @@ const TreeRow = ({
 };
 
 // ----- 3LoD summary table -----
-const ThreeLodSummary = ({ nodes, users }: { nodes: OrgNode[]; users: AppUser[] }) => {
+const ThreeLodSummary = ({ nodes }: { nodes: OrgNode[] }) => {
   const byId = useMemo(() => new Map(nodes.map(n => [n.id, n])), [nodes]);
   const lanes: Record<1 | 2 | 3, OrgNode[]> = { 1: [], 2: [], 3: [] };
   nodes.forEach(n => {
@@ -1036,10 +1053,10 @@ const ThreeLodSummary = ({ nodes, users }: { nodes: OrgNode[]; users: AppUser[] 
     if (lod) lanes[lod].push(n);
   });
 
-  const rows: { lod: 1 | 2 | 3; subtitle: string; units: OrgNode[]; userList: AppUser[] }[] = [
-    { lod: 1, subtitle: "Ownership", units: lanes[1], userList: users.filter(u => u.orgNodeId && lanes[1].some(n => n.id === u.orgNodeId)) },
-    { lod: 2, subtitle: "Oversight & Control", units: lanes[2], userList: users.filter(u => u.orgNodeId && lanes[2].some(n => n.id === u.orgNodeId)) },
-    { lod: 3, subtitle: "Independent Assurance", units: lanes[3], userList: users.filter(u => u.orgNodeId && lanes[3].some(n => n.id === u.orgNodeId)) },
+  const rows: { lod: 1 | 2 | 3; subtitle: string; units: OrgNode[] }[] = [
+    { lod: 1, subtitle: "Ownership", units: lanes[1] },
+    { lod: 2, subtitle: "Oversight & Control", units: lanes[2] },
+    { lod: 3, subtitle: "Independent Assurance", units: lanes[3] },
   ];
 
   if (rows.every(r => r.units.length === 0)) return null;
@@ -1056,7 +1073,6 @@ const ThreeLodSummary = ({ nodes, users }: { nodes: OrgNode[]; users: AppUser[] 
             <TableRow>
               <TableHead className="w-[28%]">Line</TableHead>
               <TableHead>Org units</TableHead>
-              <TableHead className="w-[28%]">People</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -1076,19 +1092,6 @@ const ThreeLodSummary = ({ nodes, users }: { nodes: OrgNode[]; users: AppUser[] 
                         {r.units.map(u => (
                           <Badge key={u.id} variant="outline" className="text-[10px] font-normal">
                             {ORG_TYPE_LABELS[u.type]}: {u.name}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-                </TableCell>
-                <TableCell>
-                  {r.userList.length === 0
-                    ? <span className="text-xs italic text-muted-foreground">— none assigned —</span>
-                    : (
-                      <div className="flex flex-wrap gap-1">
-                        {r.userList.map(u => (
-                          <Badge key={u.id} variant="secondary" className="text-[10px] font-normal">
-                            {u.title || u.name}
                           </Badge>
                         ))}
                       </div>

@@ -8,7 +8,7 @@ import * as orgNodesApi from "@/lib/orgNodes";
 import * as riskStrategyApi from "@/lib/riskStrategy";
 import type { OrgNodeResponse, RiskStrategyConfigResponse } from "@/lib/governance-types";
 
-const session = vi.hoisted(() => ({ permissions: ["organization.manage"] as string[] }));
+const session = vi.hoisted(() => ({ permissions: ["organization.manage"] as string[], hasModule: true }));
 
 vi.mock("sonner", () => ({
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
@@ -17,6 +17,7 @@ vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({
     organization: { id: "org-1", code: "ORG", name: "Org" },
     permissions: session.permissions,
+    hasModule: () => session.hasModule,
   }),
 }));
 
@@ -91,6 +92,7 @@ function renderPage() {
 describe("RiskStrategy", () => {
   beforeEach(() => {
     session.permissions = ["organization.manage"];
+    session.hasModule = true;
     vi.spyOn(riskStrategyApi, "fetchCurrentRiskStrategy").mockResolvedValue(saved);
     vi.spyOn(riskStrategyApi, "fetchRiskStrategyHistory").mockResolvedValue([]);
     vi.spyOn(riskStrategyApi, "createRiskStrategyVersion").mockResolvedValue({ ...saved, id: "cfg-2", version: 2 });
@@ -189,6 +191,18 @@ describe("RiskStrategy", () => {
       ),
     );
     expect(dialog).toBeDefined();
+  });
+
+  it("blocks unallocated users and issues no risk-strategy requests", async () => {
+    session.permissions = [];
+    session.hasModule = false;
+    renderPage();
+
+    expect(await screen.findByText("Governance module not allocated")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Save/ })).not.toBeInTheDocument();
+    expect(riskStrategyApi.fetchCurrentRiskStrategy).not.toHaveBeenCalled();
+    expect(riskStrategyApi.fetchRiskStrategyHistory).not.toHaveBeenCalled();
+    expect(orgNodesApi.fetchOrgNodes).not.toHaveBeenCalled();
   });
 
   it("lists active units in the scope selector and hides retired ones", async () => {

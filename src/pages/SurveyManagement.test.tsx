@@ -29,6 +29,8 @@ describe("SurveyManagement", () => {
   it("shows an empty state with a create action for managers", () => {
     renderPage();
 
+    expect(screen.getByText("Prototype module")).toBeInTheDocument();
+
     expect(screen.getByText("No surveys yet")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /New survey/ }).length).toBeGreaterThan(0);
   });

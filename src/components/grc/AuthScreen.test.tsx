@@ -60,7 +60,7 @@ describe("AuthScreen forgot-password flow", () => {
     fireEvent.click(screen.getByRole("button", { name: "Reset Password" }));
     await advance(1100 + 300);
 
-    expect(screen.getByText("Password updated")).toBeInTheDocument();
+    expect(screen.getByText("No password was changed")).toBeInTheDocument();
   });
 
   it("flags a wrong verification code", async () => {

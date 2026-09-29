@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { TenantLayout } from "./TenantLayout";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -62,6 +62,13 @@ describe("TenantLayout navigation", () => {
     expect(screen.queryByRole("link", { name: "Risk Governance" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Users" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Modules" })).toBeInTheDocument();
+  });
+
+  it("labels the notifications panel as sample content", () => {
+    renderLayout();
+
+    fireEvent.click(screen.getByRole("button", { name: "Notifications" }));
+    expect(screen.getByText(/Sample content/)).toBeInTheDocument();
   });
 
   it("shows the organization in the top bar and starts with the sidebar expanded", () => {

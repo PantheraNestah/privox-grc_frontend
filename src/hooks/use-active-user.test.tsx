@@ -5,6 +5,7 @@ const auth = vi.hoisted(() => ({
   isAuthenticated: true,
   user: { id: "u1", fullName: "Ada Lovelace", email: "ada@org.com" },
   permissions: [] as string[],
+  orgNodeIds: undefined as string[] | undefined,
 }));
 
 vi.mock("@/contexts/AuthContext", () => ({ useAuth: () => auth }));
@@ -35,5 +36,21 @@ describe("useActiveUser role derivation (V3 SoD model)", () => {
 
   it("prefers the admin role when several permissions are present", () => {
     expect(roleFor(["organization.manage", "strategy.approve", "strategy.contribute"])).toBe("admin");
+  });
+
+  it("hydrates placements from the session into orgNodeId/orgNodeIds", () => {
+    auth.permissions = [];
+    auth.orgNodeIds = ["node-a", "node-b"];
+    const { result } = renderHook(() => useActiveUser());
+    expect(result.current.orgNodeId).toBe("node-a");
+    expect(result.current.orgNodeIds).toEqual(["node-a", "node-b"]);
+  });
+
+  it("leaves placements undefined when the session carries none", () => {
+    auth.permissions = [];
+    auth.orgNodeIds = undefined;
+    const { result } = renderHook(() => useActiveUser());
+    expect(result.current.orgNodeId).toBeUndefined();
+    expect(result.current.orgNodeIds).toEqual([]);
   });
 });

@@ -6,10 +6,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import type { Survey } from "@/data/surveyStore";
 
-/** Stable per-recipient token for the prototype (no server issuing yet). */
-const externalToken = (surveyId: string, email: string) =>
-  btoa(`${surveyId}:${email}`).replace(/=/g, "").slice(0, 12);
-
 function LinkRow({ label, url }: { label: string; url: string }) {
   const copy = async () => {
     try {
@@ -48,22 +44,26 @@ export function ShareLinksDialog({ survey, onClose }: { survey: Survey; onClose:
           <div>
             <p className="text-sm font-semibold text-navy-deep">Internal link</p>
             <p className="text-xs text-muted-foreground">
-              For signed-in system users targeted by role or org unit.
+              For signed-in system users targeted by role or org unit. This link only works in this browser —
+              the survey is stored locally, not on the server.
             </p>
           </div>
           <LinkRow label="Internal" url={base} />
         </Card>
 
         {external.length > 0 && (
-          <Card className="space-y-3 p-4 shadow-none">
-            <p className="text-sm font-semibold text-navy-deep">External party links</p>
-            {external.map((email) => (
-              <LinkRow
-                key={email}
-                label={email}
-                url={`${base}?token=${externalToken(survey.id, email)}&email=${encodeURIComponent(email)}`}
-              />
-            ))}
+          <Card className="space-y-2 border-amber-500/30 bg-amber-500/10 p-4 shadow-none">
+            <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">
+              External party links are not available yet
+            </p>
+            <p className="text-xs text-amber-800/90 dark:text-amber-200/90">
+              This survey is stored only in this browser and the respondent page requires sign-in, so external
+              links would not work for recipients. External distribution will be enabled once the backend survey
+              module is available.
+            </p>
+            <p className="text-[11px] text-amber-800/80 dark:text-amber-200/80">
+              Requested recipients: {external.join(", ")}
+            </p>
           </Card>
         )}
       </DialogContent>

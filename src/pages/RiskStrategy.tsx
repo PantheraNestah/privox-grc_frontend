@@ -10,6 +10,7 @@ import {
   Loader2,
   Lock,
   Save,
+  ShieldAlert,
   Target,
   XCircle,
 } from "lucide-react";
@@ -65,8 +66,14 @@ import { fromRiskStrategyResponse, toCreateRiskStrategyVersionRequest } from "@/
 const ENTERPRISE_SCOPE = "__enterprise__";
 
 const RiskStrategy = () => {
-  const { organization, permissions } = useAuth();
+  const { organization, permissions, hasModule } = useAuth();
   const orgId = organization?.id;
+
+  // Baseline read entitlement: the GOVERNANCE module allocation gates whether
+  // the page may load data at all. Functional permissions below only control
+  // mutations once module access is established.
+  const canView = hasModule("GOVERNANCE");
+  const showNotAllocated = !!orgId && !canView;
 
   // ─── 1. Segregation of Duties Permissions ─────────────────────────────────
   const canContribute =
@@ -81,13 +88,13 @@ const RiskStrategy = () => {
   const [selectedOrgNodeId, setSelectedOrgNodeId] = useState<string>(ENTERPRISE_SCOPE);
   const scopedOrgNodeId = selectedOrgNodeId === ENTERPRISE_SCOPE ? undefined : selectedOrgNodeId;
 
-  const currentQuery = useCurrentRiskStrategy(orgId, scopedOrgNodeId);
-  const historyQuery = useRiskStrategyHistory(orgId, scopedOrgNodeId);
+  const currentQuery = useCurrentRiskStrategy(canView ? orgId : undefined, scopedOrgNodeId);
+  const historyQuery = useRiskStrategyHistory(canView ? orgId : undefined, scopedOrgNodeId);
   const createVersion = useCreateRiskStrategyVersion(orgId ?? "");
   const decideVersion = useDecideRiskStrategyVersion(orgId ?? "");
 
   // Active organizational units that can own a localized risk strategy.
-  const orgNodesQuery = useOrgNodes(orgId);
+  const orgNodesQuery = useOrgNodes(canView ? orgId : undefined);
   const orgNodes = useMemo(
     () =>
       (orgNodesQuery.data ?? [])
@@ -418,13 +425,25 @@ const RiskStrategy = () => {
         )}
 
       {/* ─── Read-Only Information Banner ─────────────────────────────────── */}
-      {!canContribute && !canApprove && (
+      {canView && !canContribute && !canApprove && (
         <Alert className="mb-6">
           <Lock className="h-4 w-4" />
           <AlertTitle>Read-only view</AlertTitle>
           <AlertDescription>
             You have viewer access to the Risk Strategy module. Changes can only be proposed by Governance
             Contributors and approved by Governance Approvers.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* ─── Module Not Allocated ─────────────────────────────────────────── */}
+      {showNotAllocated && (
+        <Alert variant="destructive" className="mb-6 bg-destructive/5">
+          <ShieldAlert className="h-4 w-4" />
+          <AlertTitle>Governance module not allocated</AlertTitle>
+          <AlertDescription>
+            You do not have access to the Governance module. Please contact your organization administrator
+            to allocate this module to your account.
           </AlertDescription>
         </Alert>
       )}
@@ -459,7 +478,7 @@ const RiskStrategy = () => {
       )}
 
       {/* ─── Main Editor View ──────────────────────────────────────────────── */}
-      {!showLoading && !loadError && (
+      {canView && !showLoading && !loadError && (
         <div className="space-y-6">
           <Card>
             <CardHeader className="flex-col gap-4 space-y-0 sm:flex-row sm:items-center sm:justify-between">

@@ -43,8 +43,12 @@ export function useActiveUser(): AppUser {
       role,
       title: auth.user.fullName,
       createdAt: "",
+      // Active placements supplied by the backend `/me` payload; the first is
+      // kept as the primary `orgNodeId` for legacy single-placement callers.
+      orgNodeId: auth.orgNodeIds?.[0],
+      orgNodeIds: auth.orgNodeIds ?? [],
     };
-  }, [auth.isAuthenticated, auth.user, auth.permissions]);
+  }, [auth.isAuthenticated, auth.user, auth.permissions, auth.orgNodeIds]);
 
   // When the API user is available, prefer it.
   // Otherwise fall back to the prototype store.

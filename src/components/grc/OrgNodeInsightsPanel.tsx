@@ -1,15 +1,19 @@
 // Side panel showing roll-up insights for a single org node:
-// linked objectives, initiatives, documents (with currency), assessment progress,
-// people placed at that unit (live from the API), and per-document approval state.
+// linked objectives, initiatives, strategy progress, and people placed at
+// that unit (live from the API).
 //
-// Documents/strategy/assessments arrive via props; placed users are fetched (and
+// Strategy/assessment figures arrive via props; placed users are fetched (and
 // cached) here so the panel always reflects the real placements. When the caller
 // grants `canManageMembers`, the placements can be edited in place — the backend
 // also accepts a user who leads this node, which the client cannot determine, so
 // a 403 is surfaced as a toast rather than assumed away.
+//
+// Browser-local document state is deliberately NOT shown here: it is
+// per-browser, so mixing it into an otherwise API-backed roll-up would make two
+// users see different figures for the same unit.
 
 import { useState } from "react";
-import { CheckCircle2, AlertTriangle, FileEdit, Target, Rocket, FileText, Users, Layers, UserPlus, XCircle, Check, ChevronsUpDown } from "lucide-react";
+import { Target, Rocket, Users, Layers, UserPlus, XCircle, Check, ChevronsUpDown } from "lucide-react";
 import { toast } from "sonner";
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
@@ -31,10 +35,6 @@ import { formatDateTime, initials } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { isAxiosError } from "axios";
 import { ORG_TYPE_LABELS, ORG_TYPE_COLORS, type OrgNode } from "@/data/orgStore";
-import {
-  DOCUMENT_STATUS_LABELS, DOCUMENT_STATUS_COLORS, DOCUMENT_TYPE_LABELS, DOCUMENT_TYPE_COLORS,
-  computeDocumentStatus, type PolicyDocument,
-} from "@/data/documentsStore";
 import { ASSESSMENT_STATUS_COLORS } from "@/data/assessmentStore";
 import { emptyOrgNodeStrategyRollup, type OrgNodeStrategyRollup } from "@/lib/org-node-rollup";
 
@@ -46,7 +46,6 @@ interface Props {
   onClose: () => void;
   /** All children/descendant ids of the selected node (incl. itself) — used to roll up counts. */
   descendantIds: Set<string>;
-  documents: PolicyDocument[];
   /** Objectives/initiatives scoped to this node and its subtree, from the strategy API. */
   rollup?: OrgNodeStrategyRollup;
   /** Allow placing/removing people at this node. */
@@ -54,7 +53,7 @@ interface Props {
 }
 
 export const OrgNodeInsightsPanel = ({
-  orgId, node, open, onClose, descendantIds, documents,
+  orgId, node, open, onClose, descendantIds,
   rollup = emptyOrgNodeStrategyRollup, canManageMembers = false,
 }: Props) => {
   const membersQuery = useOrgNodeMembers(orgId, open ? node?.id : undefined);
@@ -111,14 +110,6 @@ export const OrgNodeInsightsPanel = ({
     }
   };
 
-  // ---- Documents linked to this node OR any descendant ----
-  const linkedDocs = documents.filter(d => d.linkedOrgNodeIds.some(id => descendantIds.has(id)));
-  const docsByStatus = { current: 0, expired: 0, draft: 0 };
-  linkedDocs.forEach(d => {
-    const s = computeDocumentStatus(d);
-    docsByStatus[s] = (docsByStatus[s] ?? 0) + 1;
-  });
-
   // ---- Objectives + initiatives (rolled up from the strategy API) ----
   const color = ORG_TYPE_COLORS[node.type];
 
@@ -147,46 +138,8 @@ export const OrgNodeInsightsPanel = ({
           <div className="grid grid-cols-2 gap-2">
             <MiniStat icon={<Target className="w-3.5 h-3.5" />} label="Objectives" value={rollup.objectiveCount} />
             <MiniStat icon={<Rocket className="w-3.5 h-3.5" />} label="Initiatives" value={rollup.initiativeCount} />
-            <MiniStat icon={<FileText className="w-3.5 h-3.5" />} label="Documents" value={linkedDocs.length} />
             <MiniStat icon={<Users className="w-3.5 h-3.5" />} label="People" value={membersQuery.isSuccess ? members.length : "—"} />
           </div>
-
-          {/* Document currency */}
-          <Section title="Document currency" icon={<FileText className="w-3.5 h-3.5" />}>
-            {linkedDocs.length === 0 ? (
-              <Empty>No documents linked yet.</Empty>
-            ) : (
-              <>
-                <div className="grid grid-cols-3 gap-2 mb-3">
-                  <CurrencyPill icon={<CheckCircle2 className="w-3 h-3" />} label="Current" count={docsByStatus.current} color={DOCUMENT_STATUS_COLORS.current} />
-                  <CurrencyPill icon={<AlertTriangle className="w-3 h-3" />} label="Due / Expired" count={docsByStatus.expired} color={DOCUMENT_STATUS_COLORS.expired} />
-                  <CurrencyPill icon={<FileEdit className="w-3 h-3" />} label="Draft" count={docsByStatus.draft} color={DOCUMENT_STATUS_COLORS.draft} />
-                </div>
-                <ul className="space-y-1.5">
-                  {linkedDocs.slice(0, 8).map(d => {
-                    const s = computeDocumentStatus(d);
-                    return (
-                      <li key={d.id} className="flex items-center gap-2 text-xs">
-                        <Badge
-                          variant="outline"
-                          className="shrink-0 border-transparent px-1.5 py-0 text-[9px] uppercase tracking-wider"
-                          style={{
-                            background: `hsl(${DOCUMENT_TYPE_COLORS[d.type]} / 0.12)`,
-                            color: `hsl(${DOCUMENT_TYPE_COLORS[d.type]})`,
-                          }}
-                        >
-                          {DOCUMENT_TYPE_LABELS[d.type]}
-                        </Badge>
-                        <span className="text-foreground truncate flex-1">{d.title}</span>
-                        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: `hsl(${DOCUMENT_STATUS_COLORS[s]})` }} title={DOCUMENT_STATUS_LABELS[s]} />
-                      </li>
-                    );
-                  })}
-                  {linkedDocs.length > 8 && <li className="text-[11px] text-muted-foreground italic">+{linkedDocs.length - 8} more</li>}
-                </ul>
-              </>
-            )}
-          </Section>
 
           {/* Strategy roll-up */}
           <Section title="Strategy progress" icon={<Layers className="w-3.5 h-3.5" />}>
@@ -365,18 +318,6 @@ const MiniStat = ({ icon, label, value }: { icon: React.ReactNode; label: string
       <p className="mt-0.5 text-lg font-semibold leading-tight text-navy-deep">{value}</p>
     </CardContent>
   </Card>
-);
-
-const CurrencyPill = ({ icon, label, count, color }: { icon: React.ReactNode; label: string; count: number; color: string }) => (
-  <div
-    className="flex flex-col items-start gap-0.5 rounded-md border px-2 py-1.5"
-    style={{ borderColor: `hsl(${color} / 0.4)`, background: `hsl(${color} / 0.08)` }}
-  >
-    <span className="inline-flex items-center gap-1 text-[10px] font-medium" style={{ color: `hsl(${color})` }}>
-      {icon}{label}
-    </span>
-    <span className="text-base font-semibold text-foreground">{count}</span>
-  </div>
 );
 
 const ProgressLine = ({ label, value, total, color }: { label: string; value: number; total: number; color: string }) => {

@@ -45,3 +45,14 @@ export const GOVERNANCE_MODULES: ModuleDef[] = [
     color: "265 88% 66%",
   },
 ];
+
+/**
+ * Governance modules that are still browser-local prototypes: they have no
+ * backend contract yet, so their data is not shared or authoritative. Surface
+ * them with `PrototypeNotice` rather than presenting local state as real.
+ */
+export const PROTOTYPE_MODULES: ReadonlySet<string> = new Set([
+  "strategy-assessment",
+  "documents",
+  "surveys",
+]);

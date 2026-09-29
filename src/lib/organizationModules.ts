@@ -1,3 +1,4 @@
+import { Layers } from "lucide-react";
 import { api } from "@/lib/api";
 import { MODULES, type ModuleDef } from "@/data/modules";
 
@@ -93,12 +94,35 @@ export async function fetchOrganizationModules(
     .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 }
 
-/** Pure mapping from subscription rows to the static MODULES catalogue, in dashboard order. */
+/**
+ * Maps subscription rows to dashboard modules in static-catalogue order.
+ *
+ * Platform admins can create arbitrary module codes, so unknown codes are
+ * surfaced as generic catalogue entries instead of being silently dropped;
+ * known codes that collide on one static id (e.g. CORE and REPORTING →
+ * "dashboard") are de-duplicated.
+ */
 export function toEnabledModules(rows: OrganizationModuleStatus[]): ModuleDef[] {
-  const enabledIds = new Set(
-    rows.filter((row) => row.enabled).map((row) => toStaticModuleId(row.code)),
-  );
-  return MODULES.filter((module) => enabledIds.has(module.id));
+  const enabledIds = new Set<string>();
+  const extras: ModuleDef[] = [];
+
+  for (const row of rows) {
+    if (!row.enabled) continue;
+    const staticId = toStaticModuleId(row.code);
+    if (staticId) {
+      enabledIds.add(staticId);
+      continue;
+    }
+    extras.push({
+      id: row.code.toLowerCase(),
+      name: row.name,
+      desc: row.description ?? "Additional module provisioned for your organization.",
+      icon: Layers,
+      color: "220 15% 50%",
+    });
+  }
+
+  return [...MODULES.filter((module) => enabledIds.has(module.id)), ...extras];
 }
 
 /** Modules currently enabled for the organization, in dashboard order. */

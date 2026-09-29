@@ -100,6 +100,7 @@ export function TenantLayout() {
           }
           notifications={NOTIFICATIONS}
           notificationsTitle="Notifications"
+          notificationsNote="Sample content — approval notifications are not yet live."
           user={{ name, email: user?.email, detail: orgLabel }}
           onSignOut={signOut}
         />

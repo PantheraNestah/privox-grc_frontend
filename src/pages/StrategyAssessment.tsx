@@ -17,6 +17,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/grc/common/PageHeader";
+import { PrototypeNotice } from "@/components/grc/common/PrototypeNotice";
 import { TENANT_HOME } from "@/components/grc/common/home-links";
 import { ApprovalsView } from "@/components/grc/assessment/ApprovalsView";
 import { AssessmentEditor } from "@/components/grc/assessment/AssessmentEditor";
@@ -79,6 +80,8 @@ const StrategyAssessment = () => {
           </>
         }
       />
+
+      <PrototypeNotice module="Strategy Performance Assessment" />
 
       <Alert className="mb-6 py-2.5">
         <ShieldCheck className="h-4 w-4" />
