@@ -6,6 +6,7 @@ import {
   Clock,
   Gauge,
   History,
+  Info,
   Loader2,
   Lock,
   Save,
@@ -46,6 +47,7 @@ import { ErrorState } from "@/components/grc/common/states";
 import { AppetiteTab, ImpactTab, LikelihoodTab } from "@/components/grc/strategy/RiskScaleEditors";
 import { withScaleLevel } from "@/components/grc/strategy/risk-config";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOrgNodes } from "@/hooks/use-org-nodes";
 import {
   isRealStrategyError,
   useCreateRiskStrategyVersion,
@@ -56,7 +58,11 @@ import {
 import { buildDefaultConfig } from "@/data/orgStore";
 import type { RiskStrategyConfig, ScaleLevel } from "@/data/orgStore";
 import type { ApprovalDecisionType } from "@/lib/governance-types";
+import { fromOrgNodeResponse } from "@/lib/org-node-mapping";
 import { fromRiskStrategyResponse, toCreateRiskStrategyVersionRequest } from "@/lib/risk-strategy-mapping";
+
+/** Sentinel for the Radix Select, which reserves the empty string for its placeholder. */
+const ENTERPRISE_SCOPE = "__enterprise__";
 
 const RiskStrategy = () => {
   const { organization, permissions } = useAuth();
@@ -68,11 +74,27 @@ const RiskStrategy = () => {
   const canApprove =
     permissions.includes("strategy.approve") || permissions.includes("organization.manage");
 
-  // ─── 2. Data Queries & Mutations ──────────────────────────────────────────
-  const currentQuery = useCurrentRiskStrategy(orgId);
-  const historyQuery = useRiskStrategyHistory(orgId);
+  // ─── 2. Scope Selection & Data Queries ────────────────────────────────────
+  // Radix Select reserves the empty string for its placeholder, so the
+  // Enterprise Baseline (company-wide) scope uses a sentinel that maps to
+  // `undefined` (i.e. no `orgNodeId` query param).
+  const [selectedOrgNodeId, setSelectedOrgNodeId] = useState<string>(ENTERPRISE_SCOPE);
+  const scopedOrgNodeId = selectedOrgNodeId === ENTERPRISE_SCOPE ? undefined : selectedOrgNodeId;
+
+  const currentQuery = useCurrentRiskStrategy(orgId, scopedOrgNodeId);
+  const historyQuery = useRiskStrategyHistory(orgId, scopedOrgNodeId);
   const createVersion = useCreateRiskStrategyVersion(orgId ?? "");
   const decideVersion = useDecideRiskStrategyVersion(orgId ?? "");
+
+  // Active organizational units that can own a localized risk strategy.
+  const orgNodesQuery = useOrgNodes(orgId);
+  const orgNodes = useMemo(
+    () =>
+      (orgNodesQuery.data ?? [])
+        .filter((node) => !node.effectiveTo)
+        .map((node) => fromOrgNodeResponse(node)),
+    [orgNodesQuery.data],
+  );
 
   // ─── 3. Version Resolution & Active Selection ─────────────────────────────
   const versions = useMemo(() => historyQuery.data ?? [], [historyQuery.data]);
@@ -127,11 +149,20 @@ const RiskStrategy = () => {
     setDraft((prev) => fn(prev ?? serverCfg));
   };
 
+  // Switching scope re-resolves the server version/selection for that unit.
+  const changeScope = (value: string) => {
+    setSelectedOrgNodeId(value);
+    setSelectedVersionId(null);
+    setDraft(null);
+  };
+
   // ─── 4. Save (Propose Draft) Handler ──────────────────────────────────────
   const handleSave = async () => {
     if (!orgId) return;
     try {
-      const created = await createVersion.mutateAsync(toCreateRiskStrategyVersionRequest(cfg));
+      const created = await createVersion.mutateAsync(
+        toCreateRiskStrategyVersionRequest(cfg, scopedOrgNodeId ?? null),
+      );
       if (created.current) {
         toast.success(`Risk strategy v${created.version} published.`);
       } else {
@@ -182,7 +213,9 @@ const RiskStrategy = () => {
     const defaults = buildDefaultConfig(cfg.scaleLevel);
     setDraft(defaults);
     try {
-      const created = await createVersion.mutateAsync(toCreateRiskStrategyVersionRequest(defaults));
+      const created = await createVersion.mutateAsync(
+        toCreateRiskStrategyVersionRequest(defaults, scopedOrgNodeId ?? null),
+      );
       toast.info(`Reset draft v${created.version} submitted for approval.`);
       setSelectedVersionId(created.id);
       setDraft(null);
@@ -243,6 +276,23 @@ const RiskStrategy = () => {
         }
         actions={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
+            {/* Scope selector: Enterprise Baseline vs a localized unit */}
+            <Select value={selectedOrgNodeId} onValueChange={changeScope}>
+              <SelectTrigger aria-label="Risk strategy scope" className="h-10 w-full text-xs sm:w-[230px]">
+                <SelectValue placeholder="Scope: Enterprise Baseline" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ENTERPRISE_SCOPE} className="text-xs">
+                  Enterprise Baseline (Company-wide)
+                </SelectItem>
+                {orgNodes.map((node) => (
+                  <SelectItem key={node.id} value={node.id} className="text-xs">
+                    {node.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
             {versions.length > 0 && (
               <Select
                 value={displayedVersion?.id ?? ""}
@@ -351,6 +401,21 @@ const RiskStrategy = () => {
           </div>
         </Alert>
       )}
+
+      {/* ─── Inherited Configuration Banner ───────────────────────────────── */}
+      {selectedOrgNodeId !== ENTERPRISE_SCOPE &&
+        displayedVersion &&
+        displayedVersion.orgNodeId !== selectedOrgNodeId && (
+          <Alert className="mb-6 border-blue-200 bg-blue-50/50 text-blue-800 dark:border-blue-900/50 dark:bg-blue-950/20 dark:text-blue-300">
+            <Info className="h-4 w-4" />
+            <AlertTitle>Inherited Configuration</AlertTitle>
+            <AlertDescription>
+              This unit does not have a customized risk strategy. Displaying the active configuration inherited
+              from {displayedVersion.orgNodeId ? "a parent unit" : "the Enterprise Baseline"}. Saving changes will
+              propose a localized version for this unit.
+            </AlertDescription>
+          </Alert>
+        )}
 
       {/* ─── Read-Only Information Banner ─────────────────────────────────── */}
       {!canContribute && !canApprove && (

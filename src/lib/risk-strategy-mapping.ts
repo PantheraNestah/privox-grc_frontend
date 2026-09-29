@@ -97,10 +97,16 @@ export function fromRiskStrategyResponse(res: RiskStrategyConfigResponse): RiskS
   };
 }
 
+/**
+ * Builds the create-version payload. `orgNodeId` scopes the proposal to a
+ * localized organizational unit; omit/null targets the Enterprise Baseline.
+ */
 export function toCreateRiskStrategyVersionRequest(
   cfg: RiskStrategyConfig,
+  orgNodeId?: string | null,
 ): CreateRiskStrategyVersionRequest {
   return {
+    orgNodeId: orgNodeId ?? null,
     levels: cfg.scaleLevel,
     likelihoodMode: LOCAL_TO_LIKELIHOOD_MODE[cfg.likelihoodMode],
     reviewFrequency: "ANNUALLY",
