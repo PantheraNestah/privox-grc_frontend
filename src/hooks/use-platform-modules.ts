@@ -5,6 +5,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { autoRefreshInterval } from "@/lib/live-refresh";
 import {
   createPlatformModule,
   disablePlatformOrganizationModule,
@@ -31,6 +32,7 @@ export function usePlatformModules() {
     queryKey: platformModuleKeys.catalogue(),
     queryFn: listPlatformModules,
     staleTime: CATALOGUE_STALE_TIME,
+    refetchInterval: autoRefreshInterval("slow"),
   });
 }
 
@@ -73,6 +75,7 @@ export function usePlatformOrganizationModules(organizationId: string | undefine
     },
     enabled: !!organizationId,
     staleTime: ASSIGNMENT_STALE_TIME,
+    refetchInterval: autoRefreshInterval("standard"),
   });
 }
 

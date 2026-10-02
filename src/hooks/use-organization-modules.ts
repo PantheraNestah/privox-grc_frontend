@@ -5,6 +5,7 @@
  */
 
 import { useQuery } from "@tanstack/react-query";
+import { autoRefreshInterval } from "@/lib/live-refresh";
 import {
   fetchOrganizationModules,
   toEnabledMap,
@@ -26,6 +27,7 @@ export function useOrganizationModules(orgId: string | undefined) {
     queryFn: () => fetchOrganizationModules(orgId!),
     enabled: !!orgId,
     staleTime: MODULES_STALE_TIME,
+    refetchInterval: autoRefreshInterval("slow"),
   });
 }
 
@@ -36,6 +38,7 @@ export function useEnabledModules(orgId: string | undefined) {
     queryFn: () => fetchOrganizationModules(orgId!),
     enabled: !!orgId,
     staleTime: MODULES_STALE_TIME,
+    refetchInterval: autoRefreshInterval("slow"),
     select: toEnabledModules,
   });
 }
@@ -51,6 +54,7 @@ export function useModuleAccess(orgId: string | undefined) {
     queryFn: () => fetchOrganizationModules(orgId!),
     enabled: !!orgId,
     staleTime: MODULES_STALE_TIME,
+    refetchInterval: autoRefreshInterval("slow"),
     select: (rows: OrganizationModuleStatus[]) => toEnabledMap(rows),
   });
   const map = query.data ?? {};

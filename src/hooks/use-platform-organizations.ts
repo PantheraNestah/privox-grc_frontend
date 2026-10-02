@@ -4,6 +4,7 @@
  */
 
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { autoRefreshInterval } from "@/lib/live-refresh";
 import {
   approvePlatformOrganization,
   createPlatformOrganization,
@@ -37,6 +38,7 @@ export function usePlatformOrganizations(status?: OrganizationStatus) {
     queryFn: () => listPlatformOrganizations(status ? { status } : {}),
     staleTime: LIST_STALE_TIME,
     placeholderData: keepPreviousData,
+    refetchInterval: autoRefreshInterval("fast"),
   });
 }
 
@@ -57,6 +59,7 @@ export function usePlatformOrganization(organizationId: string | undefined) {
         .getQueriesData<PlatformOrganization[]>({ queryKey: [...platformOrganizationKeys.all, "list"] })
         .flatMap(([, rows]) => rows ?? [])
         .find((row) => row.id === organizationId),
+    refetchInterval: autoRefreshInterval("standard"),
   });
 }
 

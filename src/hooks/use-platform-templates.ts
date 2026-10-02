@@ -4,6 +4,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { autoRefreshInterval } from "@/lib/live-refresh";
 import {
   fetchOrgNodeTemplatePreview,
   fetchOrgNodeTemplates,
@@ -25,6 +26,7 @@ export function usePlatformTemplates() {
     queryKey: platformTemplateKeys.list(),
     queryFn: () => fetchOrgNodeTemplates("platform"),
     staleTime: CATALOGUE_STALE_TIME,
+    refetchInterval: autoRefreshInterval("slow"),
   });
 }
 
@@ -34,6 +36,7 @@ export function usePlatformTemplatePreview(templateId: string | undefined) {
     queryFn: () => fetchOrgNodeTemplatePreview(templateId!, "platform"),
     enabled: !!templateId,
     staleTime: CATALOGUE_STALE_TIME,
+    refetchInterval: autoRefreshInterval("slow"),
   });
 }
 

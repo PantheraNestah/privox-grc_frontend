@@ -6,6 +6,7 @@
  */
 
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { autoRefreshInterval } from "@/lib/live-refresh";
 import {
   activateOrganizationGroup,
   acceptInvitation,
@@ -105,6 +106,7 @@ export function useOrganizationMembers(orgId: string | undefined) {
     queryKey: organizationKeys.members(orgId ?? ""),
     queryFn: () => fetchOrganizationMembers(orgId!),
     enabled: !!orgId,
+    refetchInterval: autoRefreshInterval("standard"),
   });
 }
 
@@ -113,6 +115,7 @@ export function useMemberGroups(orgId: string | undefined, memberId: string | un
     queryKey: organizationKeys.memberGroups(orgId ?? "", memberId ?? ""),
     queryFn: () => fetchMemberGroups(orgId!, memberId!),
     enabled: !!orgId && !!memberId,
+    refetchInterval: autoRefreshInterval("fast"),
   });
 }
 
@@ -121,6 +124,7 @@ export function useOrganizationGroups(orgId: string | undefined) {
     queryKey: organizationKeys.groups(orgId ?? ""),
     queryFn: () => fetchOrganizationGroups(orgId!),
     enabled: !!orgId,
+    refetchInterval: autoRefreshInterval("standard"),
   });
 }
 
@@ -129,6 +133,7 @@ export function useOrganizationGroup(orgId: string | undefined, groupId: string 
     queryKey: organizationKeys.group(orgId ?? "", groupId ?? ""),
     queryFn: () => fetchOrganizationGroup(orgId!, groupId!),
     enabled: !!orgId && !!groupId,
+    refetchInterval: autoRefreshInterval("standard"),
   });
 }
 
@@ -137,6 +142,7 @@ export function useGroupMembers(orgId: string | undefined, groupId: string | und
     queryKey: organizationKeys.groupMembers(orgId ?? "", groupId ?? ""),
     queryFn: () => fetchGroupMembers(orgId!, groupId!),
     enabled: !!orgId && !!groupId,
+    refetchInterval: autoRefreshInterval("standard"),
   });
 }
 
@@ -145,6 +151,7 @@ export function useGroupPermissions(orgId: string | undefined, groupId: string |
     queryKey: organizationKeys.groupPermissions(orgId ?? "", groupId ?? ""),
     queryFn: () => fetchGroupPermissions(orgId!, groupId!),
     enabled: !!orgId && !!groupId,
+    refetchInterval: autoRefreshInterval("slow"),
   });
 }
 
@@ -165,6 +172,7 @@ export function useOrganizationInvitations(orgId: string | undefined, status?: I
     enabled: !!orgId,
     staleTime: LIVE_STALE_TIME,
     placeholderData: keepPreviousData,
+    refetchInterval: autoRefreshInterval("fast"),
   });
 }
 

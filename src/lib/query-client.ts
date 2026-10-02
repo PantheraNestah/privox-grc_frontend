@@ -20,7 +20,14 @@ export function shouldRetryQuery(failureCount: number, error: unknown): boolean 
  * App-wide query cache. Data is treated as fresh for a minute and kept for ten
  * after the last subscriber leaves, so moving between pages re-uses results
  * instead of refetching. Individual hooks override `staleTime` where a
- * resource changes more or less often.
+ * resource changes more or less often, and the pages that show data other
+ * people can change add `refetchInterval` (see `@/lib/live-refresh`).
+ *
+ * Returning to the tab refetches even data still inside `staleTime`
+ * (`refetchOnWindowFocus: "always"`), which is what removes the "I have to
+ * hard-refresh the browser to see a new child node" behaviour: while the user
+ * works, the background poll keeps the cache warm, and the focus refetch picks
+ * up anything that landed while the tab was in the background.
  *
  * It is a module singleton (not created inside `<App>`) so the auth layer can
  * `clear()` it on login/logout: cached tenant data must never survive into the
@@ -31,7 +38,8 @@ export const queryClient = new QueryClient({
     queries: {
       staleTime: 60_000,
       gcTime: 10 * 60_000,
-      refetchOnWindowFocus: false,
+      refetchOnWindowFocus: "always",
+      refetchOnReconnect: true,
       retry: shouldRetryQuery,
     },
     mutations: { retry: false },

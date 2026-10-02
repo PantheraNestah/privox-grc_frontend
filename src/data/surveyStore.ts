@@ -128,9 +128,11 @@ export interface SurveyResponse {
   score?: number;
 }
 
-const SURVEY_KEY = "rsolve.surveys.v1";
-const RESPONSE_KEY = "rsolve.survey-responses.v1";
-const AD_STAFF_KEY = "rsolve.ad-staff.v1";
+// Keys are exported so auto-refresh workers can re-read them when another tab
+// writes (see `useSyncedLocalResource`).
+export const SURVEY_KEY = "rsolve.surveys.v1";
+export const RESPONSE_KEY = "rsolve.survey-responses.v1";
+export const AD_STAFF_KEY = "rsolve.ad-staff.v1";
 
 interface SurveyStore { surveys: Survey[]; }
 interface ResponseStore { responses: SurveyResponse[]; }

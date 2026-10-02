@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { autoRefreshInterval } from "@/lib/live-refresh";
 import {
   archiveStrategyElement,
   createStrategyElement,
@@ -82,6 +83,7 @@ export function useStrategyElements(
     queryFn: () => fetchStrategyElements(orgId!, filters),
     enabled: !!orgId,
     staleTime: STRUCTURE_STALE_TIME,
+    refetchInterval: autoRefreshInterval("slow"),
   });
 }
 
@@ -94,6 +96,7 @@ export function useStrategyElementDetail(
     queryFn: () => fetchStrategyElementDetail(orgId!, elementId!),
     enabled: !!orgId && !!elementId,
     staleTime: STRUCTURE_STALE_TIME,
+    refetchInterval: autoRefreshInterval("fast"),
   });
 }
 
@@ -103,6 +106,7 @@ export function useStrategyTree(orgId: string | undefined) {
     queryFn: () => fetchStrategyTree(orgId!),
     enabled: !!orgId,
     staleTime: STRUCTURE_STALE_TIME,
+    refetchInterval: autoRefreshInterval("standard"),
   });
 }
 
@@ -115,6 +119,7 @@ export function useStrategyVersionHistory(
     queryFn: () => fetchStrategyVersionHistory(orgId!, elementId!),
     enabled: !!orgId && !!elementId,
     staleTime: STRUCTURE_STALE_TIME,
+    refetchInterval: autoRefreshInterval("standard"),
   });
 }
 
@@ -132,6 +137,7 @@ export function useStrategyVersion(
     queryFn: () => fetchStrategyVersion(orgId!, elementId!, versionId!),
     enabled: !!orgId && !!elementId && !!versionId,
     staleTime: STRUCTURE_STALE_TIME,
+    refetchInterval: autoRefreshInterval("standard"),
   });
 }
 
@@ -144,6 +150,7 @@ export function useStrategyProgressHistory(
     queryFn: () => fetchStrategyProgressHistory(orgId!, elementId!),
     enabled: !!orgId && !!elementId,
     staleTime: LIVE_STALE_TIME,
+    refetchInterval: autoRefreshInterval("fast"),
   });
 }
 
@@ -153,6 +160,7 @@ export function useStrategySummary(orgId: string | undefined) {
     queryFn: () => fetchStrategySummary(orgId!),
     enabled: !!orgId,
     staleTime: LIVE_STALE_TIME,
+    refetchInterval: autoRefreshInterval("standard"),
   });
 }
 
@@ -162,6 +170,7 @@ export function useStrategyInsights(orgId: string | undefined) {
     queryFn: () => fetchStrategyInsights(orgId!),
     enabled: !!orgId,
     staleTime: LIVE_STALE_TIME,
+    refetchInterval: autoRefreshInterval("standard"),
   });
 }
 

@@ -110,13 +110,14 @@ const DEFAULT_TYPE_DEFS: OrgTypeDef[] = [
   { key: "subprocess", label: "Sub-process", color: "229 81% 76%", builtin: true },
 ];
 
-const TYPES_KEY = "rsolve.org.types.v1";
+/** Exported so auto-refresh workers can listen for cross-tab writes to it. */
+export const ORG_TYPES_STORAGE_KEY = "rsolve.org.types.v1";
 
 export function loadOrgTypes(): OrgTypeDef[] {
   try {
-    const raw = localStorage.getItem(TYPES_KEY);
+    const raw = localStorage.getItem(ORG_TYPES_STORAGE_KEY);
     if (!raw) {
-      localStorage.setItem(TYPES_KEY, JSON.stringify(DEFAULT_TYPE_DEFS));
+      localStorage.setItem(ORG_TYPES_STORAGE_KEY, JSON.stringify(DEFAULT_TYPE_DEFS));
       return DEFAULT_TYPE_DEFS;
     }
     const parsed = JSON.parse(raw) as OrgTypeDef[];
@@ -134,7 +135,7 @@ export function loadOrgTypes(): OrgTypeDef[] {
 }
 
 export function saveOrgTypes(types: OrgTypeDef[]) {
-  localStorage.setItem(TYPES_KEY, JSON.stringify(types));
+  localStorage.setItem(ORG_TYPES_STORAGE_KEY, JSON.stringify(types));
   window.dispatchEvent(new CustomEvent("rsolve:org-types-changed"));
 }
 
