@@ -35,11 +35,12 @@ import {
   ORG_TYPE_LABELS, ORG_TYPE_COLORS,
   LINE_OF_DEFENSE_LABELS, LINE_OF_DEFENSE_SHORT, LINE_OF_DEFENSE_COLORS,
   OFFERING_KIND_LABELS, OFFERING_KIND_COLORS,
-  loadOrgTypes, saveOrgTypes,
+  loadOrgTypes, saveOrgTypes, ORG_TYPES_STORAGE_KEY,
   effectiveLod,
   type OrgNode, type OrgNodeType, type OrgOffering, type OfferingKind, type OrgTypeDef,
 } from "@/data/orgStore";
 import { useActiveUser } from "@/hooks/use-active-user";
+import { useSyncedLocalResource } from "@/hooks/use-auto-refresh";
 import type { AppUser } from "@/data/userStore";
 import { useAuth } from "@/contexts/AuthContext";
 import { PageHeader } from "@/components/grc/common/PageHeader";
@@ -145,19 +146,19 @@ const RiskGovernance = () => {
   // Selected node for side panel
   const [insightNodeId, setInsightNodeId] = useState<string | null>(null);
 
-  // Admin-managed hierarchy type registry
-  const [orgTypes, setOrgTypes] = useState<OrgTypeDef[]>([]);
+  // Admin-managed hierarchy type registry. It lives in localStorage, so it is
+  // re-read on the `rsolve:org-types-changed` event, on `storage` events from
+  // another tab, and on a slow poll — an administrator editing the registry in
+  // another tab (or an older build that skipped the event) no longer leaves
+  // this page showing stale types until a hard refresh.
+  const { data: orgTypes } = useSyncedLocalResource(loadOrgTypes, {
+    events: ["rsolve:org-types-changed"],
+    storageKeys: [ORG_TYPES_STORAGE_KEY],
+    cadence: "slow",
+  });
   const TYPE_OPTIONS = useMemo<OrgNodeType[]>(() => orgTypes.map(t => t.key), [orgTypes]);
 
-  useEffect(() => {
-    setOrgTypes(loadOrgTypes());
-    const refresh = () => setOrgTypes(loadOrgTypes());
-    window.addEventListener("rsolve:org-types-changed", refresh);
-    return () => window.removeEventListener("rsolve:org-types-changed", refresh);
-  }, []);
-
   const persistOrgTypes = (next: OrgTypeDef[]) => {
-    setOrgTypes(next);
     saveOrgTypes(next);
   };
 

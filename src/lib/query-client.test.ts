@@ -1,5 +1,5 @@
 import { AxiosError, type AxiosResponse } from "axios";
-import { shouldRetryQuery } from "./query-client";
+import { queryClient, shouldRetryQuery } from "./query-client";
 
 const httpError = (status: number) =>
   new AxiosError("failed", String(status), undefined, undefined, { status } as AxiosResponse);
@@ -20,5 +20,20 @@ describe("shouldRetryQuery", () => {
     expect(shouldRetryQuery(0, httpError(503))).toBe(true);
     expect(shouldRetryQuery(1, new AxiosError("Network Error"))).toBe(true);
     expect(shouldRetryQuery(2, httpError(503))).toBe(false);
+  });
+});
+
+describe("query client defaults", () => {
+  const queries = queryClient.getDefaultOptions().queries!;
+
+  it("keeps queries fresh for a minute so navigation stays instant", () => {
+    expect(queries.staleTime).toBe(60_000);
+  });
+
+  it("refetches on focus and reconnect even while the data is still fresh", () => {
+    // Without this, coming back to a tab showed data cached minutes earlier and
+    // the only way to see a change made elsewhere was a hard browser refresh.
+    expect(queries.refetchOnWindowFocus).toBe("always");
+    expect(queries.refetchOnReconnect).toBe(true);
   });
 });

@@ -5,6 +5,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { autoRefreshInterval } from "@/lib/live-refresh";
 import {
   createRiskStrategyVersion,
   decideRiskStrategyVersion,
@@ -42,6 +43,7 @@ export function useCurrentRiskStrategy(orgId: string | undefined, orgNodeId?: st
     staleTime: STALE_TIME,
     // A 404 means no version has ever been approved: an expected empty state. The
     // global retry policy (src/lib/query-client.ts) already fails 4xx fast.
+    refetchInterval: autoRefreshInterval("standard"),
   });
 }
 
@@ -57,6 +59,7 @@ export function useRiskStrategyHistory(orgId: string | undefined, orgNodeId?: st
     queryFn: () => fetchRiskStrategyHistory(orgId!, orgNodeId),
     enabled: !!orgId,
     staleTime: STALE_TIME,
+    refetchInterval: autoRefreshInterval("standard"),
   });
 }
 
@@ -66,6 +69,7 @@ export function useRiskStrategyVersion(orgId: string | undefined, configId: stri
     queryFn: () => fetchRiskStrategyVersion(orgId!, configId!),
     enabled: !!orgId && !!configId,
     staleTime: STALE_TIME,
+    refetchInterval: autoRefreshInterval("standard"),
   });
 }
 
@@ -75,6 +79,7 @@ export function useRiskStrategySettings(orgId: string | undefined) {
     queryFn: () => fetchRiskStrategySettings(orgId!),
     enabled: !!orgId,
     staleTime: STALE_TIME,
+    refetchInterval: autoRefreshInterval("slow"),
   });
 }
 

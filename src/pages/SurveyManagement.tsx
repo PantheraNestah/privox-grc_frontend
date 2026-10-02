@@ -33,6 +33,7 @@ import { SurveyDesigner } from "@/components/grc/surveys/SurveyDesigner";
 import { SurveyStatusBadge } from "@/components/grc/surveys/SurveyStatusBadge";
 import { averageScore, formatScore } from "@/components/grc/surveys/survey-logic";
 import { useActiveUser } from "@/hooks/use-active-user";
+import { useSyncedLocalResource } from "@/hooks/use-auto-refresh";
 import { can, loadUsers, ROLE_LABELS } from "@/data/userStore";
 import { loadOrgNodes } from "@/data/orgStore";
 import {
@@ -42,6 +43,8 @@ import {
   loadAdStaff,
   loadResponses,
   loadSurveys,
+  AD_STAFF_KEY,
+  RESPONSE_KEY,
   newSurvey,
   saveSurveys,
   scoreResponse,
@@ -53,10 +56,19 @@ const SurveyManagement = () => {
   const allowed = can.manageSurveys(activeUser.role);
 
   const [surveys, setSurveys] = useState<Survey[]>(loadSurveys);
-  const [responses] = useState(loadResponses);
+  // Responses and the directory are shared browser-local state: a respondent
+  // submitting in another tab (or an admin editing the roster) must show up
+  // here without a hard refresh.
+  const { data: responses } = useSyncedLocalResource(loadResponses, {
+    storageKeys: [RESPONSE_KEY],
+    cadence: "fast",
+  });
   const [users] = useState(loadUsers);
   const [orgNodes] = useState(loadOrgNodes);
-  const adStaff = useMemo(loadAdStaff, []);
+  const { data: adStaff } = useSyncedLocalResource(loadAdStaff, {
+    storageKeys: [AD_STAFF_KEY],
+    cadence: "slow",
+  });
 
   const [editing, setEditing] = useState<Survey | null>(null);
   const [resultsOf, setResultsOf] = useState<Survey | null>(null);

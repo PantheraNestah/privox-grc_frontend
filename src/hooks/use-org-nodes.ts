@@ -4,6 +4,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { autoRefreshInterval } from "@/lib/live-refresh";
 import {
   cloneOrgNodeTemplate,
   createOrgNode,
@@ -49,6 +50,9 @@ export function useOrgNodes(orgId: string | undefined, scopeRootNodeId?: string)
     queryFn: () => fetchOrgNodes(orgId!, scopeRootNodeId),
     enabled: !!orgId,
     staleTime: LIST_STALE_TIME,
+    // Someone else (an administrator, another tab) can add or move units at any
+    // time, so the tree re-syncs itself instead of waiting for a hard refresh.
+    refetchInterval: autoRefreshInterval("standard"),
   });
 }
 
@@ -58,6 +62,7 @@ export function useOrgNode(orgId: string | undefined, nodeId: string | undefined
     queryFn: () => fetchOrgNode(orgId!, nodeId!),
     enabled: !!orgId && !!nodeId,
     staleTime: LIST_STALE_TIME,
+    refetchInterval: autoRefreshInterval("standard"),
   });
 }
 
@@ -71,6 +76,8 @@ export function useOrgNodeMembers(orgId: string | undefined, nodeId: string | un
     queryFn: () => fetchOrgNodeMembers(orgId!, nodeId!),
     enabled: !!orgId && !!nodeId,
     staleTime: 30_000,
+    // Placements are the most frequently edited part of the tree.
+    refetchInterval: autoRefreshInterval("fast"),
   });
 }
 
@@ -80,6 +87,7 @@ export function useOrgTreeSettings(orgId: string | undefined) {
     queryFn: () => fetchOrgTreeSettings(orgId!),
     enabled: !!orgId,
     staleTime: LIST_STALE_TIME,
+    refetchInterval: autoRefreshInterval("slow"),
   });
 }
 
