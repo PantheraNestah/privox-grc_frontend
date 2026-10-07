@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { BadgeCheck } from "lucide-react";
+import { AlertCircle, BadgeCheck } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -14,6 +14,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useApprovePlatformOrganization } from "@/hooks/use-platform-organizations";
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 interface ApproveOrganizationDialogProps {
   open: boolean;
@@ -31,6 +33,7 @@ export function ApproveOrganizationDialog({
   const [adminEmail, setAdminEmail] = useState("");
   const [initialGroupId, setInitialGroupId] = useState("");
   const [notes, setNotes] = useState("");
+  const [attempted, setAttempted] = useState(false);
   const approveOrganization = useApprovePlatformOrganization();
 
   useEffect(() => {
@@ -38,13 +41,26 @@ export function ApproveOrganizationDialog({
       setAdminEmail("");
       setInitialGroupId("");
       setNotes("");
+      setAttempted(false);
     }
   }, [open]);
 
-  const canSubmit = adminEmail.trim() !== "" && adminEmail.includes("@");
+  const trimmedEmail = adminEmail.trim();
+  const emailError =
+    trimmedEmail === ""
+      ? "Enter the administrator's email before approving. The first tenant administrator cannot be provisioned without it."
+      : !EMAIL_PATTERN.test(trimmedEmail)
+        ? "Enter a valid email address, e.g. admin@organisation.com."
+        : null;
+  const showEmailError = attempted && emailError !== null;
 
   const submit = async () => {
-    if (!canSubmit || approveOrganization.isPending) return;
+    if (approveOrganization.isPending) return;
+    if (emailError) {
+      setAttempted(true);
+      document.getElementById("approve-admin-email")?.focus();
+      return;
+    }
     try {
       await approveOrganization.mutateAsync({
         organizationId,
@@ -76,14 +92,29 @@ export function ApproveOrganizationDialog({
 
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="approve-admin-email">Administrator email</Label>
+            <Label htmlFor="approve-admin-email">
+              Administrator email <span className="text-destructive">*</span>
+            </Label>
             <Input
               id="approve-admin-email"
               type="email"
+              required
+              aria-invalid={showEmailError}
+              aria-describedby={showEmailError ? "approve-admin-email-error" : undefined}
               value={adminEmail}
               onChange={(e) => setAdminEmail(e.target.value)}
               placeholder="admin@organisation.com"
             />
+            {showEmailError && (
+              <p
+                id="approve-admin-email-error"
+                role="alert"
+                className="flex items-start gap-1.5 text-xs text-destructive"
+              >
+                <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                {emailError}
+              </p>
+            )}
           </div>
 
           <div className="space-y-1.5">
@@ -120,7 +151,7 @@ export function ApproveOrganizationDialog({
           <Button
             type="button"
             onClick={submit}
-            disabled={!canSubmit || approveOrganization.isPending}
+            disabled={approveOrganization.isPending}
             variant="brand"
           >
             {approveOrganization.isPending ? "Approving…" : "Approve"}
