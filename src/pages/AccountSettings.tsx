@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, type ComponentProps } from "react";
 import { Helmet } from "react-helmet-async";
-import { KeyRound, Loader2, ShieldCheck } from "lucide-react";
+import { Eye, EyeOff, KeyRound, Loader2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,23 @@ interface FieldErrors {
   newPassword?: string;
   confirmPassword?: string;
 }
+
+const PasswordInput = ({ className, ...props }: Omit<ComponentProps<typeof Input>, "type">) => {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="relative">
+      <Input {...props} type={show ? "text" : "password"} className={`pr-10 ${className ?? ""}`} />
+      <button
+        type="button"
+        onClick={() => setShow((v) => !v)}
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition hover:text-foreground"
+        aria-label={show ? "Hide password" : "Show password"}
+      >
+        {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+      </button>
+    </div>
+  );
+};
 
 const AccountSettings = () => {
   const changePassword = useChangePassword();
@@ -102,9 +119,8 @@ const AccountSettings = () => {
           >
             <div className="space-y-1.5">
               <Label htmlFor="current-password">Current password</Label>
-              <Input
+              <PasswordInput
                 id="current-password"
-                type="password"
                 autoComplete="current-password"
                 value={currentPassword}
                 aria-invalid={!!errors.currentPassword}
@@ -118,9 +134,8 @@ const AccountSettings = () => {
 
             <div className="space-y-1.5">
               <Label htmlFor="new-password">New password</Label>
-              <Input
+              <PasswordInput
                 id="new-password"
-                type="password"
                 autoComplete="new-password"
                 value={newPassword}
                 aria-invalid={!!errors.newPassword}
@@ -134,9 +149,8 @@ const AccountSettings = () => {
 
             <div className="space-y-1.5">
               <Label htmlFor="confirm-password">Confirm new password</Label>
-              <Input
+              <PasswordInput
                 id="confirm-password"
-                type="password"
                 autoComplete="new-password"
                 value={confirmPassword}
                 aria-invalid={!!errors.confirmPassword}
