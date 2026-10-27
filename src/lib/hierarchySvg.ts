@@ -30,6 +30,14 @@ export interface HierarchySvgBox {
   height: number;
   /** HSL triplet used for the type label, border and chips. */
   accent: string;
+  /** Optional solid background (HSL triplet). Defaults to white. */
+  fill?: string;
+  /** Optional title colour. Defaults to the standard dark text colour. */
+  textColor?: string;
+  /** Optional description colour. Defaults to the muted slate. */
+  subtitleColor?: string;
+  /** Optional title font size in px. Defaults to 12. */
+  titleSize?: number;
   typeLabel?: string;
   title: string;
   description?: string | null;
@@ -39,6 +47,10 @@ export interface HierarchySvgBox {
 export interface HierarchySvgEdge {
   source: string;
   target: string;
+  /** Optional CSS colour (e.g. `hsl(137 42% 34%)`). Defaults to slate. */
+  color?: string;
+  /** Draw an arrowhead where the connector meets the target. */
+  arrow?: boolean;
 }
 
 export interface BuildHierarchySvgOptions {
@@ -162,6 +174,7 @@ export function buildHierarchySvg(
       const s = byId.get(e.source);
       const t = byId.get(e.target);
       if (!s || !t) return "";
+      const stroke = e.color || EDGE_STROKE;
       let d: string;
       if (direction === "LR") {
         const sx = s.x + s.width;
@@ -173,66 +186,91 @@ export function buildHierarchySvg(
           tx,
         )} ${num(ty)}`;
       } else {
+        // Elbow with a horizontal bus, as in the client's chart: down, across,
+        // then down again into the child.
         const sx = s.x + s.width / 2;
         const sy = s.y + s.height;
         const tx = t.x + t.width / 2;
         const ty = t.y;
-        const dy = (ty - sy) / 2;
-        d = `M ${num(sx)} ${num(sy)} C ${num(sx)} ${num(sy + dy)}, ${num(tx)} ${num(ty - dy)}, ${num(
-          tx,
-        )} ${num(ty)}`;
+        const midY = sy + (ty - sy) / 2;
+        d = `M ${num(sx)} ${num(sy)} V ${num(midY)} H ${num(tx)} V ${num(ty)}`;
       }
-      return `<path d="${d}" fill="none" stroke="${EDGE_STROKE}" stroke-width="1.5"/>`;
+      const line = `<path d="${d}" fill="none" stroke="${stroke}" stroke-width="1.5"/>`;
+      if (!e.arrow) return line;
+      // Filled triangle pointing into the top edge of the target.
+      const tip = `${num(t.x + t.width / 2)} ${num(t.y)}`;
+      const left = `${num(t.x + t.width / 2 - 4.5)} ${num(t.y - 8)}`;
+      const right = `${num(t.x + t.width / 2 + 4.5)} ${num(t.y - 8)}`;
+      return `${line}<path d="M ${left} L ${tip} L ${right} Z" fill="${stroke}"/>`;
     })
     .join("");
 
   const boxesSvg = boxes
     .map((b) => {
       const parts: string[] = [];
+      const textColor = b.textColor ?? TEXT_DARK;
+      const subtitleColor = b.subtitleColor ?? TEXT_MUTED;
+      const titleSize = b.titleSize ?? 12;
+      const lineHeight = titleSize + 2;
       parts.push(
         `<rect x="${num(b.x)}" y="${num(b.y)}" width="${num(b.width)}" height="${num(
           b.height,
-        )}" rx="8" fill="#ffffff" stroke="hsl(${b.accent} / 0.45)" stroke-width="1.25"/>`,
+        )}" rx="8" fill="${b.fill ? `hsl(${b.fill})` : "#ffffff"}" stroke="hsl(${b.accent} / ${
+          b.fill ? 0.8 : 0.45
+        })" stroke-width="${b.fill ? 1.5 : 1.25}"/>`,
       );
 
-      let cursorY = b.y + 16;
+      const titleLines = wrapText(b.title, b.width - 20, titleSize, b.description ? 2 : 3);
+      const descriptionLines = b.description
+        ? wrapText(b.description, b.width - 20, 10, 2)
+        : [];
+      const chipRow = b.chips && b.chips.length > 0;
+      const chipsHeight = chipRow ? 18 : 0;
+      const typeLabelHeight = b.typeLabel ? 15 : 0;
+      const contentHeight =
+        typeLabelHeight +
+        titleLines.length * lineHeight +
+        descriptionLines.length * 12 +
+        (descriptionLines.length > 0 ? 1 : 0) +
+        chipsHeight;
+      let cursorY = b.y + Math.max(12, (b.height - contentHeight) / 2);
+
       if (b.typeLabel) {
         parts.push(
           `<text x="${num(b.x + b.width / 2)}" y="${num(
-            cursorY,
-          )}" text-anchor="middle" font-family="${FONT}" font-size="9" font-weight="700" letter-spacing="1" fill="hsl(${
-            b.accent
-          })">${esc(b.typeLabel.toUpperCase())}</text>`,
+            cursorY + 9,
+          )}" text-anchor="middle" font-family="${FONT}" font-size="9" font-weight="700" letter-spacing="1" fill="${textColor === TEXT_DARK ? `hsl(${b.accent})` : textColor}">${esc(
+            b.typeLabel.toUpperCase(),
+          )}</text>`,
         );
-        cursorY += 15;
+        cursorY += typeLabelHeight;
       }
+      cursorY += titleSize;
 
-      for (const line of wrapText(b.title, b.width - 20, 12, b.description ? 2 : 3)) {
+      for (const line of titleLines) {
         parts.push(
           `<text x="${num(b.x + b.width / 2)}" y="${num(
             cursorY,
-          )}" text-anchor="middle" font-family="${FONT}" font-size="12" font-weight="600" fill="${TEXT_DARK}">${esc(
+          )}" text-anchor="middle" font-family="${FONT}" font-size="${num(titleSize)}" font-weight="600" fill="${textColor}">${esc(
             line,
           )}</text>`,
         );
-        cursorY += 14;
+        cursorY += lineHeight;
       }
 
-      if (b.description) {
-        for (const line of wrapText(b.description, b.width - 20, 10, 2)) {
-          parts.push(
-            `<text x="${num(b.x + b.width / 2)}" y="${num(
-              cursorY,
-            )}" text-anchor="middle" font-family="${FONT}" font-size="10" fill="${TEXT_MUTED}">${esc(
-              line,
-            )}</text>`,
-          );
-          cursorY += 12;
-        }
+      for (const line of descriptionLines) {
+        parts.push(
+          `<text x="${num(b.x + b.width / 2)}" y="${num(
+            cursorY,
+          )}" text-anchor="middle" font-family="${FONT}" font-size="10" fill="${subtitleColor}">${esc(
+            line,
+          )}</text>`,
+        );
+        cursorY += 12;
       }
 
-      if (b.chips && b.chips.length > 0 && cursorY + 14 <= b.y + b.height - 4) {
-        parts.push(renderChips(b.chips, b, cursorY + 2));
+      if (chipRow && cursorY + 14 <= b.y + b.height - 4) {
+        parts.push(renderChips(b.chips!, b, cursorY + 2));
       }
 
       return `<g>${parts.join("")}</g>`;

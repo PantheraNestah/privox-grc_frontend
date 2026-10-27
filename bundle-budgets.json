@@ -1,0 +1,7 @@
+{
+  "$comment": "Budgets are gzip sizes in KB. Raise them deliberately, in the same commit as the change that needs them, so a review can see the cost.",
+  "initialJs": 190,
+  "initialCss": 16,
+  "largestChunk": 145,
+  "totalJs": 480
+}

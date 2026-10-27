@@ -109,6 +109,13 @@
   }
 }
 
+/* React Flow draws every edge in its own absolutely-positioned <svg> inside a
+ * zero-width layer and relies on `overflow: visible`. The global max-width above
+ * clamps those to 0px, which silently hides all connectors, so opt them out. */
+.react-flow__edges svg {
+  max-width: none;
+}
+
 @layer components {
   /* Auth panel decorations */
   .auth-radial {
