@@ -579,7 +579,7 @@ const RiskGovernance = () => {
         </Card>
 
         {/* Org Map */}
-        <Card>
+        <Card data-testid="organisation-map-card">
           <CardHeader>
             <CardTitle className="text-base text-navy-deep">Organisation Map</CardTitle>
             <CardDescription className="text-xs">

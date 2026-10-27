@@ -3,6 +3,12 @@
 // hand-laid-out flexbox tree. Real SVG edges connect parent → child cards,
 // so connectors can never visually desync from the cards the way the old
 // CSS-border hack could once trees got wide enough to wrap.
+//
+// Three presentations share one layout engine:
+//   hierarchy — the client-approved org chart: one top-down canvas, navy rules,
+//               a filled group root and Line-of-Defense colouring (default).
+//   tree      — left→right overview, still grouped into LoD bands.
+//   focus     — tree restricted to the units the user picks.
 import { useMemo, useCallback, useState } from "react";
 import {
   ReactFlow,
@@ -10,6 +16,7 @@ import {
   Controls,
   MiniMap,
   Handle,
+  MarkerType,
   Position,
   type Node,
   type Edge,
@@ -38,6 +45,14 @@ import {
 } from "@/data/orgStore";
 import type { AppUser } from "@/data/userStore";
 import {
+  HIERARCHY_EDGE,
+  HIERARCHY_LEGEND,
+  HIERARCHY_TONES,
+  hierarchyCardSize,
+  hierarchyRole,
+  type HierarchyRole,
+} from "@/lib/org-hierarchy-style";
+import {
   buildHierarchySvg,
   downloadSvg,
   type HierarchySvgBox,
@@ -46,22 +61,20 @@ import {
 
 const CARD_WIDTH = 250;
 const CARD_HEIGHT = 108;
-const CLASSIC_CARD_WIDTH = 210;
 const NODE_SEP = 26;
-const CLASSIC_NODE_SEP = 36;
 const RANK_SEP = 64;
 const LANE_GAP = 40;
 const CLASSIC_LANE_GAP_X = 56;
 const LANE_LABEL_HEIGHT = 40;
 const LANE_PADDING = 24;
 const LANE_MARGIN_BOTTOM = 28;
+/** Horizontal gap between the roots of the single hierarchy canvas. */
+const HIERARCHY_ROOT_GAP = 64;
 
-/** classic = original top-down map; tree = left→right like the platform
- *  template preview; focus = tree layout limited to the units you pick. */
-type ViewMode = "classic" | "tree" | "focus";
+type ViewMode = "hierarchy" | "tree" | "focus";
 
 const VIEW_MODES: { id: ViewMode; label: string }[] = [
-  { id: "classic", label: "Classic" },
+  { id: "hierarchy", label: "Hierarchy" },
   { id: "tree", label: "Tree" },
   { id: "focus", label: "Focus" },
 ];
@@ -71,31 +84,90 @@ type OrgCardData = {
   users: AppUser[];
   mode: ViewMode;
   ghost?: boolean;
+  /** Depth inside its own subtree; drives the client's stepped card sizes. */
+  depth: number;
+  role?: HierarchyRole;
 };
 
 const OrgCardNode = ({ data }: NodeProps & { data: OrgCardData }) => {
-  const { node, users, mode, ghost } = data;
-  const color = ORG_TYPE_COLORS[node.type];
+  const { node, users, mode, ghost, depth, role } = data;
+  const hierarchy = mode === "hierarchy";
   const offerings = node.offerings ?? [];
-  const classic = mode === "classic";
+  const offerLabels = offerings.map(o => o.label || OFFERING_KIND_LABELS[o.kind]);
+
+  if (hierarchy) {
+    const size = hierarchyCardSize(depth);
+    const tone = HIERARCHY_TONES[role ?? "business"];
+    const isRoot = role === "root";
+    const tooltip = [ORG_TYPE_LABELS[node.type], ...offerLabels, ...users.map(u => u.title || u.name)]
+      .filter(Boolean)
+      .join(" · ");
+
+    return (
+      <div
+        title={tooltip}
+        className={cn(
+          "flex h-full flex-col items-center justify-center overflow-hidden rounded-md border-[1.5px] px-3 text-center shadow-[0_1px_2px_rgba(15,39,64,0.10)] transition-shadow",
+          !ghost && "hover:shadow-md",
+          ghost && "border-dashed opacity-40 shadow-none",
+        )}
+        style={{
+          width: size.width,
+          height: size.height,
+          borderColor: ghost ? "hsl(var(--border))" : `hsl(${tone.accent} / 0.8)`,
+          background: ghost ? "transparent" : `hsl(${tone.fill})`,
+        }}
+      >
+        <Handle type="target" position={Position.Top} className="opacity-0 pointer-events-none" />
+        <div className="flex w-full flex-col items-center justify-center gap-0.5">
+          <span
+            className={cn(
+              "w-full break-words font-semibold leading-tight",
+              isRoot ? "text-[16px]" : depth === 1 ? "text-[12.5px]" : "text-[11.5px]",
+            )}
+            style={{ color: tone.text }}
+          >
+            {node.name}
+          </span>
+          {node.description && (
+            <span
+              className={cn(
+                "line-clamp-2 w-full font-medium leading-snug",
+                isRoot ? "text-[10.5px]" : "text-[9.5px]",
+              )}
+              style={{ color: tone.muted }}
+            >
+              {node.description}
+            </span>
+          )}
+          {offerLabels.length > 0 && (
+            <span
+              className="mt-0.5 line-clamp-1 w-full text-[9px] font-medium"
+              style={{ color: tone.muted }}
+            >
+              {offerLabels.join(" · ")}
+            </span>
+          )}
+        </div>
+        <Handle type="source" position={Position.Bottom} className="opacity-0 pointer-events-none" />
+      </div>
+    );
+  }
+
+  const color = ORG_TYPE_COLORS[node.type];
 
   return (
     <Card
       className={cn(
         "px-2.5 py-2 shadow-sm",
-        classic && "px-3 text-center",
         ghost && "border-dashed opacity-40 shadow-none",
       )}
       style={{
         borderColor: ghost ? "hsl(var(--border))" : `hsl(${color} / 0.45)`,
-        width: classic ? CLASSIC_CARD_WIDTH : CARD_WIDTH,
+        width: CARD_WIDTH,
       }}
     >
-      <Handle
-        type="target"
-        position={classic ? Position.Top : Position.Left}
-        className="opacity-0 pointer-events-none"
-      />
+      <Handle type="target" position={Position.Left} className="opacity-0 pointer-events-none" />
       <div
         className="mb-1 text-[9px] font-semibold uppercase tracking-wider"
         style={{ color: `hsl(${color})` }}
@@ -107,7 +179,7 @@ const OrgCardNode = ({ data }: NodeProps & { data: OrgCardData }) => {
       </div>
 
       {offerings.length > 0 && (
-        <div className={cn("mt-1.5 flex flex-wrap gap-1", classic && "justify-center")}>
+        <div className="mt-1.5 flex flex-wrap gap-1">
           {offerings.map(o => (
             <Badge
               key={o.id}
@@ -127,7 +199,7 @@ const OrgCardNode = ({ data }: NodeProps & { data: OrgCardData }) => {
       )}
 
       {users.length > 0 && (
-        <div className={cn("mt-1.5 flex flex-wrap gap-1", classic && "justify-center")}>
+        <div className="mt-1.5 flex flex-wrap gap-1">
           {users.map(u => (
             <Badge
               key={u.id}
@@ -139,11 +211,7 @@ const OrgCardNode = ({ data }: NodeProps & { data: OrgCardData }) => {
           ))}
         </div>
       )}
-      <Handle
-        type="source"
-        position={classic ? Position.Bottom : Position.Right}
-        className="opacity-0 pointer-events-none"
-      />
+      <Handle type="source" position={Position.Right} className="opacity-0 pointer-events-none" />
     </Card>
   );
 };
@@ -155,31 +223,26 @@ type LaneGroupData = {
   mode: ViewMode;
 };
 
-const LaneGroupNode = ({ data }: NodeProps & { data: LaneGroupData }) => {
-  const classic = data.mode === "classic";
-  return (
-    <div
-      className={cn("h-full w-full rounded-lg", classic ? "border" : "border-2", data.dashed && "border-dashed")}
-      style={{
-        borderColor: `hsl(${data.color} / ${classic ? (data.dashed ? 0.5 : 0.4) : data.dashed ? 0.55 : 0.6})`,
-        background: `hsl(${data.color} / ${classic ? (data.dashed ? 0.03 : 0.05) : data.dashed ? 0.04 : 0.08})`,
-      }}
-    >
-      {data.label && (
-        <Badge
-          variant="outline"
-          className={cn(
-            "m-2 border-transparent font-semibold uppercase tracking-wider",
-            classic ? "text-[10px]" : "text-xs",
-          )}
-          style={{ background: `hsl(${data.color} / ${classic ? 0.15 : 0.18})`, color: `hsl(${data.color})` }}
-        >
-          {data.label}
-        </Badge>
-      )}
-    </div>
-  );
-};
+const LaneGroupNode = ({ data }: NodeProps & { data: LaneGroupData }) => (
+  <div
+    className="h-full w-full rounded-lg border-2"
+    style={{
+      borderColor: `hsl(${data.color} / ${data.dashed ? 0.55 : 0.6})`,
+      borderStyle: data.dashed ? "dashed" : "solid",
+      background: `hsl(${data.color} / ${data.dashed ? 0.04 : 0.08})`,
+    }}
+  >
+    {data.label && (
+      <Badge
+        variant="outline"
+        className="m-2 border-transparent text-xs font-semibold uppercase tracking-wider"
+        style={{ background: `hsl(${data.color} / 0.18)`, color: `hsl(${data.color})` }}
+      >
+        {data.label}
+      </Badge>
+    )}
+  </div>
+);
 
 const nodeTypes: NodeTypes = {
   orgCard: OrgCardNode,
@@ -188,13 +251,30 @@ const nodeTypes: NodeTypes = {
 
 const GHOST_EDGE_STYLE = { stroke: "hsl(var(--muted-foreground) / 0.45)", strokeDasharray: "5 4" };
 
+/** Client hierarchy palette for connectors between unclassified units. */
+const HIERARCHY_EDGE_STYLE = { stroke: `hsl(${HIERARCHY_EDGE})`, strokeWidth: 1.8 };
+
+/** Edge into an explicitly classified unit: thicker, tinted, with an arrow. */
+function lodEdge(source: string, target: string, lod: 1 | 2 | 3): Edge {
+  const role: HierarchyRole = lod === 2 ? "lod2" : lod === 3 ? "lod3" : "business";
+  const stroke = `hsl(${HIERARCHY_TONES[role].accent})`;
+  return {
+    id: `${source}->${target}`,
+    source,
+    target,
+    type: "smoothstep",
+    style: { stroke, strokeWidth: 2.25 },
+    markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color: stroke },
+  };
+}
+
 /** Lays out one subtree (a display-root and everything beneath it, via
- *  `childrenOf`) with dagre and returns its nodes/edges positioned relative to
- *  the subtree's own (0,0) origin, plus its overall bounding-box size so the
- *  caller can pack multiple subtrees together. `classic` lays out top-to-bottom,
- *  everything else left-to-right. When `ghostParent` is given, a faded copy of
- *  it is laid out above the root, joined by a faint dashed line — marking
- *  where a focused branch hangs off the rest of the organisation. */
+ *  `childrenOf`) with dagre left→right, for the Tree and Focus views. Returns
+ *  its nodes/edges positioned relative to the subtree's own (0,0) origin, plus
+ *  its bounding-box size so the caller can pack multiple subtrees together.
+ *  When `ghostParent` is given, a faded copy of it is laid out above the root,
+ *  joined by a faint dashed line — marking where a focused branch hangs off the
+ *  rest of the organisation. */
 function layoutSubtree(
   root: OrgNode,
   childrenOf: Map<string | null, OrgNode[]>,
@@ -202,23 +282,25 @@ function layoutSubtree(
   mode: ViewMode,
   ghostParent?: OrgNode,
 ): { nodes: Node[]; edges: Edge[]; width: number; height: number } {
-  const classic = mode === "classic";
-  const cardWidth = classic ? CLASSIC_CARD_WIDTH : CARD_WIDTH;
   const g = new dagre.graphlib.Graph();
   g.setDefaultEdgeLabel(() => ({}));
-  g.setGraph({ rankdir: classic ? "TB" : "LR", nodesep: classic ? CLASSIC_NODE_SEP : NODE_SEP, ranksep: RANK_SEP });
+  g.setGraph({ rankdir: "LR", nodesep: NODE_SEP, ranksep: RANK_SEP });
 
   const subtreeNodes: OrgNode[] = [];
+  const seen = new Set<string>();
   const stack = [root];
   while (stack.length) {
     const cur = stack.pop()!;
+    if (seen.has(cur.id)) continue;
+    seen.add(cur.id);
     subtreeNodes.push(cur);
     (childrenOf.get(cur.id) ?? []).forEach(k => stack.push(k));
   }
 
   const ghostId = ghostParent ? `ghost-${root.id}` : null;
-  subtreeNodes.forEach(n => g.setNode(n.id, { width: cardWidth, height: CARD_HEIGHT }));
-  if (ghostId) g.setNode(ghostId, { width: cardWidth, height: CARD_HEIGHT });
+  subtreeNodes.forEach(n => g.setNode(n.id, { width: CARD_WIDTH, height: CARD_HEIGHT }));
+  if (ghostId) g.setNode(ghostId, { width: CARD_WIDTH, height: CARD_HEIGHT });
+
   const edges: Edge[] = [];
   if (ghostId) {
     g.setEdge(ghostId, root.id);
@@ -245,15 +327,19 @@ function layoutSubtree(
 
   dagre.layout(g);
 
-  const placed: { id: string; node: OrgNode; ghost: boolean }[] = subtreeNodes.map(n => ({ id: n.id, node: n, ghost: false }));
+  const placed: { id: string; node: OrgNode; ghost: boolean }[] = subtreeNodes.map(n => ({
+    id: n.id,
+    node: n,
+    ghost: false,
+  }));
   if (ghostId && ghostParent) placed.push({ id: ghostId, node: ghostParent, ghost: true });
 
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   placed.forEach(({ id }) => {
     const p = g.node(id);
-    minX = Math.min(minX, p.x - cardWidth / 2);
+    minX = Math.min(minX, p.x - CARD_WIDTH / 2);
     minY = Math.min(minY, p.y - CARD_HEIGHT / 2);
-    maxX = Math.max(maxX, p.x + cardWidth / 2);
+    maxX = Math.max(maxX, p.x + CARD_WIDTH / 2);
     maxY = Math.max(maxY, p.y + CARD_HEIGHT / 2);
   });
 
@@ -262,8 +348,14 @@ function layoutSubtree(
     return {
       id,
       type: "orgCard",
-      position: { x: p.x - cardWidth / 2 - minX, y: p.y - CARD_HEIGHT / 2 - minY },
-      data: { node, users: ghost ? [] : usersByNode.get(node.id) ?? [], mode, ghost } satisfies OrgCardData,
+      position: { x: p.x - CARD_WIDTH / 2 - minX, y: p.y - CARD_HEIGHT / 2 - minY },
+      data: {
+        node,
+        users: ghost ? [] : usersByNode.get(node.id) ?? [],
+        mode,
+        ghost,
+        depth: 0,
+      } satisfies OrgCardData,
       draggable: false,
       connectable: false,
       selectable: !ghost,
@@ -271,6 +363,138 @@ function layoutSubtree(
   });
 
   return { nodes, edges, width: maxX - minX, height: maxY - minY };
+}
+
+/** Horizontal gap between siblings in the hierarchy forest. */
+const HIERARCHY_SIBLING_GAP = 44;
+/** Vertical gap between levels (parent card bottom → child card top). */
+const HIERARCHY_LEVEL_GAP = 52;
+
+/** Lays out the whole hierarchy view as one tidy chart: the client's design
+ *  keeps sibling order, centres every parent over its children and paints a
+ *  single top-down canvas (no swim-lanes, classification lives on the cards).
+ *  A hand-rolled layout is used instead of dagre because dagre reorders
+ *  siblings to minimise crossings, which scrambles the chart's reading order. */
+function layoutHierarchyForest(
+  roots: OrgNode[],
+  childrenOf: Map<string | null, OrgNode[]>,
+  usersByNode: Map<string, AppUser[]>,
+  byId: Map<string, OrgNode>,
+): { nodes: Node[]; edges: Edge[] } {
+  const order: { node: OrgNode; depth: number }[] = [];
+  const depthOf = new Map<string, number>();
+  const visit = (node: OrgNode, depth: number) => {
+    if (depthOf.has(node.id)) return;
+    depthOf.set(node.id, depth);
+    order.push({ node, depth });
+    (childrenOf.get(node.id) ?? []).forEach(k => visit(k, depth + 1));
+  };
+  roots.forEach(root => visit(root, 0));
+
+  // Widest level height wins so cards of different sizes still line up.
+  const levelHeight = new Map<number, number>();
+  const levelY = new Map<number, number>();
+  order.forEach(({ depth }) => {
+    const { height } = hierarchyCardSize(depth);
+    levelHeight.set(depth, Math.max(levelHeight.get(depth) ?? 0, height));
+  });
+  let yCursor = 0;
+  [...levelHeight.keys()].sort((a, b) => a - b).forEach(depth => {
+    levelY.set(depth, yCursor);
+    yCursor += (levelHeight.get(depth) ?? 0) + HIERARCHY_LEVEL_GAP;
+  });
+
+  // 1) Measure: every subtree is as wide as its children taken together.
+  const subtreeWidth = new Map<string, number>();
+  const measure = (node: OrgNode): number => {
+    const cached = subtreeWidth.get(node.id);
+    if (cached !== undefined) return cached;
+    const { width } = hierarchyCardSize(depthOf.get(node.id) ?? 0);
+    const kids = childrenOf.get(node.id) ?? [];
+    const kidsWidth = kids.reduce((sum, kid) => sum + measure(kid), 0)
+      + HIERARCHY_SIBLING_GAP * Math.max(0, kids.length - 1);
+    const own = Math.max(width, kidsWidth);
+    subtreeWidth.set(node.id, own);
+    return own;
+  };
+  roots.forEach(measure);
+
+  // 2) Place: centre the parent over the block of children, preserving order.
+  const positions = new Map<string, { x: number; y: number }>();
+  const place = (node: OrgNode, left: number) => {
+    const width = subtreeWidth.get(node.id) ?? hierarchyCardSize(0).width;
+    const depth = depthOf.get(node.id) ?? 0;
+    const y = levelY.get(depth) ?? 0;
+    positions.set(node.id, { x: left + width / 2, y });
+    const kids = childrenOf.get(node.id) ?? [];
+    const kidsWidth = kids.reduce((sum, kid) => sum + (subtreeWidth.get(kid.id) ?? 0), 0)
+      + HIERARCHY_SIBLING_GAP * Math.max(0, kids.length - 1);
+    let childLeft = left + (width - kidsWidth) / 2;
+    kids.forEach(kid => {
+      place(kid, childLeft);
+      childLeft += (subtreeWidth.get(kid.id) ?? 0) + HIERARCHY_SIBLING_GAP;
+    });
+  };
+
+  let rootLeft = 0;
+  roots.forEach(root => {
+    place(root, rootLeft);
+    rootLeft += (subtreeWidth.get(root.id) ?? 0) + HIERARCHY_ROOT_GAP;
+  });
+
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  order.forEach(({ node, depth }) => {
+    const p = positions.get(node.id)!;
+    const { width, height } = hierarchyCardSize(depth);
+    minX = Math.min(minX, p.x - width / 2);
+    minY = Math.min(minY, p.y);
+    maxX = Math.max(maxX, p.x + width / 2);
+    maxY = Math.max(maxY, p.y + height);
+  });
+
+  const nodes: Node[] = order.map(({ node, depth }) => {
+    const p = positions.get(node.id)!;
+    const { width, height } = hierarchyCardSize(depth);
+    return {
+      id: node.id,
+      type: "orgCard",
+      position: { x: p.x - width / 2 - minX, y: p.y - minY },
+      data: {
+        node,
+        users: usersByNode.get(node.id) ?? [],
+        mode: "hierarchy",
+        depth,
+        role: hierarchyRole(node, byId),
+      } satisfies OrgCardData,
+      draggable: false,
+      connectable: false,
+      selectable: true,
+    };
+  });
+
+  const edges: Edge[] = [];
+  order.forEach(({ node }) => {
+    const parentLod = effectiveLod(node, byId);
+    (childrenOf.get(node.id) ?? []).forEach(child => {
+      // The client's chart only accents the step *into* a control function:
+      // a plain navy rule to the first classified unit, then a thick coloured
+      // arrow for its Internal Control child. Colour is used when the parent
+      // already sits on the same line of defence.
+      edges.push(
+        child.lineOfDefense && parentLod === child.lineOfDefense
+          ? lodEdge(node.id, child.id, child.lineOfDefense)
+          : {
+              id: `${node.id}->${child.id}`,
+              source: node.id,
+              target: child.id,
+              type: "smoothstep",
+              style: HIERARCHY_EDGE_STYLE,
+            },
+      );
+    });
+  });
+
+  return { nodes, edges };
 }
 
 interface OrgMapGraphProps {
@@ -281,7 +505,7 @@ interface OrgMapGraphProps {
 }
 
 export const OrgMapGraph = ({ nodes, childrenOf, users, onNodeSelect }: OrgMapGraphProps) => {
-  const [mode, setMode] = useState<ViewMode>("classic");
+  const [mode, setMode] = useState<ViewMode>("hierarchy");
   const [focusIds, setFocusIds] = useState<Set<string>>(new Set());
 
   const toggleFocus = useCallback((id: string) => {
@@ -314,8 +538,23 @@ export const OrgMapGraph = ({ nodes, childrenOf, users, onNodeSelect }: OrgMapGr
       usersByNode.set(u.orgNodeId, arr);
     });
 
-    const classic = mode === "classic";
+    const allNodes: Node[] = [];
+    const allEdges: Edge[] = [];
     const roots = childrenOf.get(null) ?? [];
+
+    // Client hierarchy: one flat canvas, no Line-of-Defense swim-lanes — the
+    // colour of each card carries the classification instead. Roots sit side
+    // by side so a group with several top-level entities still reads as one chart.
+    if (mode === "hierarchy") {
+      const { nodes: hierarchyNodes, edges: hierarchyEdges } = layoutHierarchyForest(
+        roots,
+        childrenOf,
+        usersByNode,
+        byId,
+      );
+      return { flowNodes: hierarchyNodes, flowEdges: hierarchyEdges };
+    }
+
     const lanes: Record<1 | 2 | 3, OrgNode[]> = { 1: [], 2: [], 3: [] };
     const unclassified: OrgNode[] = [];
     const ghostFor = new Map<string, OrgNode>();
@@ -376,27 +615,26 @@ export const OrgMapGraph = ({ nodes, childrenOf, users, onNodeSelect }: OrgMapGr
       }
     });
 
-    const allNodes: Node[] = [];
-    const allEdges: Edge[] = [];
     let yCursor = 0;
 
     bands.forEach(band => {
-      // Classic packs subtrees side by side; tree/focus stack them down the lane.
+      // Tree/focus stack subtrees down the lane.
       let cursor = 0;
       let bandWidth = 0;
       let bandHeight = 0;
-      const subtrees = band.roots.map(root => layoutSubtree(root, childrenOf, usersByNode, mode, ghostFor.get(root.id)));
+      const subtrees = band.roots.map(root =>
+        layoutSubtree(root, childrenOf, usersByNode, mode, ghostFor.get(root.id)),
+      );
 
       subtrees.forEach(sub => {
-        const offsetX = classic ? cursor : 0;
-        const offsetY = yCursor + LANE_LABEL_HEIGHT + LANE_PADDING + (classic ? 0 : cursor);
+        const offsetY = yCursor + LANE_LABEL_HEIGHT + LANE_PADDING + cursor;
         sub.nodes.forEach(n => {
-          allNodes.push({ ...n, position: { x: n.position.x + offsetX, y: n.position.y + offsetY } });
+          allNodes.push({ ...n, position: { x: n.position.x, y: n.position.y + offsetY } });
         });
         allEdges.push(...sub.edges);
-        cursor += (classic ? sub.width + CLASSIC_LANE_GAP_X : sub.height + LANE_GAP);
-        bandWidth = classic ? cursor - CLASSIC_LANE_GAP_X : Math.max(bandWidth, sub.width);
-        bandHeight = classic ? Math.max(bandHeight, sub.height) : cursor - LANE_GAP;
+        cursor += sub.height + LANE_GAP;
+        bandWidth = Math.max(bandWidth, sub.width);
+        bandHeight = cursor - LANE_GAP;
       });
 
       allNodes.push({
@@ -429,9 +667,9 @@ export const OrgMapGraph = ({ nodes, childrenOf, users, onNodeSelect }: OrgMapGr
 
   /** Re-render the laid-out React Flow graph as a standalone SVG file. */
   const exportSvg = useCallback(() => {
+    const hierarchy = mode === "hierarchy";
     const boxes: HierarchySvgBox[] = [];
     const groups: HierarchySvgGroup[] = [];
-    const cardWidth = mode === "classic" ? CLASSIC_CARD_WIDTH : CARD_WIDTH;
 
     for (const n of flowNodes) {
       if (n.type === "laneGroup") {
@@ -448,20 +686,28 @@ export const OrgMapGraph = ({ nodes, childrenOf, users, onNodeSelect }: OrgMapGr
       } else if (n.type === "orgCard") {
         const d = n.data as OrgCardData;
         if (d.ghost) continue;
+        const size = hierarchy ? hierarchyCardSize(d.depth) : { width: CARD_WIDTH, height: CARD_HEIGHT };
+        const tone = hierarchy ? HIERARCHY_TONES[d.role ?? "business"] : undefined;
         boxes.push({
           id: n.id,
           x: n.position.x,
           y: n.position.y,
-          width: cardWidth,
-          height: CARD_HEIGHT,
-          accent: ORG_TYPE_COLORS[d.node.type],
-          typeLabel: ORG_TYPE_LABELS[d.node.type],
+          width: size.width,
+          height: size.height,
+          accent: tone?.accent ?? ORG_TYPE_COLORS[d.node.type],
+          fill: tone?.fill,
+          textColor: tone?.text,
+          subtitleColor: tone?.muted,
+          titleSize: hierarchy ? (d.role === "root" ? 16 : d.depth === 1 ? 12.5 : 11.5) : undefined,
+          typeLabel: hierarchy ? undefined : ORG_TYPE_LABELS[d.node.type],
           title: d.node.name,
           description: d.node.description ?? null,
-          chips: [
-            ...(d.node.offerings ?? []).map((o) => o.label || OFFERING_KIND_LABELS[o.kind]),
-            ...d.users.map((u) => u.title || u.name),
-          ],
+          chips: hierarchy
+            ? []
+            : [
+                ...(d.node.offerings ?? []).map((o) => o.label || OFFERING_KIND_LABELS[o.kind]),
+                ...d.users.map((u) => u.title || u.name),
+              ],
         });
       }
     }
@@ -472,16 +718,24 @@ export const OrgMapGraph = ({ nodes, childrenOf, users, onNodeSelect }: OrgMapGr
       boxes,
       flowEdges
         .filter((e) => boxIds.has(e.source) && boxIds.has(e.target))
-        .map((e) => ({ source: e.source, target: e.target })),
+        .map((e) => ({
+          source: e.source,
+          target: e.target,
+          color: hierarchy ? String(e.style?.stroke ?? "") : undefined,
+          arrow: hierarchy && !!e.markerEnd,
+        })),
       groups,
-      { direction: mode === "classic" ? "TB" : "LR" },
+      { direction: hierarchy ? "TB" : "LR" },
     );
     downloadSvg(`organisation-map-${new Date().toISOString().slice(0, 10)}.svg`, svg);
     toast.success("Organisation map exported as SVG");
   }, [flowNodes, flowEdges, mode]);
 
   return (
-    <div className="relative h-[420px] overflow-hidden rounded-lg border border-border sm:h-[520px] lg:h-[600px]">
+    <div
+      data-testid="organisation-map-canvas"
+      className="relative h-[420px] overflow-hidden rounded-lg border border-border sm:h-[520px] lg:h-[600px]"
+    >
       <div className="absolute left-3 top-3 z-10 flex flex-wrap items-center gap-2">
         <div role="group" aria-label="Map view" className="inline-flex rounded-md border border-border bg-card/90 p-0.5 backdrop-blur">
           {VIEW_MODES.map(m => (
@@ -549,6 +803,22 @@ export const OrgMapGraph = ({ nodes, childrenOf, users, onNodeSelect }: OrgMapGr
           <Download className="h-3.5 w-3.5" /> Export SVG
         </Button>
       </div>
+      {mode === "hierarchy" && (
+        <div className="pointer-events-none absolute bottom-3 right-3 z-10 space-y-1.5 rounded-md border border-border bg-card/95 px-3 py-2 shadow-sm backdrop-blur">
+          {HIERARCHY_LEGEND.map(item => (
+            <div key={item.role} className="flex items-center gap-2">
+              <span
+                className="h-3.5 w-3.5 shrink-0 rounded-[3px] border"
+                style={{
+                  background: `hsl(${HIERARCHY_TONES[item.role].fill})`,
+                  borderColor: `hsl(${HIERARCHY_TONES[item.role].accent} / 0.8)`,
+                }}
+              />
+              <span className="text-[10.5px] font-medium leading-none text-foreground">{item.label}</span>
+            </div>
+          ))}
+        </div>
+      )}
       <ReactFlow
         key={`${mode}-${[...focusIds].sort().join(",")}`}
         nodes={flowNodes}
@@ -566,7 +836,9 @@ export const OrgMapGraph = ({ nodes, childrenOf, users, onNodeSelect }: OrgMapGr
       >
         <Background gap={20} />
         <Controls showInteractive={false} />
-        <MiniMap pannable zoomable className="!bg-card hidden md:block" maskColor="hsl(var(--muted) / 0.6)" />
+        {mode !== "hierarchy" && (
+          <MiniMap pannable zoomable className="!bg-card hidden md:block" maskColor="hsl(var(--muted) / 0.6)" />
+        )}
       </ReactFlow>
     </div>
   );

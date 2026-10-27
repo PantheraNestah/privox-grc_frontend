@@ -67,10 +67,12 @@ export const LINE_OF_DEFENSE_SHORT: Record<1 | 2 | 3, string> = {
   3: "Line 3: Internal Audit",
 };
 
+/** Client-approved semantics: business units blue-grey, 2nd line green,
+ *  3rd line red — used by the map, the summary and the legends. */
 export const LINE_OF_DEFENSE_COLORS: Record<1 | 2 | 3, string> = {
-  1: "210 61% 49%",
-  2: "34 60% 45%",
-  3: "352 70% 55%",
+  1: "209 45% 45%",
+  2: "137 42% 34%",
+  3: "356 60% 46%",
 };
 
 /** Effective Line of Defense — inherits from the nearest classified ancestor. */

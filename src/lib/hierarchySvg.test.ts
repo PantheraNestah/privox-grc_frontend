@@ -51,9 +51,35 @@ describe("buildHierarchySvg", () => {
   it("routes edges top-to-bottom or left-to-right based on direction", () => {
     const tb = buildHierarchySvg(boxes, edges, [], { direction: "TB" });
     const lr = buildHierarchySvg(boxes, edges, [], { direction: "LR" });
-    // TB starts at the bottom-centre of the source (105,108); LR at the right edge (210,54).
-    expect(tb).toContain("M 105 108 C");
+    // TB drops from the bottom-centre of the source (105,108), buses across at
+    // y=154 and drops into the target (145,200); LR leaves the right edge.
+    expect(tb).toContain("M 105 108 V 154 H 145 V 200");
     expect(lr).toContain("M 210 54 C");
+  });
+
+  it("tints and arrowheads classified connectors", () => {
+    const svg = buildHierarchySvg(
+      [{ ...boxes[0], fill: "134 44% 90%", textColor: "#12301a" }, boxes[1]],
+      [{ source: "a", target: "b", color: "hsl(137 42% 34%)", arrow: true }],
+      [],
+      { direction: "TB" },
+    );
+    expect(svg).toContain('stroke="hsl(137 42% 34%)"');
+    // Filled arrow triangle in the connector colour.
+    expect(svg).toContain('d="M 140.50 192 L 145 200 L 149.50 192 Z" fill="hsl(137 42% 34%)"');
+  });
+
+  it("fills cards that opt into a solid background", () => {
+    const svg = buildHierarchySvg(
+      [
+        { ...boxes[0], fill: "214 62% 26%", textColor: "#ffffff", subtitleColor: "#d7e2ef" },
+        boxes[1],
+      ],
+      edges,
+    );
+    expect(svg).toContain('fill="hsl(214 62% 26%)"');
+    expect(svg).toContain('fill="#ffffff"'); // the untouched card stays white
+    expect(svg).toContain('fill="#ffffff">'); // title uses the overridden white text
   });
 
   it("draws lane groups behind the cards and escapes their labels", () => {

@@ -8,7 +8,7 @@ export const ORGANIZATIONS = {
   gnc: { id: "org-gnc", code: "GNC", name: "GNC Holdings" },
 } as const;
 
-export type OrganizationFixture = (typeof ORGANIZATIONS)[keyof typeof ORGANIZATIONS];
+export type OrganizationFixture = { id: string; code: string; name: string };
 
 export const USER = {
   id: "user-gift",
