@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, type ClipboardEvent, type KeyboardEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AlertCircle, ArrowLeft, CheckCircle2, Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth, type LoginResult } from "@/contexts/AuthContext";
 import { AuthShell, ViewHeader, Steps } from "@/components/grc/auth-bits";
 import { CredentialsForm } from "@/components/grc/CredentialsForm";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -14,7 +14,7 @@ type View = "login" | "fp-email" | "fp-otp" | "fp-newpw" | "fp-done";
 
 const isEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
-export const AuthScreen = () => {
+export const AuthScreen = ({ organizationHint }: { organizationHint?: string }) => {
   const navigate = useNavigate();
   const [view, setView] = useState<View>("login");
   const [animating, setAnimating] = useState(false);
@@ -28,9 +28,16 @@ export const AuthScreen = () => {
     }, 200);
   };
 
+  const onSignedIn = (result: LoginResult) => {
+    // A multi-organization user must choose before there is a session to use.
+    navigate(result.status === "organization-required" ? "/choose-organization" : "/dashboard");
+  };
+
   return (
     <AuthShell animating={animating} formKey={view}>
-      {view === "login" && <LoginView go={go} onSuccess={() => navigate("/dashboard")} />}
+      {view === "login" && (
+        <LoginView go={go} onSuccess={onSignedIn} organizationHint={organizationHint} />
+      )}
       {view === "fp-email" && <ForgotEmailView go={go} />}
       {view === "fp-otp" && <ForgotOtpView go={go} />}
       {view === "fp-newpw" && <ForgotNewPwView go={go} />}
@@ -41,8 +48,16 @@ export const AuthScreen = () => {
 
 /* ---------- Login ---------- */
 
-const LoginView = ({ go, onSuccess }: { go: (v: View) => void; onSuccess: () => void }) => {
-  const { login } = useAuth();
+const LoginView = ({
+  go,
+  onSuccess,
+  organizationHint,
+}: {
+  go: (v: View) => void;
+  onSuccess: (result: LoginResult) => void;
+  organizationHint?: string;
+}) => {
+  const { login, authNotice, clearAuthNotice } = useAuth();
 
   return (
     <div>
@@ -51,10 +66,12 @@ const LoginView = ({ go, onSuccess }: { go: (v: View) => void; onSuccess: () => 
       <CredentialsForm
         identifierPlaceholder="you@organisation.com"
         failureLabel="Login failed"
+        notice={authNotice}
+        onDismissNotice={clearAuthNotice}
         onForgotPassword={() => go("fp-email")}
         onSubmit={async (credentials) => {
-          await login(credentials);
-          onSuccess();
+          const result = await login({ ...credentials, organizationId: organizationHint });
+          onSuccess(result);
         }}
         footer={
           <>

@@ -4,6 +4,17 @@ export interface LoginRequest {
   identifier: string;
   password: string;
   rememberMe: boolean;
+  /**
+   * Opt in to the organization-selection flow. Accounts that belong to two or
+   * more active organizations then receive `ORGANIZATION_SELECTION_REQUIRED`
+   * instead of a session bound to their primary organization.
+   */
+  supportsOrganizationSelection?: boolean;
+  /**
+   * Ask for a specific organization, which bypasses the picker. Sent when the
+   * app already knows the organization (invitation acceptance, `/login?org=`).
+   */
+  organizationId?: string;
 }
 
 export interface UserDto {
@@ -36,7 +47,26 @@ export interface OrganizationDetailDto extends OrganizationDto {
   [key: string]: unknown;
 }
 
-export interface LoginResponse {
+/** One organization card returned by the selection flow / `GET /v1/me/organizations`. */
+export interface OrganizationOptionDto {
+  id: string;
+  code: string;
+  name: string;
+  primary: boolean;
+  lastUsedAt?: string;
+  /** Group display names the user belongs to in this organization. */
+  groups?: string[];
+  /** Active module codes allocated to the user in this organization. */
+  modules?: string[];
+}
+
+/**
+ * A completed login. `status` is optional so responses from backends that
+ * predate the organization-selection contract still type-check and behave
+ * exactly as before.
+ */
+export interface AuthenticatedLoginResponse {
+  status?: "AUTHENTICATED";
   accessToken: string;
   refreshToken: string;
   tokenType: string;
@@ -53,6 +83,52 @@ export interface LoginResponse {
   allocatedModules?: string[];
   /** Active organizational-unit placements for this user (optional; V3). */
   orgNodeIds?: string[];
+  selectionToken?: null;
+  selectionTokenExpiresAt?: null;
+  organizations?: OrganizationOptionDto[] | null;
+}
+
+/**
+ * Login needs an organization choice before a session can be issued. No
+ * tokens and no organization are returned; `selectionToken` is short-lived
+ * and only valid at `POST /v1/auth/select-organization`.
+ */
+export interface OrganizationSelectionRequiredResponse {
+  status: "ORGANIZATION_SELECTION_REQUIRED";
+  accessToken: null;
+  refreshToken: null;
+  tokenType?: string | null;
+  expiresIn?: number | null;
+  accessTokenExpiresAt?: string | null;
+  user?: UserDto;
+  organization: null;
+  permissions?: string[];
+  allocatedModules?: string[];
+  selectionToken: string;
+  /** ISO timestamp, roughly five minutes after the login call. */
+  selectionTokenExpiresAt?: string;
+  organizations: OrganizationOptionDto[];
+}
+
+export type LoginResponse =
+  | AuthenticatedLoginResponse
+  | OrganizationSelectionRequiredResponse;
+
+/** `POST /v1/auth/select-organization` — finishes a selection-required login. */
+export interface SelectOrganizationRequest {
+  selectionToken: string;
+  organizationId: string;
+}
+
+/** `POST /v1/auth/switch-organization` — moves a signed-in user to another org. */
+export interface SwitchOrganizationRequest {
+  organizationId: string;
+}
+
+/** `GET /v1/me/organizations` — org list for the picker and header switcher. */
+export interface MyOrganizationsResponse {
+  currentOrganizationId: string;
+  organizations: OrganizationOptionDto[];
 }
 
 export interface MeResponse {

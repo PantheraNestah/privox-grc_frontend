@@ -10,10 +10,12 @@ import { RequireModule } from "@/components/grc/RequireModule";
 import { RequirePlatformAuth } from "@/components/grc/RequirePlatformAuth";
 import { PlatformLayout } from "@/components/grc/PlatformLayout";
 import { TenantLayout } from "@/components/grc/TenantLayout";
+import { SessionConflictOverlay } from "@/components/grc/SessionConflictOverlay";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Index from "./pages/Index.tsx";
+import OrganizationPickerPage from "./pages/OrganizationPickerPage.tsx";
 import AcceptInvitationPage from "./pages/AcceptInvitationPage.tsx";
 import Dashboard from "./pages/Dashboard.tsx";
 import Governance from "./pages/Governance.tsx";
@@ -51,9 +53,13 @@ const App = () => (
           <TooltipProvider>
             <Toaster />
             <Sonner />
+            <SessionConflictOverlay />
             <BrowserRouter basename={import.meta.env.BASE_URL}>
               <Routes>
                 <Route path="/" element={<Index />} />
+                {/* Deep links may carry an organization hint: /login?org=<id>. */}
+                <Route path="/login" element={<Index />} />
+                <Route path="/choose-organization" element={<OrganizationPickerPage />} />
                 {/* Public invitation acceptance & signup (outside RequireAuth) */}
                 <Route path="/signup" element={<AcceptInvitationPage />} />
                 <Route path="/accept-invitation" element={<AcceptInvitationPage />} />

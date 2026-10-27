@@ -212,7 +212,7 @@ const AcceptInvitationPage = () => {
     if (Object.keys(nextErrors).length > 0) return;
 
     try {
-      await acceptMutation.mutateAsync({
+      const acceptance = await acceptMutation.mutateAsync({
         fullName: fullName.trim(),
         username: username.trim() || undefined,
         password,
@@ -220,9 +220,18 @@ const AcceptInvitationPage = () => {
       });
 
       // Acceptance returns membership metadata, not a session — mint one now.
-      await auth.login({ identifier: details.email, password, rememberMe: true });
+      // The invited organization is known, so this bypasses the picker even
+      // for accounts that already belong to several organizations.
+      const result = await auth.login({
+        identifier: details.email,
+        password,
+        rememberMe: true,
+        organizationId: acceptance.organizationId || details.organizationId,
+      });
       toast.success(`Welcome to Privox GRC! You've joined ${details.organizationName}.`);
-      navigate("/dashboard", { replace: true });
+      navigate(result.status === "organization-required" ? "/choose-organization" : "/dashboard", {
+        replace: true,
+      });
     } catch (err) {
       toast.error(messageOf(err, "Failed to accept invitation."));
     }
@@ -250,7 +259,12 @@ const AcceptInvitationPage = () => {
 
     setSubmittingExistingLogin(true);
     try {
-      await auth.login({ identifier: details.email, password: existingPassword, rememberMe: true });
+      await auth.login({
+        identifier: details.email,
+        password: existingPassword,
+        rememberMe: true,
+        organizationId: details.organizationId,
+      });
       await acceptMutation.mutateAsync(undefined);
       await auth.refreshSession();
       toast.success(`Welcome back! Successfully joined ${details.organizationName}.`);

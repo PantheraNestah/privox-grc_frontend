@@ -1,12 +1,82 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { AuthScreen } from "./AuthScreen";
 
+const mocks = vi.hoisted(() => ({
+  login: vi.fn(),
+  authNotice: null as string | null,
+  clearAuthNotice: vi.fn(),
+}));
+
 vi.mock("@/contexts/AuthContext", () => ({
-  useAuth: () => ({ login: vi.fn() }),
+  useAuth: () => ({
+    login: mocks.login,
+    authNotice: mocks.authNotice,
+    clearAuthNotice: mocks.clearAuthNotice,
+  }),
 }));
 
 const advance = (ms: number) => act(async () => void vi.advanceTimersByTime(ms));
+
+describe("AuthScreen sign-in", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.login.mockResolvedValue({ status: "authenticated" });
+    sessionStorage.clear();
+  });
+
+  const renderScreen = (organizationHint?: string) =>
+    render(
+      <MemoryRouter initialEntries={["/"]}>
+        <Routes>
+          <Route path="/" element={<AuthScreen organizationHint={organizationHint} />} />
+          <Route path="/dashboard" element={<div>Dashboard home</div>} />
+          <Route path="/choose-organization" element={<div>Organization picker</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+  const signIn = () => {
+    fireEvent.change(screen.getByLabelText("Email or Username"), {
+      target: { value: "jane@org.com" },
+    });
+    fireEvent.change(screen.getByLabelText("Password"), {
+      target: { value: "secret" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /sign in/i }));
+  };
+
+  it("passes an organization hint from the URL through to login", async () => {
+    renderScreen("org-2");
+    signIn();
+
+    await waitFor(() =>
+      expect(mocks.login).toHaveBeenCalledWith(
+        expect.objectContaining({ organizationId: "org-2" }),
+      ),
+    );
+    expect(await screen.findByText("Dashboard home")).toBeInTheDocument();
+  });
+
+  it("sends a multi-organization user to the picker instead of the dashboard", async () => {
+    mocks.login.mockResolvedValue({ status: "organization-required" });
+    renderScreen();
+    signIn();
+
+    expect(await screen.findByText("Organization picker")).toBeInTheDocument();
+  });
+
+  it("shows the auth notice and clears it when the user edits", () => {
+    mocks.authNotice = "Your organization selection expired. Please sign in again.";
+    renderScreen();
+
+    expect(screen.getByText(/organization selection expired/i)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Email or Username"), {
+      target: { value: "jane@org.com" },
+    });
+    expect(mocks.clearAuthNotice).toHaveBeenCalled();
+  });
+});
 
 describe("AuthScreen forgot-password flow", () => {
   beforeEach(() => {
