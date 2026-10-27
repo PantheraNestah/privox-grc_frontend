@@ -63,3 +63,12 @@ export async function revokeIssuedSession(
 export function isTransientFailure(error: unknown): boolean {
   return isAxiosError(error) && (!error.response || error.response.status >= 500);
 }
+
+/**
+ * `true` when the server rejected the credentials/token itself. During the
+ * organization-selection flow this means the short-lived selection token is
+ * bad or expired and the user must sign in again.
+ */
+export function isUnauthorized(error: unknown): boolean {
+  return isAxiosError(error) && error.response?.status === 401;
+}

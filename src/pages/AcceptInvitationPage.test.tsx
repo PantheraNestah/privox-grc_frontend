@@ -68,7 +68,7 @@ describe("AcceptInvitationPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.accept.mockResolvedValue({ status: "ACCEPTED" });
-    mocks.login.mockResolvedValue(undefined);
+    mocks.login.mockResolvedValue({ status: "authenticated" });
     mocks.logout.mockResolvedValue(undefined);
     mocks.refreshSession.mockResolvedValue(undefined);
     mocks.user = null;
@@ -131,6 +131,7 @@ describe("AcceptInvitationPage", () => {
       identifier: "jane.doe@savanna.co.ke",
       password: "SecurePass1!",
       rememberMe: true,
+      organizationId: "org-1",
     });
     expect(await screen.findByText("Dashboard home")).toBeInTheDocument();
   });

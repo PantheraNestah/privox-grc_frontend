@@ -1,5 +1,6 @@
 import { QueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
+import { SessionFrozenError } from "./session-broadcast";
 
 const NON_RETRYABLE_CLIENT_ERRORS = new Set([408, 429]);
 
@@ -9,6 +10,8 @@ const NON_RETRYABLE_CLIENT_ERRORS = new Set([408, 429]);
  * while network/5xx failures get two retries.
  */
 export function shouldRetryQuery(failureCount: number, error: unknown): boolean {
+  // The tab is waiting for a reload after a cross-tab session change.
+  if (error instanceof SessionFrozenError) return false;
   if (isAxiosError(error) && error.response) {
     const { status } = error.response;
     if (status < 500 && !NON_RETRYABLE_CLIENT_ERRORS.has(status)) return false;

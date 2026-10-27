@@ -22,6 +22,9 @@ interface CredentialsFormProps {
   onSubmit: (credentials: Credentials) => Promise<void>;
   onForgotPassword?: () => void;
   footer?: ReactNode;
+  /** One-off message from the auth layer (e.g. an expired organization selection). */
+  notice?: string | null;
+  onDismissNotice?: () => void;
 }
 
 const fieldInputCx = (invalid: boolean) =>
@@ -53,6 +56,8 @@ export function CredentialsForm({
   onSubmit,
   onForgotPassword,
   footer,
+  notice,
+  onDismissNotice,
 }: CredentialsFormProps) {
   const uid = useId();
   const [identifier, setIdentifier] = useState("");
@@ -70,6 +75,7 @@ export function CredentialsForm({
     setLoading(true);
     setInvalid({});
     setAlert(null);
+    onDismissNotice?.();
     try {
       await onSubmit({ identifier: identifier.trim(), password, rememberMe });
     } catch (err) {
@@ -79,7 +85,12 @@ export function CredentialsForm({
     }
   };
 
-  const clearAlert = () => setAlert(null);
+  const clearAlert = () => {
+    setAlert(null);
+    onDismissNotice?.();
+  };
+
+  const shownAlert = alert ?? notice ?? null;
 
   return (
     <form
@@ -89,10 +100,10 @@ export function CredentialsForm({
         void submit();
       }}
     >
-      {alert && (
+      {shownAlert && (
         <Alert variant="destructive" className="mb-4 flex items-center gap-2 py-2.5 text-[13px]">
           <AlertCircle className="h-4 w-4 shrink-0" />
-          <AlertDescription>{alert}</AlertDescription>
+          <AlertDescription>{shownAlert}</AlertDescription>
         </Alert>
       )}
 

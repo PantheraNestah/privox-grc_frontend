@@ -21,6 +21,16 @@ vi.mock("@/hooks/use-organization-modules", () => ({
   useModuleAccess: () => ({ isLoading: false, isModuleEnabled: (id: string) => !modules.disabled.has(id) }),
 }));
 
+vi.mock("@/hooks/use-my-organizations", () => ({
+  useMyOrganizations: () => ({
+    data: undefined,
+    isLoading: false,
+    isError: false,
+    isFetching: false,
+    refetch: vi.fn(),
+  }),
+}));
+
 function renderLayout() {
   return render(
     <TooltipProvider>

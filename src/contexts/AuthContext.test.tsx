@@ -3,6 +3,7 @@ import { AxiosError, type AxiosResponse } from "axios";
 import { act, render, screen } from "@testing-library/react";
 import { useAuth, AuthProvider } from "./AuthContext";
 import { getTokenRefreshDelay } from "@/lib/auth-refresh";
+import { resetTenantSessionFreeze } from "@/lib/session-broadcast";
 
 const mocks = vi.hoisted(() => ({
   apiPost: vi.fn(),
@@ -11,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   getStoredRefreshToken: vi.fn(),
   setAccessToken: vi.fn(),
   storeRefreshToken: vi.fn(),
+  updateStoredRefreshToken: vi.fn(),
   clearStoredTokens: vi.fn(),
 }));
 
@@ -24,6 +26,7 @@ vi.mock("@/lib/token", () => ({
   setAccessToken: mocks.setAccessToken,
   getStoredRefreshToken: mocks.getStoredRefreshToken,
   storeRefreshToken: mocks.storeRefreshToken,
+  updateStoredRefreshToken: mocks.updateStoredRefreshToken,
   clearStoredTokens: mocks.clearStoredTokens,
 }));
 
@@ -392,5 +395,238 @@ describe("AuthProvider module entitlements", () => {
     expect(screen.getByTestId("modules")).toHaveTextContent("CORE,RISK_MANAGEMENT");
     expect(screen.getByTestId("risk")).toHaveTextContent("true");
     expect(screen.getByTestId("gov")).toHaveTextContent("false");
+  });
+});
+
+describe("AuthProvider organization selection", () => {
+  const selectionResponse = {
+    status: "ORGANIZATION_SELECTION_REQUIRED" as const,
+    accessToken: null,
+    refreshToken: null,
+    organization: null,
+    permissions: [],
+    selectionToken: "selection-1",
+    selectionTokenExpiresAt: "2026-01-01T00:05:00.000Z",
+    organizations: [
+      {
+        id: "o1",
+        code: "SIC",
+        name: "Savanna Insurance",
+        primary: true,
+        groups: ["ORG_ADMIN"],
+        modules: ["GOVERNANCE"],
+      },
+      { id: "o2", code: "GNC", name: "GNC Holdings", primary: false },
+    ],
+  };
+
+  const selectedResponse = {
+    ...loginResponse,
+    accessToken: "access-selected",
+    refreshToken: "refresh-selected",
+    organization: { id: "o2", code: "GNC", name: "GNC Holdings" },
+  };
+
+  const httpError = (status: number) =>
+    new AxiosError("failed", String(status), undefined, undefined, { status } as AxiosResponse);
+
+  function OrgProbe() {
+    const auth = useAuth();
+    const [result, setResult] = useState("");
+    return (
+      <>
+        <span data-testid="authenticated">{String(auth.isAuthenticated)}</span>
+        <span data-testid="org">{auth.organization?.name ?? ""}</span>
+        <span data-testid="token">{auth.accessToken ?? ""}</span>
+        <span data-testid="result">{result}</span>
+        <span data-testid="notice">{auth.authNotice ?? ""}</span>
+        <span data-testid="conflict">
+          {auth.sessionConflict?.kind ?? ""}
+          {auth.sessionConflict?.organizationName
+            ? `:${auth.sessionConflict.organizationName}`
+            : ""}
+        </span>
+        <span data-testid="selection">
+          {(auth.organizationSelection?.organizations ?? []).map((org) => org.id).join(",")}
+        </span>
+        <button
+          onClick={() =>
+            void auth
+              .login({ identifier: "a", password: "secret", rememberMe: false })
+              .then((r) => setResult(r.status))
+          }
+        >
+          login
+        </button>
+        <button onClick={() => void auth.selectOrganization("o2").catch(() => {})}>
+          select
+        </button>
+        <button onClick={() => void auth.switchOrganization("o2").catch(() => {})}>
+          switch
+        </button>
+      </>
+    );
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
+    vi.clearAllMocks();
+    mocks.refreshAccessToken.mockReset();
+    mocks.getStoredRefreshToken.mockReturnValue(null);
+    localStorage.clear();
+    localStorage.removeItem("grc_session_event");
+    resetTenantSessionFreeze();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    resetTenantSessionFreeze();
+  });
+
+  it("opts in to organization selection on every login", async () => {
+    mocks.apiPost.mockResolvedValue({ data: loginResponse });
+
+    render(<AuthProvider><OrgProbe /></AuthProvider>);
+    await act(async () => screen.getByText("login").click());
+
+    expect(mocks.apiPost).toHaveBeenCalledWith(
+      "/v1/auth/login",
+      expect.objectContaining({ supportsOrganizationSelection: true }),
+    );
+    expect(mocks.storeRefreshToken).toHaveBeenCalledWith("refresh-1", false);
+    expect(screen.getByTestId("result")).toHaveTextContent("authenticated");
+  });
+
+  it("keeps a multi-organization user unauthenticated until a choice is made", async () => {
+    mocks.apiPost.mockResolvedValueOnce({ data: selectionResponse });
+
+    render(<AuthProvider><OrgProbe /></AuthProvider>);
+    await act(async () => screen.getByText("login").click());
+
+    expect(screen.getByTestId("result")).toHaveTextContent("organization-required");
+    expect(screen.getByTestId("authenticated")).toHaveTextContent("false");
+    expect(screen.getByTestId("selection")).toHaveTextContent("o1,o2");
+    expect(mocks.storeRefreshToken).not.toHaveBeenCalled();
+    expect(mocks.setAccessToken).not.toHaveBeenCalled();
+  });
+
+  it("commits the returned session after selectOrganization", async () => {
+    mocks.apiPost
+      .mockResolvedValueOnce({ data: selectionResponse })
+      .mockResolvedValueOnce({ data: selectedResponse });
+
+    render(<AuthProvider><OrgProbe /></AuthProvider>);
+    await act(async () => screen.getByText("login").click());
+    await act(async () => screen.getByText("select").click());
+
+    expect(mocks.apiPost).toHaveBeenLastCalledWith("/v1/auth/select-organization", {
+      selectionToken: "selection-1",
+      organizationId: "o2",
+    });
+    expect(screen.getByTestId("authenticated")).toHaveTextContent("true");
+    expect(screen.getByTestId("org")).toHaveTextContent("GNC Holdings");
+    expect(screen.getByTestId("token")).toHaveTextContent("access-selected");
+    expect(screen.getByTestId("selection")).toHaveTextContent("");
+    // A selection keeps the "remember me" choice from the login call.
+    expect(mocks.storeRefreshToken).toHaveBeenCalledWith("refresh-selected", false);
+  });
+
+  it("drops the selection token on 401 and asks the user to sign in again", async () => {
+    mocks.apiPost
+      .mockResolvedValueOnce({ data: selectionResponse })
+      .mockRejectedValueOnce(httpError(401));
+
+    render(<AuthProvider><OrgProbe /></AuthProvider>);
+    await act(async () => screen.getByText("login").click());
+    await act(async () => screen.getByText("select").click());
+
+    expect(screen.getByTestId("authenticated")).toHaveTextContent("false");
+    expect(screen.getByTestId("selection")).toHaveTextContent("");
+    expect(screen.getByTestId("notice")).toHaveTextContent(/sign in again/i);
+  });
+
+  it("removes the card when the organization is no longer accessible (403)", async () => {
+    mocks.apiPost
+      .mockResolvedValueOnce({ data: selectionResponse })
+      .mockRejectedValueOnce(httpError(403));
+
+    render(<AuthProvider><OrgProbe /></AuthProvider>);
+    await act(async () => screen.getByText("login").click());
+    await act(async () => screen.getByText("select").click());
+
+    expect(screen.getByTestId("selection")).toHaveTextContent("o1");
+    expect(screen.getByTestId("authenticated")).toHaveTextContent("false");
+  });
+
+  it("switches organization without a login and keeps the token storage", async () => {
+    mocks.apiPost
+      .mockResolvedValueOnce({ data: loginResponse })
+      .mockResolvedValueOnce({ data: selectedResponse });
+
+    render(<AuthProvider><OrgProbe /></AuthProvider>);
+    await act(async () => screen.getByText("login").click());
+    await act(async () => screen.getByText("switch").click());
+
+    expect(mocks.apiPost).toHaveBeenLastCalledWith("/v1/auth/switch-organization", {
+      organizationId: "o2",
+    });
+    expect(screen.getByTestId("org")).toHaveTextContent("GNC Holdings");
+    expect(screen.getByTestId("token")).toHaveTextContent("access-selected");
+    expect(mocks.updateStoredRefreshToken).toHaveBeenCalledWith("refresh-selected");
+  });
+
+  const crossTab = (
+    message: Record<string, unknown>,
+    id: string,
+  ) => {
+    window.dispatchEvent(
+      new StorageEvent("storage", {
+        key: "grc_session_event",
+        newValue: JSON.stringify({ id, at: Date.now(), message }),
+      }),
+    );
+  };
+
+  it("blocks this tab when another tab switches organization", async () => {
+    mocks.apiPost.mockResolvedValue({ data: loginResponse });
+    render(<AuthProvider><OrgProbe /></AuthProvider>);
+    await act(async () => screen.getByText("login").click());
+
+    await act(async () => {
+      crossTab({ type: "switched", organizationName: "GNC Holdings" }, "evt-switch");
+    });
+
+    expect(screen.getByTestId("conflict")).toHaveTextContent("switched:GNC Holdings");
+  });
+
+  it("ignores a re-login as the same user in the same organization", async () => {
+    mocks.apiPost.mockResolvedValue({ data: loginResponse });
+    render(<AuthProvider><OrgProbe /></AuthProvider>);
+    await act(async () => screen.getByText("login").click());
+
+    await act(async () => {
+      crossTab(
+        { type: "login", organizationId: "o1", userId: "1", organizationName: "Org" },
+        "evt-same",
+      );
+    });
+
+    expect(screen.getByTestId("conflict")).toHaveTextContent("");
+  });
+
+  it("blocks this tab when another tab signs in to a different organization", async () => {
+    mocks.apiPost.mockResolvedValue({ data: loginResponse });
+    render(<AuthProvider><OrgProbe /></AuthProvider>);
+    await act(async () => screen.getByText("login").click());
+
+    await act(async () => {
+      crossTab(
+        { type: "login", organizationId: "o2", userId: "1", organizationName: "GNC Holdings" },
+        "evt-other",
+      );
+    });
+
+    expect(screen.getByTestId("conflict")).toHaveTextContent("login:GNC Holdings");
   });
 });

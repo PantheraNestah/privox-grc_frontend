@@ -27,13 +27,29 @@ import {
   clearStoredTokens,
   type AuthScope,
 } from "./token";
+import {
+  SessionFrozenError,
+  isTenantSessionFrozen,
+} from "./session-broadcast";
 import type { RefreshResponse } from "./auth-types";
 
 // ─── Token refresh ─────────────────────────────────────────
 // A 401 from these endpoints means bad credentials or an invalid/expired
 // refresh token — never try to refresh (or redirect) off the back of one,
-// or a failed refresh would loop forever.
-const NO_REFRESH_PATHS = ["/auth/login", "/auth/logout", "/auth/refresh"];
+// or a failed refresh would loop forever. `/auth/select-organization`
+// authenticates with a body token, not a bearer access token, so a 401 there
+// means the selection itself expired.
+const NO_REFRESH_PATHS = [
+  "/auth/login",
+  "/auth/logout",
+  "/auth/refresh",
+  "/auth/select-organization",
+];
+
+/** Exported so the "never refresh on this 401" list is unit-tested directly. */
+export function isNoRefreshPath(url: string): boolean {
+  return NO_REFRESH_PATHS.some((prefix) => url.includes(prefix));
+}
 
 // One in-flight refresh per scope, shared by the interceptor and the exported
 // `refreshAccessToken` helper so concurrent 401s dedupe correctly.
@@ -81,6 +97,12 @@ function createApiClient(scope: AuthScope, onAuthFailure: () => void): AxiosInst
   // Attach this scope's access token from the auth context's in-memory store.
   client.interceptors.request.use(
     (req) => {
+      // Once the session moved in another tab, any tenant request from this
+      // one would carry an access token bound to the old organization.
+      if (scope === "tenant" && isTenantSessionFrozen()) {
+        return Promise.reject(new SessionFrozenError());
+      }
+
       const token = getAccessToken(scope);
       if (token) {
         req.headers.Authorization = `Bearer ${token}`;
@@ -103,7 +125,7 @@ function createApiClient(scope: AuthScope, onAuthFailure: () => void): AxiosInst
         | (InternalAxiosRequestConfig & { _retry?: boolean })
         | undefined;
       const url = originalRequest?.url ?? "";
-      const isAuthBootstrap = NO_REFRESH_PATHS.some((prefix) => url.includes(prefix));
+      const isAuthBootstrap = isNoRefreshPath(url);
 
       if (isAuthBootstrap || !originalRequest) {
         return Promise.reject(error);

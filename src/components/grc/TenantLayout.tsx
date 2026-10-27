@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   Building2,
   ClipboardCheck,
@@ -18,6 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { AppLayout } from "@/components/grc/shell/AppLayout";
 import { AppTopNav, type Notification } from "@/components/grc/shell/AppTopNav";
+import { OrganizationSwitcher } from "@/components/grc/OrganizationSwitcher";
 import { UserCard } from "@/components/grc/shell/UserCard";
 import type { NavGroup } from "@/components/grc/shell/nav";
 import { useAuth } from "@/contexts/AuthContext";
@@ -90,14 +91,7 @@ export function TenantLayout() {
           homeHref="/dashboard"
           chip={
             organization?.id && (
-              <Link
-                to="/settings/organization"
-                title="View organization details"
-                className="inline-flex max-w-[280px] items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.07] px-2.5 py-1.5 text-xs font-medium text-sky transition hover:bg-white/15 hover:text-white"
-              >
-                <Building2 className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">{orgLabel}</span>
-              </Link>
+              <OrganizationSwitcher currentOrganization={organization} />
             )
           }
           notifications={NOTIFICATIONS}
