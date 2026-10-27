@@ -142,6 +142,9 @@ async function openMap(page: Parameters<typeof signIn>[0]) {
   await page.goto("/governance/risk-governance");
   const card = page.getByTestId("organisation-map-card");
   await expect(card.getByRole("heading", { name: "Organisation Map" })).toBeVisible();
+  // The canvas is mounted when it approaches the viewport (DeferredRender), so
+  // scroll to it exactly as a user would before driving it.
+  await card.scrollIntoViewIfNeeded();
   return card;
 }
 
@@ -198,5 +201,26 @@ test.describe("organisation map hierarchy", () => {
 
     await card.getByRole("button", { name: "Focus" }).click();
     await expect(card.getByRole("button", { name: "Select units" })).toBeVisible();
+  });
+
+  test("keeps the map out of the login and dashboard path", async ({ page, stubs }) => {
+    stubWorkspace(stubs);
+
+    // Record every script/module the page pulls, starting before first paint.
+    const scripts: string[] = [];
+    page.on("request", (request) => {
+      if (request.resourceType() === "script" || request.url().includes("/src/")) {
+        scripts.push(request.url());
+      }
+    });
+
+    await signIn(page, { password: PASSWORD });
+    await expect(page).toHaveURL(/\/dashboard/);
+    await page.waitForLoadState("networkidle");
+
+    // React Flow + dagre (~90 kB gzip) are behind the lazily imported map, so
+    // signing in must never download them. This is the guard against the map
+    // drifting back into the entry chunk.
+    expect(scripts.filter((url) => /OrgMapGraph|vendor-graph|RiskGovernance/.test(url))).toEqual([]);
   });
 });

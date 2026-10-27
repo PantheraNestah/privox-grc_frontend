@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import {
   ChevronRight, ChevronDown, Plus, Pencil, Trash2, Building2, Network, Lock, Layers, Info,
-  LayoutTemplate, MoreHorizontal, X, Download, ShieldAlert,
+  LayoutTemplate, MoreHorizontal, X, Download, ShieldAlert, Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,7 +48,14 @@ import { TENANT_HOME } from "@/components/grc/common/home-links";
 import { EmptyState, ErrorState } from "@/components/grc/common/states";
 import { TemplatePicker } from "@/components/grc/governance/TemplatePicker";
 import { OrgNodeInsightsPanel } from "@/components/grc/OrgNodeInsightsPanel";
-import { OrgMapGraph } from "@/components/grc/OrgMapGraph";
+import { DeferredRender } from "@/components/grc/DeferredRender";
+// React Flow + its layout engine are the heaviest thing on this page and are
+// only needed once the map scrolls into view, so they get their own chunk.
+// The mock in RiskGovernance.test still applies: a dynamic import resolves to
+// the same module registry the test replaced.
+const OrgMapGraph = lazy(() =>
+  import("@/components/grc/OrgMapGraph").then((m) => ({ default: m.OrgMapGraph })),
+);
 import {
   useOrgNodes, useCreateOrgNode, useUpdateOrgNode, useMoveOrgNode, useSoftDeleteOrgNode,
 } from "@/hooks/use-org-nodes";
@@ -594,12 +601,16 @@ const RiskGovernance = () => {
                 description="Your org map will appear here once you add entities above."
               />
             ) : (
-              <OrgMapGraph
-                nodes={nodes}
-                childrenOf={childrenOf}
-                users={EMPTY_USERS}
-                onNodeSelect={(id) => setInsightNodeId(id)}
-              />
+              <Suspense fallback={<MapSkeleton />}>
+                <DeferredRender fallback={<MapSkeleton />}>
+                  <OrgMapGraph
+                    nodes={nodes}
+                    childrenOf={childrenOf}
+                    users={EMPTY_USERS}
+                    onNodeSelect={(id) => setInsightNodeId(id)}
+                  />
+                </DeferredRender>
+              </Suspense>
             )}
 
             <ThreeLodSummary nodes={nodes} />
@@ -1044,6 +1055,19 @@ const TreeRow = ({
     </div>
   );
 };
+
+// ----- Org map chunk placeholder -----
+/** Reserves the canvas height while the React Flow chunk downloads, so the
+ *  content below the map does not jump when the graph mounts. */
+const MapSkeleton = () => (
+  <div
+    role="status"
+    aria-label="Loading organisation map"
+    className="flex h-[420px] items-center justify-center rounded-lg border border-border bg-muted/30 sm:h-[520px] lg:h-[600px]"
+  >
+    <Loader2 className="h-5 w-5 animate-spin text-brand-accent" aria-hidden />
+  </div>
+);
 
 // ----- 3LoD summary table -----
 const ThreeLodSummary = ({ nodes }: { nodes: OrgNode[] }) => {
