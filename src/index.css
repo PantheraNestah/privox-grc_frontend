@@ -1,6 +1,6 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+/* Keep the design tokens in tailwind.config.ts (Tailwind v4 compatibility mode). */
+@config "../tailwind.config.ts";
 
 /* Rsolve GRC design system. All colors in HSL. */
 

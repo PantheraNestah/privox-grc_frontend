@@ -716,7 +716,7 @@ export function CreateStrategyElementDialog({
       toast.error("Period end must be on or after period start");
       return;
     }
-    let parsedTarget: number | null = null;
+    let parsedTarget: number | null;
     try {
       parsedTarget = numericValue(targetValue, "Target value", false);
     } catch (error) {
@@ -813,7 +813,7 @@ function KpiProgressPanel({ orgId, elementId, target, unit, canManage }: { orgId
   const latest = historyQuery.data?.[0];
   const progress = latest?.reportedValue != null && target && target > 0 ? Math.min(100, Math.max(0, (latest.reportedValue / target) * 100)) : 0;
   const submit = async () => {
-    let value: number | null = null;
+    let value: number | null;
     try {
       value = numericValue(reportedValue, "Reported value", false);
     } catch (error) {
@@ -893,7 +893,7 @@ export function StrategyElementDetailSheet({
   const [decisionModalOpen, setDecisionModalOpen] = useState(false);
   const [activeDecision, setActiveDecision] = useState<"APPROVE" | "REJECT" | "REQUEST_REVISION">("APPROVE");
   const [decisionComments, setDecisionComments] = useState("");
-  const initializedElementId = useRef<string>();
+  const initializedElementId = useRef<string | undefined>(undefined);
   const detail = detailQuery.data;
   // A draft only shadows the published version when it is genuinely newer.
   // A stale draft (draftVersion.version <= currentVersion.version) must never
@@ -928,7 +928,7 @@ export function StrategyElementDetailSheet({
   const saveVersion = async () => {
     if (!elementId || !title.trim()) { toast.error("Element title required"); return; }
     if (!validPeriod(periodStart, periodEnd)) { toast.error("Period end must be on or after period start"); return; }
-    let parsedTarget: number | null = null;
+    let parsedTarget: number | null;
     try {
       parsedTarget = numericValue(targetValue, "Target value", false);
     } catch (error) {

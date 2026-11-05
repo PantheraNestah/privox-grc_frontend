@@ -118,7 +118,7 @@ export const StrategyEntryForm = ({ onSubmitted }: Props) => {
     const cfg = loadStrategy();
 
     let objectiveId = state.objectiveId;
-    let nextObjectives = cfg.objectives;
+    let nextObjectives: typeof cfg.objectives;
     if (state.objectiveId === "__new__") {
       const obj = newObjective(state.pillarId);
       obj.title = state.newObjectiveTitle.trim();

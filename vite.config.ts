@@ -2,6 +2,12 @@ import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 
+/** The fields of a rendered chunk that the report reads. */
+interface ChunkLike {
+  code?: string;
+  modules?: Record<string, { renderedLength?: number }>;
+}
+
 /**
  * `vite build --mode analyze` prints the biggest modules inside each emitted
  * chunk. It runs against the real build config (aliases, manual chunks and
@@ -13,7 +19,10 @@ function moduleReport(): Plugin {
     name: "module-report",
     apply: "build",
     generateBundle(_options, bundle) {
-      const chunks = Object.entries(bundle).filter(([, out]) => out.type === "chunk");
+      const chunks: Array<[string, ChunkLike]> = [];
+      for (const [name, out] of Object.entries(bundle)) {
+        if (out.type === "chunk") chunks.push([name, out]);
+      }
       console.log("\n=== CHUNK COMPOSITION (top 6 chunks) ===");
       chunks
         .sort((a, b) => (b[1].code?.length ?? 0) - (a[1].code?.length ?? 0))
@@ -74,7 +83,7 @@ export default defineConfig(({ mode }) => {
     },
     resolve: {
       alias: {
-        "@": path.resolve(__dirname, "./src"),
+        "@": path.resolve(import.meta.dirname, "./src"),
       },
       // A single instance of the Radix layer context is what stops the
       // `pointer-events: none` body lock from leaking after a Dialog opened

@@ -113,7 +113,7 @@ export class ApiStubs {
 
     const url = new URL(request.url());
     const path = pathOf(request.url());
-    let body: unknown = undefined;
+    let body: unknown;
     try {
       body = request.postDataJSON();
     } catch {
