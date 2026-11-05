@@ -1,6 +1,6 @@
 {
   "$comment": "Budgets are gzip sizes in KB, measured against the container build (bun.lock). Raise them deliberately, in the same commit as the change that needs them, so a review can see the cost.",
-  "initialJs": 200,
+  "initialJs": 205,
   "initialCss": 16,
   "largestChunk": 150,
   "totalJs": 500

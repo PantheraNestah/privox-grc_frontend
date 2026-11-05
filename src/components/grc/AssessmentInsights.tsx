@@ -37,15 +37,13 @@ export const AssessmentInsights = ({ cfg, orgNodes, assessments }: Props) => {
 
   // Index helpers
   const rootIdOf = useMemo(() => {
-    const cache = new Map<string, string>();
-    return (id: string): string => {
-      if (cache.has(id)) return cache.get(id)!;
+    const roots = new Map<string, string>();
+    for (const id of orgNodeMap.keys()) {
       let cur = orgNodeMap.get(id);
       while (cur && cur.parentId) cur = orgNodeMap.get(cur.parentId);
-      const root = cur?.id ?? id;
-      cache.set(id, root);
-      return root;
-    };
+      roots.set(id, cur?.id ?? id);
+    }
+    return (id: string): string => roots.get(id) ?? id;
   }, [orgNodeMap]);
 
   // Flat list of initiatives with parent metadata, used by drilldowns

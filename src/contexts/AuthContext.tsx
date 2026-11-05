@@ -21,7 +21,6 @@ import {
 import { queryClient } from "@/lib/query-client";
 import { getJwtModules } from "@/lib/jwt";
 import {
-  getAccessToken,
   setAccessToken,
   getStoredRefreshToken,
   storeRefreshToken,
@@ -42,7 +41,6 @@ import type {
   LoginRequest,
   LoginResponse,
   MeResponse,
-  LogoutRequest,
   AuthState,
   OrganizationOptionDto,
 } from "@/lib/auth-types";
@@ -113,7 +111,11 @@ const emptyState: AuthState = {
 // ─── Provider ────────────────────────────────────────────
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<AuthState>(emptyState);
+  const [state, setState] = useState<AuthState>(() => ({
+    ...emptyState,
+    // Loading only applies when there is a stored session to restore.
+    isLoading: !!getStoredRefreshToken(),
+  }));
   const [organizationSelection, setOrganizationSelection] =
     useState<OrganizationSelectionState | null>(null);
   const [authNotice, setAuthNotice] = useState<string | null>(null);
@@ -122,8 +124,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Read by the cross-tab listener without re-subscribing on every change.
   const stateRef = useRef(state);
   const hasPendingSelectionRef = useRef(organizationSelection !== null);
-  stateRef.current = state;
-  hasPendingSelectionRef.current = organizationSelection !== null;
+  useEffect(() => {
+    stateRef.current = state;
+    hasPendingSelectionRef.current = organizationSelection !== null;
+  }, [state, organizationSelection]);
 
   const clearSession = useCallback(() => {
     clearStoredTokens();
@@ -173,7 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // persisted refresh token for a new one and re-read the profile from /me.
   const refreshSession = useCallback(async () => {
     if (!getStoredRefreshToken()) {
-      setState((s) => ({ ...s, isLoading: false }));
+      // Nothing to restore; the initial state is already not loading.
       return;
     }
 
@@ -214,6 +218,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [clearSession]);
 
   useEffect(() => {
+    // Restoring the session is an external sync (token refresh, then the profile).
+    // Its setState calls run only after the awaited requests, never synchronously.
+    // oxlint-disable-next-line react/set-state-in-effect
     void refreshSession();
   }, [refreshSession]);
 
@@ -260,11 +267,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setOrganizationSelection(null);
       setAuthNotice(SELECTION_EXPIRED_MESSAGE);
     };
-    if (delay <= 0) {
-      expire();
-      return;
-    }
-    const timer = window.setTimeout(expire, delay);
+    // A past expiry fires on the next tick rather than synchronously in the effect.
+    const timer = window.setTimeout(expire, Math.max(0, delay));
     return () => window.clearTimeout(timer);
   }, [organizationSelection]);
 
@@ -308,15 +312,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // ── Login ──────────────────────────────────────────────
   const login = useCallback(
     async (req: LoginRequest): Promise<LoginResult> => {
-      const { data } = await api.post<LoginResponse>("/v1/auth/login", {
-        identifier: req.identifier,
-        password: req.password,
-        rememberMe: req.rememberMe,
-        // Opt in: accounts with 2+ organizations get the picker instead of a
-        // session bound to their primary organization.
-        supportsOrganizationSelection: true,
-        ...(req.organizationId ? { organizationId: req.organizationId } : {}),
-      });
+      const { data } = await api.post<LoginResponse>(
+        "/v1/auth/login",
+        {
+          identifier: req.identifier,
+          password: req.password,
+          rememberMe: req.rememberMe,
+          // Default is opt-in: accounts with 2+ organizations get the picker
+          // instead of a session bound to their primary organization. Callers
+          // that cannot show a picker (invitation sign-in) pass `false`.
+          supportsOrganizationSelection: req.supportsOrganizationSelection ?? true,
+          ...(req.organizationId ? { organizationId: req.organizationId } : {}),
+        },
+        // Public call: a stale bearer must not ride along on sign-in.
+        { skipAuth: true },
+      );
 
       if (data.status === "ORGANIZATION_SELECTION_REQUIRED") {
         // No tokens, no organization: keep the short-lived selection token in
@@ -374,6 +384,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             selectionToken: pending.selectionToken,
             organizationId,
           },
+          // Authenticated by the selection token in the body, never a bearer.
+          { skipAuth: true },
         );
 
         if (
@@ -457,14 +469,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // ── Logout (calls API then clears local state) ─────────
   const logout = useCallback(async () => {
-    const body: LogoutRequest = {
-      accessToken: getAccessToken() ?? "",
-      refreshToken: getStoredRefreshToken() ?? "",
-    };
-
+    // Bearer only: the interceptor attaches the access token. No body.
     // Fire-and-forget — clear local state regardless of API result
     try {
-      await api.post("/v1/auth/logout", body);
+      await api.post("/v1/auth/logout");
     } catch {
       // API may be unreachable; still clear locally
     }

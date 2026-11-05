@@ -308,6 +308,7 @@ export async function fetchInvitationDetails(
 ): Promise<InvitationDetailsResponse> {
   const { data } = await api.get<InvitationDetailsResponse>(
     `/v1/auth/invitations/${encodeURIComponent(token)}`,
+    { skipAuth: true },
   );
   return data;
 }
@@ -316,8 +317,9 @@ export async function fetchInvitationDetails(
  * Accepts an invitation and activates organization membership.
  * `POST /api/v1/auth/invitations/{token}/accept` — public.
  *
- * New users pass `{ fullName, username?, password }`; existing users pass an
- * empty body (the request interceptor attaches the session token if present).
+ * New users pass `{ fullName, username?, password }` and send no bearer (they
+ * have no account yet). Existing users pass nothing and must already be signed
+ * in: the request then carries the session's bearer token.
  */
 export async function acceptInvitation(
   token: string,
@@ -326,6 +328,7 @@ export async function acceptInvitation(
   const { data } = await api.post<InvitationAcceptanceResponse>(
     `/v1/auth/invitations/${encodeURIComponent(token)}/accept`,
     body ?? {},
+    { skipAuth: body !== undefined },
   );
   return data;
 }

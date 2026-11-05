@@ -150,10 +150,14 @@ describe("loginPlatformAdmin", () => {
 
     await loginPlatformAdmin({ identifier: "giftadmin@privox.io", password: "pw" });
 
-    expect(platformApi.post).toHaveBeenCalledWith("/v1/auth/login", {
-      identifier: "giftadmin@privox.io",
-      password: "pw",
-      rememberMe: false,
-    });
+    expect(platformApi.post).toHaveBeenCalledWith(
+      "/v1/auth/login",
+      {
+        identifier: "giftadmin@privox.io",
+        password: "pw",
+        rememberMe: false,
+      },
+      { skipAuth: true },
+    );
   });
 });

@@ -274,10 +274,15 @@ export interface PlatformLoginResponse {
 export async function loginPlatformAdmin(
   body: PlatformLoginRequest,
 ): Promise<PlatformLoginResponse> {
-  const { data } = await platformApi.post<PlatformLoginResponse>("/v1/auth/login", {
-    identifier: body.identifier,
-    password: body.password,
-    rememberMe: body.rememberMe ?? false,
-  });
+  const { data } = await platformApi.post<PlatformLoginResponse>(
+    "/v1/auth/login",
+    {
+      identifier: body.identifier,
+      password: body.password,
+      rememberMe: body.rememberMe ?? false,
+    },
+    // Public call: never send a stale platform bearer with sign-in.
+    { skipAuth: true },
+  );
   return data;
 }

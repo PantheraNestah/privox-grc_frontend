@@ -25,14 +25,22 @@ export const Doughnut = ({
   const circ = 2 * Math.PI * radius;
   const sumValues = segments.reduce((s, x) => s + x.value, 0) || 1;
 
-  let offset = 0;
+  // Each arc starts where the previous non-empty one ends, around the ring.
+  const arcs = new Map<string, { len: number; offset: number }>();
+  let arcStart = 0;
+  for (const s of segments) {
+    if (s.value === 0) continue;
+    const len = (s.value / sumValues) * circ;
+    arcs.set(s.key, { len, offset: arcStart });
+    arcStart += len;
+  }
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90" role="img" aria-label={`${centerLabel}: ${total}`}>
         <circle cx={size / 2} cy={size / 2} r={radius} stroke="hsl(var(--muted))" strokeWidth={stroke} fill="none" />
         {segments.map((s) => {
           if (s.value === 0) return null;
-          const len = (s.value / sumValues) * circ;
+          const { len, offset } = arcs.get(s.key)!;
           const circle = (
             <circle
               key={s.key}
@@ -50,7 +58,6 @@ export const Doughnut = ({
               <title>{`${s.label}: ${s.value}`}</title>
             </circle>
           );
-          offset += len;
           return circle;
         })}
       </svg>

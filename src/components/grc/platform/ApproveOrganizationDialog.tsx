@@ -36,14 +36,17 @@ export function ApproveOrganizationDialog({
   const [attempted, setAttempted] = useState(false);
   const approveOrganization = useApprovePlatformOrganization();
 
-  useEffect(() => {
+  // Clear the form when the dialog closes (no effect needed).
+  const [wasOpen, setWasOpen] = useState(open);
+  if (wasOpen !== open) {
+    setWasOpen(open);
     if (!open) {
       setAdminEmail("");
       setInitialGroupId("");
       setNotes("");
       setAttempted(false);
     }
-  }, [open]);
+  }
 
   const trimmedEmail = adminEmail.trim();
   const emailError =

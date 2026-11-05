@@ -73,12 +73,14 @@ export function DocumentDialog({
   onResetToDraft,
   onSendBack,
 }: DocumentDialogProps) {
-  const [draft, setDraft] = useState<PolicyDocument | null>(null);
+  const [draft, setDraft] = useState<PolicyDocument | null>(state?.doc ?? null);
   const [pendingTemplate, setPendingTemplate] = useState<DocumentType | null>(null);
-
-  useEffect(() => {
+  // Re-sync the draft when the dialog is handed another document (no effect needed).
+  const [syncedState, setSyncedState] = useState(state);
+  if (state !== syncedState) {
+    setSyncedState(state);
     setDraft(state?.doc ?? null);
-  }, [state]);
+  }
 
   if (!draft || !state) return null;
 

@@ -66,6 +66,8 @@ export const OrgNodeInsightsPanel = ({
   const [pendingUserId, setPendingUserId] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerSearch, setPickerSearch] = useState("");
+  // Captured once per mount so the render stays pure.
+  const [now] = useState(() => Date.now());
   // Keep the Sheet mounted across the open -> closed transition. Radix cleans up
   // its body scroll-lock and `pointer-events` styles on close; unmounting the
   // Sheet in the same commit as `open` flipping to false can leave them behind
@@ -83,7 +85,7 @@ export const OrgNodeInsightsPanel = ({
   // A placement is active until its effectiveTo passes; ended rows are history
   // and don't block placing that person at the node again.
   const isActive = (m: (typeof members)[number]) =>
-    !m.effectiveTo || new Date(m.effectiveTo).getTime() > Date.now();
+    !m.effectiveTo || new Date(m.effectiveTo).getTime() > now;
   const placedUserIds = new Set(members.filter(isActive).map((m) => m.userId));
   const placeableUsers = (orgMembersQuery.data ?? []).filter((u) => !placedUserIds.has(u.userId));
   const selectedUser = placeableUsers.find((u) => u.userId === pendingUserId) ?? null;

@@ -69,7 +69,9 @@ export function useAutoRefresh(
   // Keep the latest callback without re-creating the interval: callers usually
   // pass an inline closure that captures changing props.
   const refreshRef = useRef(refresh);
-  refreshRef.current = refresh;
+  useEffect(() => {
+    refreshRef.current = refresh;
+  }, [refresh]);
 
   // Avoid overlapping refreshes when a tick and a visibility event coincide.
   const inFlight = useRef(false);
@@ -146,7 +148,9 @@ export function useSyncedLocalResource<T>(
 
   // Latest loader without making the state below depend on its identity.
   const loadRef = useRef(load);
-  loadRef.current = load;
+  useEffect(() => {
+    loadRef.current = load;
+  }, [load]);
 
   const [data, setData] = useState<T>(() => load());
 

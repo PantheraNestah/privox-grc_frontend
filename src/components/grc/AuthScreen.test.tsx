@@ -1,11 +1,17 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { AuthScreen } from "./AuthScreen";
 
 const mocks = vi.hoisted(() => ({
+  request: vi.fn(),
   login: vi.fn(),
   authNotice: null as string | null,
   clearAuthNotice: vi.fn(),
+}));
+
+vi.mock("@/lib/password-reset", () => ({
+  requestPasswordReset: mocks.request,
+  errorMessage: (_error: unknown, fallback: string) => fallback,
 }));
 
 vi.mock("@/contexts/AuthContext", () => ({
@@ -15,8 +21,6 @@ vi.mock("@/contexts/AuthContext", () => ({
     clearAuthNotice: mocks.clearAuthNotice,
   }),
 }));
-
-const advance = (ms: number) => act(async () => void vi.advanceTimersByTime(ms));
 
 describe("AuthScreen sign-in", () => {
   beforeEach(() => {
@@ -78,73 +82,50 @@ describe("AuthScreen sign-in", () => {
   });
 });
 
-describe("AuthScreen forgot-password flow", () => {
+describe("AuthScreen password reset", () => {
   beforeEach(() => {
-    vi.useFakeTimers();
-    sessionStorage.clear();
+    vi.clearAllMocks();
+    mocks.request.mockResolvedValue({ message: "If an account exists..." });
     render(
-      <MemoryRouter>
-        <AuthScreen />
+      <MemoryRouter initialEntries={["/"]}>
+        <Routes>
+          <Route path="/" element={<AuthScreen />} />
+        </Routes>
       </MemoryRouter>,
     );
   });
 
-  afterEach(() => vi.useRealTimers());
-
+  // The view change animates for 200 ms; wait for the form before using it.
   const openForgot = async () => {
     fireEvent.click(screen.getByRole("button", { name: "Forgot password?" }));
-    await advance(300);
+    await screen.findByLabelText("Email address");
   };
 
-  it("rejects an invalid email before continuing", async () => {
+  it("rejects an invalid email without calling the server", async () => {
     await openForgot();
-
-    fireEvent.change(screen.getByLabelText("Organisation email address"), { target: { value: "nope" } });
-    fireEvent.click(screen.getByRole("button", { name: "Send Verification Code" }));
+    fireEvent.change(screen.getByLabelText("Email address"), { target: { value: "nope" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send Reset Link" }));
 
     expect(screen.getByText("Please enter a valid email address.")).toBeInTheDocument();
+    expect(mocks.request).not.toHaveBeenCalled();
   });
 
-  it("walks email → code → new password and validates each step", async () => {
+  it("requests the reset link and shows the same confirmation whatever the account state", async () => {
     await openForgot();
+    fireEvent.change(screen.getByLabelText("Email address"), { target: { value: " jane@org.com " } });
+    fireEvent.click(screen.getByRole("button", { name: "Send Reset Link" }));
 
-    fireEvent.change(screen.getByLabelText("Organisation email address"), { target: { value: "jane@org.com" } });
-    fireEvent.click(screen.getByRole("button", { name: "Send Verification Code" }));
-    await advance(1100 + 300);
-
-    expect(screen.getByText("Enter the code")).toBeInTheDocument();
-    "123456".split("").forEach((digit, i) => {
-      fireEvent.change(screen.getByLabelText(`Digit ${i + 1}`), { target: { value: digit } });
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Verify Code" }));
-    await advance(900 + 300);
-
-    expect(screen.getByText("Set a new password")).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("New password"), { target: { value: "Str0ng!pass" } });
-    fireEvent.change(screen.getByLabelText("Confirm new password"), { target: { value: "different" } });
-    fireEvent.click(screen.getByRole("button", { name: "Reset Password" }));
-
-    expect(screen.getByText("Passwords do not match.")).toBeInTheDocument();
-
-    fireEvent.change(screen.getByLabelText("Confirm new password"), { target: { value: "Str0ng!pass" } });
-    fireEvent.click(screen.getByRole("button", { name: "Reset Password" }));
-    await advance(1100 + 300);
-
-    expect(screen.getByText("No password was changed")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("Check your email")).toBeInTheDocument());
+    expect(mocks.request).toHaveBeenCalledWith("jane@org.com");
   });
 
-  it("flags a wrong verification code", async () => {
+  it("keeps the user on the form and shows the error when the request fails", async () => {
+    mocks.request.mockRejectedValue(new Error("offline"));
     await openForgot();
-    fireEvent.change(screen.getByLabelText("Organisation email address"), { target: { value: "jane@org.com" } });
-    fireEvent.click(screen.getByRole("button", { name: "Send Verification Code" }));
-    await advance(1100 + 300);
+    fireEvent.change(screen.getByLabelText("Email address"), { target: { value: "jane@org.com" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send Reset Link" }));
 
-    "000000".split("").forEach((digit, i) => {
-      fireEvent.change(screen.getByLabelText(`Digit ${i + 1}`), { target: { value: digit } });
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Verify Code" }));
-    await advance(900);
-
-    expect(screen.getByRole("alert")).toHaveTextContent("Incorrect or expired code");
+    expect(await screen.findByRole("alert")).toHaveTextContent("We could not send the reset link");
+    expect(screen.getByLabelText("Email address")).toBeInTheDocument();
   });
 });

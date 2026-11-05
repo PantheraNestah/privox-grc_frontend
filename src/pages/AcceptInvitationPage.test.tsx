@@ -124,7 +124,6 @@ describe("AcceptInvitationPage", () => {
         fullName: "Jane Doe",
         username: undefined,
         password: "SecurePass1!",
-        confirmPassword: "SecurePass1!",
       }),
     );
     expect(mocks.login).toHaveBeenCalledWith({

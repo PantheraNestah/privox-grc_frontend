@@ -201,11 +201,12 @@ function MemberEditForm({ orgId, member }: { orgId: string; member: Organization
   const [fullName, setFullName] = useState(member.fullName);
   const [selectedModules, setSelectedModules] = useState<string[]>([]);
 
-  useEffect(() => {
-    if (memberModulesQuery.data) {
-      setSelectedModules(memberModulesQuery.data);
-    }
-  }, [memberModulesQuery.data]);
+  // Adopt the loaded allocation once it arrives (no effect needed).
+  const [syncedModules, setSyncedModules] = useState(memberModulesQuery.data);
+  if (memberModulesQuery.data !== syncedModules) {
+    setSyncedModules(memberModulesQuery.data);
+    if (memberModulesQuery.data) setSelectedModules(memberModulesQuery.data);
+  }
 
   const toggleModule = (code: string) => {
     if (MANDATORY_MODULES.includes(code)) return; // locked

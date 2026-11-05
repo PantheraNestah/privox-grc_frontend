@@ -2,6 +2,12 @@ import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 
+/** The fields of a rendered chunk that the report reads. */
+interface ChunkLike {
+  code?: string;
+  modules?: Record<string, { renderedLength?: number }>;
+}
+
 /**
  * `vite build --mode analyze` prints the biggest modules inside each emitted
  * chunk. It runs against the real build config (aliases, manual chunks and
@@ -13,7 +19,10 @@ function moduleReport(): Plugin {
     name: "module-report",
     apply: "build",
     generateBundle(_options, bundle) {
-      const chunks = Object.entries(bundle).filter(([, out]) => out.type === "chunk");
+      const chunks: Array<[string, ChunkLike]> = [];
+      for (const [name, out] of Object.entries(bundle)) {
+        if (out.type === "chunk") chunks.push([name, out]);
+      }
       console.log("\n=== CHUNK COMPOSITION (top 6 chunks) ===");
       chunks
         .sort((a, b) => (b[1].code?.length ?? 0) - (a[1].code?.length ?? 0))
@@ -54,27 +63,28 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [react(), ...(mode === "analyze" ? [moduleReport()] : [])],
     build: {
-      // Long-lived chunks for code that every route needs. Only React/react-dom
-      // are pinned explicitly: grouping whole library families (all of Radix,
-      // all icons) would drag page-only modules onto the initial path, because
-      // the shell's static imports make those chunks eager. Everything else is
-      // left to Rollup, which already shares modules between lazy routes.
-      rollupOptions: {
+      // Vite 8 (Rolldown) splits every small shared module into its own file,
+      // and the eager shell then pulls a dozen of them into the first load.
+      // Explicit groups keep React and the graph libraries in stable chunks
+      // while leaving everything else to the bundler. Only React/react-dom are
+      // pinned to the entry: grouping whole library families would drag
+      // page-only modules onto the initial path.
+      rolldownOptions: {
         output: {
-          manualChunks(id) {
-            if (/node_modules\/(react|react-dom|scheduler)\//.test(id)) return "vendor-react";
-            // React Flow, dagre and friends are only reachable through the
-            // lazily imported organisation map; keeping them together avoids
-            // dagre being re-inlined into two graph chunks.
-            if (/node_modules\/(@xyflow|dagre|graphlib|d3-[a-z]+|lodash)\//.test(id)) return "vendor-graph";
-            return undefined;
+          codeSplitting: {
+            groups: [
+              { name: "vendor-react", test: /node_modules\/(react|react-dom|scheduler)\//, priority: 20 },
+              // React Flow, dagre and friends are only reachable through the
+              // lazily imported organisation map.
+              { name: "vendor-graph", test: /node_modules\/(@xyflow|dagre|graphlib|d3-[a-z]+|lodash)\//, priority: 10 },
+            ],
           },
         },
       },
     },
     resolve: {
       alias: {
-        "@": path.resolve(__dirname, "./src"),
+        "@": path.resolve(import.meta.dirname, "./src"),
       },
       // A single instance of the Radix layer context is what stops the
       // `pointer-events: none` body lock from leaking after a Dialog opened

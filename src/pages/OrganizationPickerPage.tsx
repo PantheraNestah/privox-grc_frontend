@@ -38,9 +38,12 @@ export default function OrganizationPickerPage() {
     navigate("/", { replace: true });
   }, [cancelOrganizationSelection, navigate]);
 
-  useEffect(() => {
+  // A new selection starts without the previous error (no effect needed).
+  const [errorToken, setErrorToken] = useState(organizationSelection?.selectionToken);
+  if (errorToken !== organizationSelection?.selectionToken) {
+    setErrorToken(organizationSelection?.selectionToken);
     setError(null);
-  }, [organizationSelection?.selectionToken]);
+  }
 
   if (!organizationSelection) {
     return <Navigate to="/" replace />;
