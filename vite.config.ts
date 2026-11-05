@@ -74,6 +74,9 @@ export default defineConfig(({ mode }) => {
           codeSplitting: {
             groups: [
               { name: "vendor-react", test: /node_modules\/(react|react-dom|scheduler)\//, priority: 20 },
+              // Data layer: always on the first load, and as separate chunks the
+              // small query/api modules cost more in per-file overhead than they hold.
+              { name: "vendor-data", test: /node_modules\/(@tanstack|axios)\//, priority: 15 },
               // React Flow, dagre and friends are only reachable through the
               // lazily imported organisation map.
               { name: "vendor-graph", test: /node_modules\/(@xyflow|dagre|graphlib|d3-[a-z]+|lodash)\//, priority: 10 },

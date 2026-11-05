@@ -7,6 +7,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { autoRefreshInterval } from "@/lib/live-refresh";
 import {
   cloneOrgNodeTemplate,
+  deleteApprovalLevelRule,
+  fetchApprovalLevelRules,
+  fetchApprovalNode,
+  upsertApprovalLevelRule,
   createOrgNode,
   fetchOrgNode,
   fetchOrgNodeMembers,
@@ -21,9 +25,11 @@ import {
   updateOrgTreeSettings,
 } from "@/lib/orgNodes";
 import type {
+  ApprovalLevelRule,
   CloneOrgNodeTemplateRequest,
   CreateOrgNodeRequest,
   MoveOrgNodeRequest,
+  OrgNodeType,
   PlaceOrgNodeMemberRequest,
   UpdateOrgNodeRequest,
   UpdateOrgTreeSettingsRequest,
@@ -38,6 +44,9 @@ export const orgNodeKeys = {
   settings: (orgId: string) => [...orgNodeKeys.all(orgId), "settings"] as const,
   members: (orgId: string, nodeId: string) =>
     [...orgNodeKeys.all(orgId), "members", nodeId] as const,
+  approvalRules: (orgId: string) => [...orgNodeKeys.all(orgId), "approval-rules"] as const,
+  approvalNode: (orgId: string, nodeId: string) =>
+    [...orgNodeKeys.all(orgId), "approval-node", nodeId] as const,
 };
 
 // The org tree changes infrequently relative to how often it's read; keep it
@@ -182,3 +191,44 @@ export function useCloneOrgNodeTemplate(orgId: string) {
     onSuccess: invalidate,
   });
 }
+
+// ─── Approval routing ─────────────────────────────────────
+
+export function useApprovalLevelRules(orgId: string | undefined, enabled = true) {
+  return useQuery({
+    queryKey: orgNodeKeys.approvalRules(orgId ?? ""),
+    queryFn: () => fetchApprovalLevelRules(orgId!),
+    enabled: Boolean(orgId) && enabled,
+    staleTime: 5 * 60_000,
+  });
+}
+
+/** The node that decides assessments at this node, or null for a root node. */
+export function useApprovalNode(orgId: string | undefined, nodeId: string | undefined, enabled = true) {
+  return useQuery({
+    queryKey: orgNodeKeys.approvalNode(orgId ?? "", nodeId ?? ""),
+    queryFn: () => fetchApprovalNode(orgId!, nodeId!),
+    enabled: Boolean(orgId && nodeId) && enabled,
+    staleTime: 5 * 60_000,
+  });
+}
+
+/** A routing change moves every node's approver, so the whole tree cache is refreshed. */
+export function useUpsertApprovalLevelRule(orgId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { sourceNodeType: OrgNodeType; targetNodeType: OrgNodeType }) =>
+      upsertApprovalLevelRule(orgId, input.sourceNodeType, input.targetNodeType),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: orgNodeKeys.all(orgId) }),
+  });
+}
+
+export function useDeleteApprovalLevelRule(orgId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (sourceNodeType: OrgNodeType) => deleteApprovalLevelRule(orgId, sourceNodeType),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: orgNodeKeys.all(orgId) }),
+  });
+}
+
+export type { ApprovalLevelRule };

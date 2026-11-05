@@ -2,7 +2,7 @@ import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import {
   ChevronRight, ChevronDown, Plus, Pencil, Trash2, Building2, Network, Lock, Layers, Info,
-  LayoutTemplate, MoreHorizontal, X, Download, ShieldAlert, Loader2,
+  LayoutTemplate, MoreHorizontal, X, Download, ShieldAlert, Loader2, Workflow,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,6 +48,7 @@ import { TENANT_HOME } from "@/components/grc/common/home-links";
 import { EmptyState, ErrorState } from "@/components/grc/common/states";
 import { TemplatePicker } from "@/components/grc/governance/TemplatePicker";
 import { OrgNodeInsightsPanel } from "@/components/grc/OrgNodeInsightsPanel";
+import { ApprovalRoutingDialog } from "@/components/grc/governance/ApprovalRoutingDialog";
 import { DeferredRender } from "@/components/grc/DeferredRender";
 // React Flow + its layout engine are the heaviest thing on this page and are
 // only needed once the map scrolls into view, so they get their own chunk.
@@ -133,6 +134,7 @@ const RiskGovernance = () => {
   const [form, setForm] = useState<NodeFormState>(emptyForm());
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [routingOpen, setRoutingOpen] = useState(false);
 
   // Bulk-add child-units state
   const [bulkParentId, setBulkParentId] = useState<string | null>(null);
@@ -380,6 +382,17 @@ const RiskGovernance = () => {
           crumbs={[{ label: "Governance", to: "/governance" }, { label: "Risk Governance" }]}
           title="Risk Governance"
           description="Define your organisation structure — group of companies, departments, divisions, sections, processes and sub-processes."
+          actions={
+            <Button variant="outline" size="sm" onClick={() => setRoutingOpen(true)}>
+              <Workflow className="h-4 w-4" /> Approval routing
+            </Button>
+          }
+        />
+        <ApprovalRoutingDialog
+          orgId={orgId!}
+          open={routingOpen}
+          onOpenChange={setRoutingOpen}
+          canEdit={canApprove}
         />
         <Alert variant="destructive" className="bg-destructive/5">
           <ShieldAlert className="h-4 w-4" />

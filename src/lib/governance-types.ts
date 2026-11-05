@@ -238,3 +238,13 @@ export interface RiskStrategySettingsResponse {
 export interface UpdateRiskStrategySettingsRequest {
   requiresApproval: boolean;
 }
+
+/** One approval-routing rule: a node of `sourceNodeType` is approved at the nearest ancestor of `targetNodeType`. */
+export interface ApprovalLevelRule {
+  sourceNodeType: OrgNodeType;
+  targetNodeType: OrgNodeType;
+}
+
+export interface UpsertApprovalLevelRuleRequest {
+  targetNodeType: OrgNodeType;
+}

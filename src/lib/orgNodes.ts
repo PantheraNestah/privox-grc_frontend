@@ -15,6 +15,8 @@ import type {
   CloneOrgNodeTemplateRequest,
   OrgNodeMemberResponse,
   PlaceOrgNodeMemberRequest,
+  ApprovalLevelRule,
+  OrgNodeType,
 } from "./governance-types";
 
 export async function fetchOrgNodes(
@@ -155,4 +157,42 @@ export async function cloneOrgNodeTemplate(
     body,
   );
   return data;
+}
+
+// ─── Approval routing ─────────────────────────────────────
+
+/**
+ * Which level approves each level. No rule means the immediate parent; a rule
+ * means the nearest ancestor of that type, falling back to the parent. A root
+ * node has no approver, so only `organization.manage` can decide there.
+ */
+export async function fetchApprovalLevelRules(orgId: string): Promise<ApprovalLevelRule[]> {
+  const { data } = await api.get<ApprovalLevelRule[] | null>(
+    `/v1/organizations/${orgId}/org-nodes/approval-level-rules`,
+  );
+  return Array.isArray(data) ? data : [];
+}
+
+export async function upsertApprovalLevelRule(
+  orgId: string,
+  sourceNodeType: OrgNodeType,
+  targetNodeType: OrgNodeType,
+): Promise<ApprovalLevelRule> {
+  const { data } = await api.put<ApprovalLevelRule>(
+    `/v1/organizations/${orgId}/org-nodes/approval-level-rules/${sourceNodeType}`,
+    { targetNodeType },
+  );
+  return data;
+}
+
+export async function deleteApprovalLevelRule(orgId: string, sourceNodeType: OrgNodeType): Promise<void> {
+  await api.delete(`/v1/organizations/${orgId}/org-nodes/approval-level-rules/${sourceNodeType}`);
+}
+
+/** The node that approves `nodeId`, or null when it is a root (nobody above it). */
+export async function fetchApprovalNode(orgId: string, nodeId: string): Promise<OrgNodeResponse | null> {
+  const { data, status } = await api.get<OrgNodeResponse | null>(
+    `/v1/organizations/${orgId}/org-nodes/${nodeId}/approval-node`,
+  );
+  return status === 204 || !data ? null : data;
 }
