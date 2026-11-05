@@ -63,20 +63,21 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [react(), ...(mode === "analyze" ? [moduleReport()] : [])],
     build: {
-      // Long-lived chunks for code that every route needs. Only React/react-dom
-      // are pinned explicitly: grouping whole library families (all of Radix,
-      // all icons) would drag page-only modules onto the initial path, because
-      // the shell's static imports make those chunks eager. Everything else is
-      // left to Rollup, which already shares modules between lazy routes.
-      rollupOptions: {
+      // Vite 8 (Rolldown) splits every small shared module into its own file,
+      // and the eager shell then pulls a dozen of them into the first load.
+      // Explicit groups keep React and the graph libraries in stable chunks
+      // while leaving everything else to the bundler. Only React/react-dom are
+      // pinned to the entry: grouping whole library families would drag
+      // page-only modules onto the initial path.
+      rolldownOptions: {
         output: {
-          manualChunks(id) {
-            if (/node_modules\/(react|react-dom|scheduler)\//.test(id)) return "vendor-react";
-            // React Flow, dagre and friends are only reachable through the
-            // lazily imported organisation map; keeping them together avoids
-            // dagre being re-inlined into two graph chunks.
-            if (/node_modules\/(@xyflow|dagre|graphlib|d3-[a-z]+|lodash)\//.test(id)) return "vendor-graph";
-            return undefined;
+          codeSplitting: {
+            groups: [
+              { name: "vendor-react", test: /node_modules\/(react|react-dom|scheduler)\//, priority: 20 },
+              // React Flow, dagre and friends are only reachable through the
+              // lazily imported organisation map.
+              { name: "vendor-graph", test: /node_modules\/(@xyflow|dagre|graphlib|d3-[a-z]+|lodash)\//, priority: 10 },
+            ],
           },
         },
       },
