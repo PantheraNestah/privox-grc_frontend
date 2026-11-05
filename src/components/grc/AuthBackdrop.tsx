@@ -29,13 +29,10 @@ const prefersReducedMotion = () =>
  */
 function Ring() {
   const [spot, setSpot] = useState<Spot>(randomSpot);
-  const [visible, setVisible] = useState(false);
+  const [visible, setVisible] = useState(() => prefersReducedMotion());
 
   useEffect(() => {
-    if (prefersReducedMotion()) {
-      setVisible(true);
-      return;
-    }
+    if (prefersReducedMotion()) return;
 
     let timer: ReturnType<typeof setTimeout>;
     const start = () => {

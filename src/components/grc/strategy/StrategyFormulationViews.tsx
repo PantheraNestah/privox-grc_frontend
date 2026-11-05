@@ -783,7 +783,13 @@ export function StrategySettingsDialog({
   const mutation = useUpdateStrategyFormulationSettings(orgId);
   const [requiresApproval, setRequiresApproval] = useState(settings.requiresApproval);
   const [strictTypeHierarchy, setStrictTypeHierarchy] = useState(settings.strictTypeHierarchy);
-  useEffect(() => { setRequiresApproval(settings.requiresApproval); setStrictTypeHierarchy(settings.strictTypeHierarchy); }, [settings]);
+  // Re-sync when the saved settings change (no effect needed).
+  const [syncedSettings, setSyncedSettings] = useState(settings);
+  if (settings !== syncedSettings) {
+    setSyncedSettings(settings);
+    setRequiresApproval(settings.requiresApproval);
+    setStrictTypeHierarchy(settings.strictTypeHierarchy);
+  }
   const save = async () => {
     try {
       await mutation.mutateAsync({ requiresApproval, strictTypeHierarchy });

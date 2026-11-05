@@ -53,7 +53,7 @@ const Notice = ({ icon: Icon, title, text, action }: { icon: typeof Lock; title:
   </RespondShell>
 );
 
-const SurveyRespond = () => {
+const SurveyRespondSession = () => {
   const { surveyId } = useParams<{ surveyId: string }>();
   const [params] = useSearchParams();
   const externalToken = params.get("token");
@@ -62,36 +62,19 @@ const SurveyRespond = () => {
   const activeUser = useActiveUser();
 
   const survey = useMemo(() => loadSurveys().find((s) => s.id === surveyId) ?? null, [surveyId]);
-  const [response, setResponse] = useState<SurveyResponse | null>(null);
-  const [submitted, setSubmitted] = useState(false);
+  // Resume this respondent's response, or start one, on first render.
+  const [response, setResponse] = useState<SurveyResponse | null>(() =>
+    resumeOrStartResponse(survey, {
+      isExternal,
+      externalEmail,
+      externalToken,
+      activeUserId: activeUser.id,
+      activeUserName: activeUser.name,
+    }),
+  );
+  const [submitted, setSubmitted] = useState(() => !!response?.submittedAt);
   const [externalName, setExternalName] = useState("");
 
-  // Resume an existing response for this respondent, or start one for a published survey.
-  useEffect(() => {
-    if (!survey) return;
-    const responses = loadResponses();
-    const respondentRef = isExternal ? externalEmail! : activeUser.id;
-    const existing = responses.find(
-      (r) =>
-        r.surveyId === survey.id &&
-        r.respondentRef === respondentRef &&
-        (isExternal ? r.token === externalToken : r.channel === "internal_user"),
-    );
-    if (existing) {
-      setResponse(existing);
-      setSubmitted(!!existing.submittedAt);
-    } else if (survey.status === "published") {
-      const created = newResponse({
-        surveyId: survey.id,
-        channel: isExternal ? "external" : "internal_user",
-        respondentRef,
-        respondentName: isExternal ? undefined : activeUser.name,
-        token: isExternal ? externalToken! : undefined,
-      });
-      saveResponses([...responses, created]);
-      setResponse(created);
-    }
-  }, [survey, isExternal, externalEmail, externalToken, activeUser.id, activeUser.name]);
 
   const persist = (next: SurveyResponse) => {
     setResponse(next);
@@ -232,6 +215,51 @@ const SurveyRespond = () => {
       </RespondShell>
     </>
   );
+};
+
+/** Where the respondent left off, or a fresh response for a published survey. */
+function resumeOrStartResponse(
+  survey: ReturnType<typeof loadSurveys>[number] | null,
+  who: {
+    isExternal: boolean;
+    externalEmail: string | null;
+    externalToken: string | null;
+    activeUserId: string;
+    activeUserName: string;
+  },
+): SurveyResponse | null {
+  if (!survey) return null;
+  const responses = loadResponses();
+  const respondentRef = who.isExternal ? who.externalEmail! : who.activeUserId;
+  const existing = responses.find(
+    (r) =>
+      r.surveyId === survey.id &&
+      r.respondentRef === respondentRef &&
+      (who.isExternal ? r.token === who.externalToken : r.channel === "internal_user"),
+  );
+  if (existing) return existing;
+  if (survey.status !== "published") return null;
+  const created = newResponse({
+    surveyId: survey.id,
+    channel: who.isExternal ? "external" : "internal_user",
+    respondentRef,
+    respondentName: who.isExternal ? undefined : who.activeUserName,
+    token: who.isExternal ? who.externalToken! : undefined,
+  });
+  saveResponses([...responses, created]);
+  return created;
+}
+
+/**
+ * Keyed by survey, respondent and token so navigating to another survey
+ * starts a fresh session instead of reusing the previous one's state.
+ */
+const SurveyRespond = () => {
+  const { surveyId } = useParams<{ surveyId: string }>();
+  const [params] = useSearchParams();
+  const activeUser = useActiveUser();
+  const sessionKey = [surveyId, params.get("token") ?? "", params.get("email") ?? "", activeUser.id].join("|");
+  return <SurveyRespondSession key={sessionKey} />;
 };
 
 export default SurveyRespond;

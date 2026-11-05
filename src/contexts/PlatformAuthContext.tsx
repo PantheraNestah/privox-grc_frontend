@@ -72,7 +72,11 @@ const initialState: PlatformAuthState = {
 };
 
 export function PlatformAuthProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<PlatformAuthState>(initialState);
+  // Loading only applies when there is a stored session to restore.
+  const [state, setState] = useState<PlatformAuthState>(() => ({
+    ...initialState,
+    isLoading: !!getStoredRefreshToken("platform"),
+  }));
 
   const clearSession = useCallback(() => {
     clearStoredTokens("platform");
@@ -86,7 +90,7 @@ export function PlatformAuthProvider({ children }: { children: ReactNode }) {
   // snapshot saved at login and permissions from the refresh response.
   const refreshSession = useCallback(async () => {
     if (!getStoredRefreshToken("platform")) {
-      setState((s) => ({ ...s, isLoading: false }));
+      // Nothing to restore; the initial state is already not loading.
       return;
     }
 
@@ -117,6 +121,9 @@ export function PlatformAuthProvider({ children }: { children: ReactNode }) {
   }, [clearSession]);
 
   useEffect(() => {
+    // Restoring the session is an external sync (token refresh, then the profile).
+    // Its setState calls run only after the awaited requests, never synchronously.
+    // oxlint-disable-next-line react/set-state-in-effect
     void refreshSession();
   }, [refreshSession]);
 

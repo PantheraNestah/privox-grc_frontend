@@ -32,6 +32,8 @@ type DrillRow = DrillObjectiveRow | DrillInitiativeRow;
 interface Drill { title: string; subtitle: string; rows: DrillRow[] }
 
 export const FormulationInsights = ({ cfg, orgNodes }: Props) => {
+  // Captured once per mount so renders stay pure.
+  const [now] = useState(() => Date.now());
   const orgNodeMap = useMemo(() => new Map(orgNodes.map(n => [n.id, n])), [orgNodes]);
   const [drill, setDrill] = useState<Drill | null>(null);
 
@@ -47,7 +49,7 @@ export const FormulationInsights = ({ cfg, orgNodes }: Props) => {
     const kpis = inits.flatMap(i => i.kpis);
     const owners = new Set(inits.map(i => i.owner).filter(Boolean));
 
-    const today = Date.now();
+    const today = now;
     const overdue = inits.filter(i =>
       i.expectedCompletion && new Date(i.expectedCompletion).getTime() < today && i.status !== "completed"
     );
@@ -72,7 +74,7 @@ export const FormulationInsights = ({ cfg, orgNodes }: Props) => {
       activities: acts.length, kpis: kpis.length, owners: owners.size,
       overdue, dueSoon, coverageByLevel,
     };
-  }), [cfg, presentLevels, orgNodeMap]);
+  }), [cfg, presentLevels, orgNodeMap, now]);
 
   const totalsByLevel = useMemo(() => {
     const t: Record<OrgNodeType, number> = {} as Record<OrgNodeType, number>;
@@ -346,7 +348,8 @@ const TimelineStrip = ({ items, min, max, onSelect }: { items: TimelineItem[]; m
       ticks.push({ pct, label: d.toLocaleDateString(undefined, { month: "short", year: "2-digit" }) });
     }
   }
-  const todayPct = ((Date.now() - min) / range) * 100;
+  const [now] = useState(() => Date.now());
+  const todayPct = ((now - min) / range) * 100;
 
   return (
     <div className="overflow-hidden rounded-md border border-border">
@@ -368,7 +371,7 @@ const TimelineStrip = ({ items, min, max, onSelect }: { items: TimelineItem[]; m
             {arr.map(item => {
               const left = ((item.start - min) / range) * 100;
               const width = Math.max(1, ((item.end - item.start) / range) * 100);
-              const overdue = item.end < Date.now() && item.init.status !== "completed";
+              const overdue = item.end < now && item.init.status !== "completed";
               const color = STATUS_COLOR[item.init.status] ?? "215 16% 47%";
               return (
                 <div key={item.init.id} className="relative h-5">

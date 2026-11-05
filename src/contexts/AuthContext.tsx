@@ -111,7 +111,11 @@ const emptyState: AuthState = {
 // ─── Provider ────────────────────────────────────────────
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<AuthState>(emptyState);
+  const [state, setState] = useState<AuthState>(() => ({
+    ...emptyState,
+    // Loading only applies when there is a stored session to restore.
+    isLoading: !!getStoredRefreshToken(),
+  }));
   const [organizationSelection, setOrganizationSelection] =
     useState<OrganizationSelectionState | null>(null);
   const [authNotice, setAuthNotice] = useState<string | null>(null);
@@ -120,8 +124,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Read by the cross-tab listener without re-subscribing on every change.
   const stateRef = useRef(state);
   const hasPendingSelectionRef = useRef(organizationSelection !== null);
-  stateRef.current = state;
-  hasPendingSelectionRef.current = organizationSelection !== null;
+  useEffect(() => {
+    stateRef.current = state;
+    hasPendingSelectionRef.current = organizationSelection !== null;
+  }, [state, organizationSelection]);
 
   const clearSession = useCallback(() => {
     clearStoredTokens();
@@ -171,7 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // persisted refresh token for a new one and re-read the profile from /me.
   const refreshSession = useCallback(async () => {
     if (!getStoredRefreshToken()) {
-      setState((s) => ({ ...s, isLoading: false }));
+      // Nothing to restore; the initial state is already not loading.
       return;
     }
 
@@ -212,6 +218,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [clearSession]);
 
   useEffect(() => {
+    // Restoring the session is an external sync (token refresh, then the profile).
+    // Its setState calls run only after the awaited requests, never synchronously.
+    // oxlint-disable-next-line react/set-state-in-effect
     void refreshSession();
   }, [refreshSession]);
 
@@ -258,11 +267,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setOrganizationSelection(null);
       setAuthNotice(SELECTION_EXPIRED_MESSAGE);
     };
-    if (delay <= 0) {
-      expire();
-      return;
-    }
-    const timer = window.setTimeout(expire, delay);
+    // A past expiry fires on the next tick rather than synchronously in the effect.
+    const timer = window.setTimeout(expire, Math.max(0, delay));
     return () => window.clearTimeout(timer);
   }, [organizationSelection]);
 

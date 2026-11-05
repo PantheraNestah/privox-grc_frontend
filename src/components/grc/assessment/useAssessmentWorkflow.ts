@@ -19,17 +19,10 @@ import { buildVisibleRows, computeStats, isAwaitingDecision } from "./helpers";
  * Actions return `true` when they completed, so callers can close their dialog.
  */
 export function useAssessmentWorkflow(activeUser: AppUser) {
-  const [cfg, setCfg] = useState<StrategyConfig>({ pillars: [], objectives: [] });
-  const [orgNodes, setOrgNodes] = useState<OrgNode[]>([]);
-  const [assessments, setAssessments] = useState<InitiativeAssessment[]>([]);
-  const [users, setUsers] = useState<AppUser[]>([]);
-
-  useEffect(() => {
-    setCfg(loadStrategy());
-    setOrgNodes(loadOrgNodes());
-    setAssessments(loadAssessments());
-    setUsers(loadUsers());
-  }, []);
+  const [cfg, setCfg] = useState<StrategyConfig>(() => loadStrategy());
+  const [orgNodes, setOrgNodes] = useState<OrgNode[]>(() => loadOrgNodes());
+  const [assessments, setAssessments] = useState<InitiativeAssessment[]>(() => loadAssessments());
+  const [users, setUsers] = useState<AppUser[]>(() => loadUsers());
 
   const persist = (next: InitiativeAssessment[]) => {
     setAssessments(next);
@@ -60,7 +53,7 @@ export function useAssessmentWorkflow(activeUser: AppUser) {
 
   const approvalQueue = useMemo(
     () => assessments.filter(canApproveAssessment),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // oxlint-disable-next-line react/exhaustive-deps
     [assessments, activeUser, orgNodes, users],
   );
 
