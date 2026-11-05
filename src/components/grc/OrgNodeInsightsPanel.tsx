@@ -26,6 +26,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  useApprovalNode,
   useOrgNodeMembers,
   usePlaceOrgNodeMember,
   useRemoveOrgNodeMember,
@@ -57,6 +58,8 @@ export const OrgNodeInsightsPanel = ({
   rollup = emptyOrgNodeStrategyRollup, canManageMembers = false,
 }: Props) => {
   const membersQuery = useOrgNodeMembers(orgId, open ? node?.id : undefined);
+  // Who signs off work at this node, resolved from the approval-routing rules.
+  const approvalNode = useApprovalNode(orgId, open ? node?.id : undefined);
   // Only pull the org-wide member roster when the user can actually place
   // someone — it's a separate request the read-only view has no use for.
   const canEditPlacements = canManageMembers && open && !!node;
@@ -132,6 +135,16 @@ export const OrgNodeInsightsPanel = ({
           <SheetTitle className="text-xl text-navy-deep">{node.name}</SheetTitle>
           {node.description && (
             <SheetDescription className="text-xs">{node.description}</SheetDescription>
+          )}
+          {approvalNode.data !== undefined && (
+            <p className="text-[11px] text-muted-foreground">
+              Approved by{" "}
+              {approvalNode.data ? (
+                <span className="font-medium text-foreground">{approvalNode.data.name}</span>
+              ) : (
+                "organization admins (this is a root unit)"
+              )}
+            </p>
           )}
         </SheetHeader>
 
