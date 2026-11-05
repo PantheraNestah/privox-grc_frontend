@@ -612,7 +612,7 @@ export function StrategyInsightsView(props: SharedViewProps) {
         <Card className="lg:col-span-2">
           <CardHeader><CardTitle className="flex items-center gap-2 text-sm"><BarChart3 className="h-4 w-4 text-brand-accent" /> Formulation insights</CardTitle></CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
-            <div className="rounded-xl border bg-gradient-to-br from-brand-accent/10 to-royal/5 p-5">
+            <div className="rounded-xl border bg-brand-accent/10 p-5">
               <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Current published</p>
               <p className="mt-2 text-4xl font-semibold tracking-tight text-foreground">{insights?.currentPublishedElementCount ?? "—"}</p>
               <p className="mt-2 text-xs text-muted-foreground">Authoritative elements currently in force</p>

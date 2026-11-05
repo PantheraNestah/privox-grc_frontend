@@ -62,8 +62,9 @@
     --radius: 0.625rem;
 
     /* Gradients & shadows */
-    --gradient-primary: linear-gradient(135deg, hsl(var(--navy)) 0%, hsl(var(--royal)) 100%);
-    --gradient-pc: linear-gradient(135deg, hsl(var(--navy-deep)) 0%, hsl(var(--navy)) 100%);
+    /* Flat brand fills: the design uses solid colour, not gradients. */
+    --gradient-primary: hsl(var(--navy));
+    --gradient-pc: hsl(var(--navy));
     --shadow-button: 0 4px 20px hsl(var(--navy) / 0.26);
     --shadow-card: 0 2px 14px hsl(var(--navy) / 0.06);
     --shadow-card-hover: 0 16px 40px hsl(var(--navy) / 0.13);
@@ -119,9 +120,7 @@
 @layer components {
   /* Auth panel decorations */
   .auth-radial {
-    background:
-      radial-gradient(ellipse 80% 60% at 20% 80%, hsl(var(--accent) / 0.22) 0%, transparent 70%),
-      radial-gradient(ellipse 60% 50% at 80% 10%, hsl(var(--navy) / 0.55) 0%, transparent 70%);
+    background: hsl(var(--navy-dark));
   }
 }
 
