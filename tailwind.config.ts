@@ -96,7 +96,16 @@ export default {
         "gradient-primary": "var(--gradient-primary)",
         "gradient-pc": "var(--gradient-pc)",
       },
+      // Flat design: every shadow step resolves to none, including Tailwind's
+      // defaults, so no component can reintroduce a drop shadow by accident.
       boxShadow: {
+        sm: "none",
+        DEFAULT: "none",
+        md: "none",
+        lg: "none",
+        xl: "none",
+        "2xl": "none",
+        inner: "none",
         button: "var(--shadow-button)",
         card: "var(--shadow-card)",
         "card-hover": "var(--shadow-card-hover)",

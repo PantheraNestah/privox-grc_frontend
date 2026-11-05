@@ -65,12 +65,13 @@
     /* Flat brand fills: the design uses solid colour, not gradients. */
     --gradient-primary: hsl(var(--navy));
     --gradient-pc: hsl(var(--navy));
-    --shadow-button: 0 4px 20px hsl(var(--navy) / 0.26);
-    --shadow-card: 0 2px 14px hsl(var(--navy) / 0.06);
-    --shadow-card-hover: 0 16px 40px hsl(var(--navy) / 0.13);
-    --shadow-nav: 0 2px 16px hsl(var(--navy-deep) / 0.25);
+    /* Flat design: no shadows anywhere. The tokens stay so existing class names still resolve. */
+    --shadow-button: none;
+    --shadow-card: none;
+    --shadow-card-hover: none;
+    --shadow-nav: none;
 
-    --transition-card: transform .22s cubic-bezier(.16,1,.3,1), box-shadow .22s, border-color .22s;
+    --transition-card: transform .22s cubic-bezier(.16,1,.3,1), border-color .22s;
   }
 
   /* shadcn sidebar tokens (unused but kept for component compat) */
