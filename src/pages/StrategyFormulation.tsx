@@ -9,6 +9,7 @@ import {
   Network,
   Plus,
   Settings2,
+  Upload,
   ShieldAlert,
   TrendingUp,
 } from "lucide-react";
@@ -18,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/grc/common/PageHeader";
 import { TENANT_HOME } from "@/components/grc/common/home-links";
 import { ErrorState } from "@/components/grc/common/states";
+import { StrategyBulkView } from "@/components/grc/strategy/StrategyBulkViews";
 import {
   CreateStrategyElementDialog,
   StrategyBlueprintView,
@@ -45,6 +47,7 @@ const SECTIONS = [
   { value: "elements", label: "Elements", icon: ListChecks },
   { value: "kpis", label: "KPIs & Progress", icon: TrendingUp },
   { value: "insights", label: "Insights", icon: BarChart3 },
+  { value: "bulk", label: "Bulk import", icon: Upload },
 ] as const;
 
 type Section = (typeof SECTIONS)[number]["value"];
@@ -160,6 +163,16 @@ const StrategyFormulation = () => {
             <TabsContent value="elements" className="mt-0"><StrategyElementsView {...viewProps} /></TabsContent>
             <TabsContent value="kpis" className="mt-0"><StrategyKpisView {...viewProps} /></TabsContent>
             <TabsContent value="insights" className="mt-0"><StrategyInsightsView {...viewProps} /></TabsContent>
+            <TabsContent value="bulk" className="mt-0">
+              {orgId && (
+                <StrategyBulkView
+                  orgId={orgId}
+                  canContribute={canContribute}
+                  canApprove={canApprove}
+                  canManageSettings={canManageSettings}
+                />
+              )}
+            </TabsContent>
           </Tabs>
         </>
       )}

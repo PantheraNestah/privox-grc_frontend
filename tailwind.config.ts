@@ -90,7 +90,9 @@ export default {
           ring: "hsl(var(--sidebar-ring))",
         },
       },
-      backgroundImage: {
+      // Flat brand fills. The tokens hold solid colours now, so they belong
+      // in backgroundColor (a background-image value would render nothing).
+      backgroundColor: {
         "gradient-primary": "var(--gradient-primary)",
         "gradient-pc": "var(--gradient-pc)",
       },
