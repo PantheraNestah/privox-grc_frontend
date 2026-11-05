@@ -1,67 +1,50 @@
-// Strategy Performance Assessment.
-//
-// Tabs:
-//   • Self-Assessment — every user can score their initiatives' KPIs (% achievement + RAG)
-//   • Approvals       — submitted assessments the current user may decide (must sit STRICTLY
-//                       ABOVE the submitter in the org hierarchy)
-//   • Reports         — pillar roll-ups & overall performance gauges
-//
-// Visibility (Self-Assessment): global viewers (Admin / Risk Manager / Executive) see
-// everything; everyone else only initiatives whose objective is linked to their unit or a
-// descendant.
-
 import { useState } from "react";
 import { Helmet } from "react-helmet-async";
-import { ClipboardCheck, ShieldCheck, TrendingUp } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { ClipboardCheck, Inbox, Settings2, ShieldCheck, TrendingUp } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/grc/common/PageHeader";
-import { PrototypeNotice } from "@/components/grc/common/PrototypeNotice";
 import { TENANT_HOME } from "@/components/grc/common/home-links";
-import { ApprovalsView } from "@/components/grc/assessment/ApprovalsView";
-import { AssessmentEditor } from "@/components/grc/assessment/AssessmentEditor";
-import { ReportsView } from "@/components/grc/assessment/ReportsView";
-import { ReviewDialog } from "@/components/grc/assessment/ReviewDialog";
-import { SelfAssessmentView } from "@/components/grc/assessment/SelfAssessmentView";
-import { useAssessmentWorkflow } from "@/components/grc/assessment/useAssessmentWorkflow";
-import type { InitiativeAssessment } from "@/data/assessmentStore";
-import type { Initiative } from "@/data/strategyStore";
-import { can, ROLE_LABELS } from "@/data/userStore";
-import { useActiveUser } from "@/hooks/use-active-user";
-import { cn } from "@/lib/utils";
+import {
+  ApprovalsView,
+  AssessmentSettingsDialog,
+  PeriodBar,
+  ReportsView,
+  WorklistView,
+  currentQuarter,
+} from "@/components/grc/assessment/ServerAssessmentViews";
+import { usePendingApprovals } from "@/hooks/use-strategy-assessment";
 
-type Tab = "assess" | "approvals" | "reports";
-
-const StatCard = ({ label, value, dot }: { label: string; value: number; dot?: string }) => (
-  <Card>
-    <CardContent className="p-4">
-      <p className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-        {dot && <span aria-hidden className={cn("h-2 w-2 rounded-full", dot)} />}
-        {label}
-      </p>
-      <p className="mt-1.5 text-2xl font-semibold leading-none text-foreground">{value}</p>
-    </CardContent>
-  </Card>
-);
+type Tab = "worklist" | "approvals" | "reports";
+const TABS: Tab[] = ["worklist", "approvals", "reports"];
 
 const StrategyAssessment = () => {
-  const activeUser = useActiveUser();
-  const flow = useAssessmentWorkflow(activeUser);
-  const [tab, setTab] = useState<Tab>("assess");
-  const [editing, setEditing] = useState<{ a: InitiativeAssessment; init: Initiative } | null>(null);
-  const [reviewing, setReviewing] = useState<InitiativeAssessment | null>(null);
+  const { organization, permissions, hasModule } = useAuth();
+  const orgId = organization?.id;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requested = searchParams.get("tab");
+  const tab: Tab = TABS.includes(requested as Tab) ? (requested as Tab) : "worklist";
+  const [period, setPeriod] = useState(currentQuarter);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
-  const { stats, approvalQueue } = flow;
+  // Strict separation: contributing, deciding and configuring are three capabilities.
+  const canView = hasModule("GOVERNANCE");
+  const canContribute = permissions.includes("strategy.contribute") || permissions.includes("organization.manage");
+  const canApprove = permissions.includes("strategy.approve") || permissions.includes("organization.manage");
+  const canManageSettings = permissions.includes("organization.manage");
+  const pending = usePendingApprovals(orgId);
+  const pendingCount = pending.data?.length ?? 0;
+
+  const changeTab = (value: string) => setSearchParams(value === "worklist" ? {} : { tab: value });
 
   return (
     <>
       <Helmet>
         <title>Strategy Performance Assessment · Rsolve GRC Platform</title>
-        <meta
-          name="description"
-          content="Self-assess strategic initiatives, score KPIs and route assessments through hierarchical approvals."
-        />
+        <meta name="description" content="Assess strategic initiatives against their KPIs and route them for approval." />
         <link rel="canonical" href="/governance/strategy-assessment" />
       </Helmet>
 
@@ -71,127 +54,61 @@ const StrategyAssessment = () => {
         title="Performance Assessment"
         description={
           <>
-            Self-assess each initiative's KPIs (score % + RAG), then submit for approval. Approvals route up the org
-            hierarchy automatically.{" "}
-            <span className="block pt-1 text-xs">
-              Viewing as <strong className="font-medium text-foreground">{activeUser.name}</strong> (
-              {ROLE_LABELS[activeUser.role]})
-            </span>
+            Assess each initiative for the period, then submit it for approval.
+            {!canContribute && <span className="block pt-1 text-xs text-muted-foreground">Read only for your role.</span>}
           </>
+        }
+        actions={
+          canManageSettings ? (
+            <Button variant="outline" size="sm" onClick={() => setSettingsOpen(true)}>
+              <Settings2 className="h-4 w-4" /> Settings
+            </Button>
+          ) : undefined
         }
       />
 
-      <PrototypeNotice module="Strategy Performance Assessment" />
-
-      <Alert className="mb-6 py-2.5">
-        <ShieldCheck className="h-4 w-4" />
-        <AlertDescription className="text-xs">
-          {flow.isGlobalViewer ? (
-            <>
-              <strong className="font-medium text-foreground">{ROLE_LABELS[activeUser.role]} view —</strong> seeing the
-              entire performance picture across all units.
-            </>
-          ) : activeUser.orgNodeId ? (
-            <>
-              <strong className="font-medium text-foreground">Scoped view —</strong> you self-assess initiatives in your
-              unit or a unit below it. Approvals you receive must come from above.
-            </>
-          ) : (
-            <span className="text-warn">
-              <strong className="font-medium">No org unit linked —</strong> ask an Administrator to assign you in User
-              Management.
-            </span>
-          )}
-        </AlertDescription>
-      </Alert>
-
-      <section aria-label="Assessment summary" className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-5">
-        <StatCard label="Initiatives" value={stats.total} />
-        <StatCard label="Draft" value={stats.draft} dot="bg-muted-foreground" />
-        <StatCard label="Awaiting approval" value={stats.submitted} dot="bg-brand-accent" />
-        <StatCard label="Approved" value={stats.approved} dot="bg-success" />
-        <StatCard label="Rejected" value={stats.rejected} dot="bg-destructive" />
-      </section>
-
-      <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
-        <TabsList className="mb-4 h-auto max-w-full justify-start overflow-x-auto">
-          <TabsTrigger value="assess" className="gap-1.5">
-            <ClipboardCheck className="h-3.5 w-3.5" /> Self-Assessment
-          </TabsTrigger>
-          <TabsTrigger value="approvals" className="gap-1.5">
-            <ShieldCheck className="h-3.5 w-3.5" />
-            {`Approvals${approvalQueue.length > 0 ? ` (${approvalQueue.length})` : ""}`}
-          </TabsTrigger>
-          <TabsTrigger value="reports" className="gap-1.5">
-            <TrendingUp className="h-3.5 w-3.5" /> Reports &amp; Analytics
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="assess" className="mt-0">
-          <SelfAssessmentView
-            rows={flow.visibleRows}
-            assessments={flow.assessments}
-            users={flow.users}
-            orgNodes={flow.orgNodes}
-            canSelfAssess={can.submitAssessment(activeUser.role)}
-            onOpen={(init, objectiveId, pillarId) => {
-              const a = flow.ensureAssessment(init.id, objectiveId, pillarId, init.status);
-              setEditing({ a, init });
-            }}
-          />
-        </TabsContent>
-
-        <TabsContent value="approvals" className="mt-0">
-          <ApprovalsView
-            queue={approvalQueue}
-            cfg={flow.cfg}
-            users={flow.users}
-            orgNodes={flow.orgNodes}
-            activeUser={activeUser}
-            allAssessments={flow.assessments}
-            onReview={setReviewing}
-          />
-        </TabsContent>
-
-        <TabsContent value="reports" className="mt-0">
-          <ReportsView rows={flow.visibleRows} assessments={flow.assessments} cfg={flow.cfg} orgNodes={flow.orgNodes} />
-        </TabsContent>
-      </Tabs>
-
-      {editing && (
-        <AssessmentEditor
-          assessment={editing.a}
-          init={editing.init}
-          currentUserId={activeUser.id}
-          currentUserName={activeUser.name}
-          onClose={() => {
-            setEditing(null);
-            flow.reload();
-          }}
-          onUpdate={(mutate) => {
-            flow.updateAssessment(editing.a.id, mutate);
-            // Keep the open dialog in step with what was just persisted.
-            setEditing((prev) =>
-              prev ? { ...prev, a: { ...mutate(prev.a), updatedAt: new Date().toISOString() } } : prev,
-            );
-          }}
-          onSubmit={() => flow.submitForApproval(editing.a) && setEditing(null)}
-        />
+      {!canView && (
+        <Alert className="mb-6 py-2.5">
+          <ShieldCheck className="h-4 w-4" />
+          <AlertDescription className="text-xs">The Governance module is not enabled for your account.</AlertDescription>
+        </Alert>
       )}
 
-      {reviewing && (
-        <ReviewDialog
-          assessment={reviewing}
-          init={flow.visibleRows.find((r) => r.init.id === reviewing.initiativeId)?.init}
-          submitter={flow.users.find((u) => u.id === reviewing.createdByUserId)}
-          users={flow.users}
-          activeUser={activeUser}
-          onClose={() => setReviewing(null)}
-          onApprove={(c) => flow.approve(reviewing, c) && setReviewing(null)}
-          onReject={(c) => flow.reject(reviewing, c) && setReviewing(null)}
-          onSendBack={(c) => flow.sendBack(reviewing, c) && setReviewing(null)}
-          onDelegate={(userId, c) => flow.delegate(reviewing, userId, c) && setReviewing(null)}
-        />
+      {orgId && (
+        <>
+          <div className="mb-5">
+            <PeriodBar period={period} onChange={setPeriod} />
+          </div>
+
+          <Tabs value={tab} onValueChange={changeTab}>
+            <TabsList className="mb-5 h-auto w-full flex-nowrap justify-start overflow-x-auto sm:w-fit">
+              <TabsTrigger value="worklist" className="gap-1.5">
+                <ClipboardCheck className="h-3.5 w-3.5" /> Initiatives
+              </TabsTrigger>
+              <TabsTrigger value="approvals" className="gap-1.5">
+                <Inbox className="h-3.5 w-3.5" /> Approvals
+                {pendingCount > 0 && <span className="ml-1 rounded-full bg-brand-accent px-1.5 text-[10px] text-white">{pendingCount}</span>}
+              </TabsTrigger>
+              <TabsTrigger value="reports" className="gap-1.5">
+                <TrendingUp className="h-3.5 w-3.5" /> Reports
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="worklist" className="mt-0">
+              <WorklistView orgId={orgId} period={period} canContribute={canContribute} />
+            </TabsContent>
+            <TabsContent value="approvals" className="mt-0">
+              <ApprovalsView orgId={orgId} canApprove={canApprove} />
+            </TabsContent>
+            <TabsContent value="reports" className="mt-0">
+              <ReportsView orgId={orgId} period={period} />
+            </TabsContent>
+          </Tabs>
+
+          {canManageSettings && (
+            <AssessmentSettingsDialog orgId={orgId} open={settingsOpen} onOpenChange={setSettingsOpen} />
+          )}
+        </>
       )}
     </>
   );
