@@ -1,61 +1,33 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { HelmetProvider } from "react-helmet-async";
 import { MemoryRouter } from "react-router-dom";
 import StrategyAssessment from "./StrategyAssessment";
-import type { InitiativeAssessment } from "@/data/assessmentStore";
-import type { StrategyConfig } from "@/data/strategyStore";
-import type { AppUser } from "@/data/userStore";
 
-const state = vi.hoisted(() => ({
-  cfg: { pillars: [], objectives: [] } as unknown as StrategyConfig,
-  assessments: [] as InitiativeAssessment[],
-  saved: [] as InitiativeAssessment[][],
+const mocks = vi.hoisted(() => ({
+  permissions: [] as string[],
+  pending: [] as unknown[],
 }));
 
-const admin: AppUser = { id: "u1", name: "Ada Admin", email: "ada@example.com", role: "admin", createdAt: "" };
-
-vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }));
-vi.mock("@/hooks/use-active-user", () => ({ useActiveUser: () => admin }));
-vi.mock("@/data/strategyStore", async (orig) => ({
-  ...(await orig<typeof import("@/data/strategyStore")>()),
-  loadStrategy: () => state.cfg,
-}));
-vi.mock("@/data/orgStore", async (orig) => ({
-  ...(await orig<typeof import("@/data/orgStore")>()),
-  loadOrgNodes: () => [],
-}));
-vi.mock("@/data/userStore", async (orig) => ({
-  ...(await orig<typeof import("@/data/userStore")>()),
-  loadUsers: () => [admin],
-}));
-vi.mock("@/data/assessmentStore", async (orig) => ({
-  ...(await orig<typeof import("@/data/assessmentStore")>()),
-  loadAssessments: () => state.assessments,
-  saveAssessments: (list: InitiativeAssessment[]) => {
-    state.saved.push(list);
-  },
+vi.mock("@/contexts/AuthContext", () => ({
+  useAuth: () => ({
+    organization: { id: "org-1", code: "SIC", name: "Savanna" },
+    permissions: mocks.permissions,
+    hasModule: () => true,
+  }),
 }));
 
-const configWithInitiative = (): StrategyConfig =>
-  ({
-    pillars: [{ id: "p1", name: "Growth" }],
-    objectives: [
-      {
-        id: "o1",
-        pillarId: "p1",
-        title: "Grow premium income",
-        linkedOrgNodeIds: [],
-        initiatives: [
-          {
-            id: "i1",
-            name: "Launch bancassurance",
-            status: "in-progress",
-            kpis: [{ id: "k1", name: "Premium growth", type: "quantitative", target: "20", unit: "%", status: "on-track" }],
-          },
-        ],
-      },
-    ],
-  }) as unknown as StrategyConfig;
+vi.mock("@/hooks/use-strategy-assessment", () => ({
+  usePendingApprovals: () => ({ data: mocks.pending, isPending: false, error: null }),
+}));
+
+vi.mock("@/components/grc/assessment/ServerAssessmentViews", () => ({
+  currentQuarter: () => ({ periodStart: "2026-04-01", periodEnd: "2026-06-30" }),
+  PeriodBar: () => <div>period bar</div>,
+  WorklistView: () => <div>worklist content</div>,
+  ApprovalsView: () => <div>approvals content</div>,
+  ReportsView: () => <div>reports content</div>,
+  AssessmentSettingsDialog: () => <div>settings dialog</div>,
+}));
 
 const renderPage = () =>
   render(
@@ -66,74 +38,37 @@ const renderPage = () =>
     </HelmetProvider>,
   );
 
-const openTab = (name: RegExp) => fireEvent.mouseDown(screen.getByRole("tab", { name }));
-
-describe("StrategyAssessment", () => {
+describe("StrategyAssessment page", () => {
   beforeEach(() => {
-    state.cfg = { pillars: [], objectives: [] } as unknown as StrategyConfig;
-    state.assessments = [];
-    state.saved = [];
+    mocks.permissions = [];
+    mocks.pending = [];
   });
 
-  it("renders the header, viewer context and an empty state without a strategy", () => {
+  it("opens on the initiatives worklist", () => {
     renderPage();
-
-    expect(screen.getByText("Prototype module")).toBeInTheDocument();
-
-    expect(screen.getByRole("heading", { name: "Performance Assessment" })).toBeInTheDocument();
-    expect(screen.getByText(/Viewing as/)).toHaveTextContent("Ada Admin");
-    expect(screen.getByText("No initiatives to assess")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Go to Strategy Formulation" })).toHaveAttribute(
-      "href",
-      "/governance/strategy-formulation",
-    );
+    expect(screen.getByText("worklist content")).toBeInTheDocument();
   });
 
-  it("lists initiatives and lets a user score KPIs and submit for approval", () => {
-    state.cfg = configWithInitiative();
+  it("shows the number of revisions awaiting a decision on the approvals tab", () => {
+    mocks.pending = [{ revisionId: "r1" }, { revisionId: "r2" }];
     renderPage();
-
-    expect(screen.getByText("Launch bancassurance")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Start" }));
-
-    const dialog = screen.getByRole("dialog");
-    fireEvent.change(within(dialog).getByLabelText("% Achieved"), { target: { value: "80" } });
-    expect(within(dialog).getByText("80%")).toBeInTheDocument();
-
-    fireEvent.click(within(dialog).getByRole("button", { name: /Submit for approval/ }));
-
-    const last = state.saved[state.saved.length - 1];
-    expect(last).toHaveLength(1);
-    expect(last[0]).toMatchObject({ initiativeId: "i1", status: "submitted" });
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /Approvals/ })).toHaveTextContent("2");
   });
 
-  it("refuses to submit an assessment with no scored KPIs", () => {
-    state.cfg = configWithInitiative();
+  it("switches to reports", () => {
     renderPage();
-
-    fireEvent.click(screen.getByRole("button", { name: "Start" }));
-    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: /Submit for approval/ }));
-
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
-    expect(state.saved[state.saved.length - 1][0]).toMatchObject({ status: "draft" });
+    // Radix tabs activate on mouse-down.
+    fireEvent.mouseDown(screen.getByRole("tab", { name: /Reports/ }), { button: 0 });
+    expect(screen.getByText("reports content")).toBeInTheDocument();
   });
 
-  it("explains an empty approvals queue", () => {
+  it("offers settings only to organization admins", () => {
+    const { unmount } = renderPage();
+    expect(screen.queryByRole("button", { name: /Settings/ })).not.toBeInTheDocument();
+    unmount();
+
+    mocks.permissions = ["organization.manage"];
     renderPage();
-    openTab(/Approvals/);
-
-    expect(screen.getByText("No assessments awaiting your approval")).toBeInTheDocument();
-    expect(screen.getByText("No one has submitted an assessment yet.")).toBeInTheDocument();
-  });
-
-  it("shows pillar performance and insights on the reports tab", () => {
-    state.cfg = configWithInitiative();
-    renderPage();
-    openTab(/Reports/);
-
-    expect(screen.getByText("Performance by pillar")).toBeInTheDocument();
-    expect(screen.getByRole("progressbar", { name: "Growth performance" })).toHaveAttribute("aria-valuenow", "0");
-    expect(screen.getByText("Assessment insights")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Settings/ })).toBeInTheDocument();
   });
 });
