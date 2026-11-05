@@ -31,6 +31,7 @@ import {
 import {
   batchErrorMessage,
   exportFormulation,
+  fetchAnnotatedBatchWorkbook,
   formatIssueSource,
   fetchBatchSchema,
   fetchTemplate,
@@ -102,7 +103,9 @@ function BulkImportCard({ orgId, canContribute }: { orgId: string; canContribute
   const [report, setReport] = useState<BatchReport | null>(null);
   const [checkedKey, setCheckedKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const jsonRef = useRef<HTMLInputElement>(null);
+  const xlsxRef = useRef<HTMLInputElement>(null);
+  const [annotating, setAnnotating] = useState(false);
 
   const dryRun = useBatchDryRun(orgId);
   const submit = useBatchSubmit(orgId);
@@ -131,6 +134,30 @@ function BulkImportCard({ orgId, canContribute }: { orgId: string; canContribute
       };
     }
     return { source: { kind: "json" as const, plan: parsed?.ok ? parsed.value : null }, mode };
+  };
+
+  const downloadTemplate = async () => {
+    try {
+      saveBlob(await fetchTemplate(orgId, "xlsx"), "strategy-plan-template.xlsx");
+    } catch (err) {
+      toast.error(batchErrorMessage(err));
+    }
+  };
+
+  const downloadAnnotated = async () => {
+    if (!spreadsheet) return;
+    setAnnotating(true);
+    try {
+      const blob = await fetchAnnotatedBatchWorkbook(orgId, spreadsheet, {
+        name: name.trim() || spreadsheet.name,
+        mode,
+      });
+      saveBlob(blob, spreadsheet.name.replace(/\.xlsx$/i, "") + "-check.xlsx");
+    } catch (err) {
+      toast.error(batchErrorMessage(err));
+    } finally {
+      setAnnotating(false);
+    }
   };
 
   const changeText = (next: string) => {
@@ -216,16 +243,27 @@ function BulkImportCard({ orgId, canContribute }: { orgId: string; canContribute
             onChange={(e) => setName(e.target.value)}
             disabled={busy}
           />
-          <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={busy}>
-            <FileJson className="h-4 w-4" /> Open file
+          <Button variant="outline" size="sm" onClick={() => jsonRef.current?.click()} disabled={busy}>
+            <FileJson className="h-4 w-4" /> Open JSON
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => xlsxRef.current?.click()} disabled={busy}>
+            <FileSpreadsheet className="h-4 w-4" /> Upload Excel
           </Button>
           <input
-            ref={fileRef}
+            ref={jsonRef}
             type="file"
-            accept=".json,.xlsx"
+            accept=".json,application/json"
             className="hidden"
             onChange={(e) => void onOpenFile(e)}
-            aria-label="Open plan file"
+            aria-label="Open JSON plan"
+          />
+          <input
+            ref={xlsxRef}
+            type="file"
+            accept=".xlsx"
+            className="hidden"
+            onChange={(e) => void onOpenFile(e)}
+            aria-label="Upload Excel plan"
           />
         </div>
       </CardHeader>
@@ -233,13 +271,34 @@ function BulkImportCard({ orgId, canContribute }: { orgId: string; canContribute
         <div className="grid gap-4 xl:grid-cols-2">
           <div className="min-w-0">
             {spreadsheet ? (
-              <div className="flex min-h-[420px] flex-col items-center justify-center gap-3 rounded-lg border border-dashed p-6 text-center">
-                <FileSpreadsheet className="h-8 w-8 text-brand-accent" />
-                <p className="text-sm font-medium">{spreadsheet.name}</p>
-                <p className="text-xs text-muted-foreground">Spreadsheet plans are checked on the server.</p>
-                <Button variant="ghost" size="sm" onClick={() => changeText("")} disabled={busy}>
-                  <Eraser className="h-4 w-4" /> Remove
-                </Button>
+              <div className="flex min-h-[420px] flex-col gap-4 rounded-lg border bg-background p-5">
+                <div className="flex items-center gap-3">
+                  <FileSpreadsheet className="h-6 w-6 shrink-0 text-brand-accent" />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{spreadsheet.name}</p>
+                    <p className="text-xs text-muted-foreground">Excel plan</p>
+                  </div>
+                  <Button variant="ghost" size="sm" className="ml-auto" onClick={() => changeText("")} disabled={busy}>
+                    <Eraser className="h-4 w-4" /> Remove
+                  </Button>
+                </div>
+                <div className="grid gap-2">
+                  <Button variant="outline" className="justify-start" onClick={() => void downloadTemplate()}>
+                    <Download className="h-4 w-4" /> Template with examples
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="justify-start"
+                    disabled={!isChecked || annotating}
+                    onClick={() => void downloadAnnotated()}
+                  >
+                    {annotating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
+                    Copy with row results
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Check the file, fix the flagged rows in the copy, then upload it again.
+                </p>
               </div>
             ) : (
               <PlanEditor value={text} onChange={changeText} disabled={busy} parsed={parsed} />
