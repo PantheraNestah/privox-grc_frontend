@@ -203,6 +203,9 @@ const AcceptInvitationPage = () => {
       nextErrors.password = "Password is required.";
     } else if (password.length < 8) {
       nextErrors.password = "Password must be at least 8 characters.";
+    } else if (password.length > 128) {
+      // The server does not check length on this path; match the app-wide policy.
+      nextErrors.password = "Password must be at most 128 characters.";
     }
     if (password !== confirmPassword) {
       nextErrors.confirmPassword = "Passwords do not match.";
@@ -216,7 +219,6 @@ const AcceptInvitationPage = () => {
         fullName: fullName.trim(),
         username: username.trim() || undefined,
         password,
-        confirmPassword,
       });
 
       // Acceptance returns membership metadata, not a session — mint one now.
@@ -259,11 +261,15 @@ const AcceptInvitationPage = () => {
 
     setSubmittingExistingLogin(true);
     try {
+      // The invitation is not accepted yet, so this user is not a member of the
+      // invited organization and sign-in cannot target it (the server answers
+      // 401). Sign in to the primary organization without the picker, then
+      // accept with that session. The user can switch organizations afterwards.
       await auth.login({
         identifier: details.email,
         password: existingPassword,
         rememberMe: true,
-        organizationId: details.organizationId,
+        supportsOrganizationSelection: false,
       });
       await acceptMutation.mutateAsync(undefined);
       await auth.refreshSession();

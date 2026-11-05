@@ -163,11 +163,6 @@ export interface RefreshResponse {
   permissions?: string[];
 }
 
-export interface LogoutRequest {
-  accessToken: string;
-  refreshToken: string;
-}
-
 export interface AuthState {
   user: UserDto | null;
   organization: OrganizationDto | null;
@@ -311,13 +306,13 @@ export interface InvitationDetailsResponse {
 
 /**
  * Payload sent to `POST /api/v1/auth/invitations/{token}/accept` for new users.
- * `confirmPassword` is sent (equal to `password`) for backends that validate it.
+ * The server ignores any confirmation field, so only the account fields are sent;
+ * the confirm-password check happens in the form.
  */
 export interface AcceptInvitationRequest {
   fullName: string;
   username?: string;
   password: string;
-  confirmPassword?: string;
 }
 
 /** Payload returned by `POST /api/v1/auth/invitations/{token}/accept`. */

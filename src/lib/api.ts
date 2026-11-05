@@ -33,6 +33,18 @@ import {
 } from "./session-broadcast";
 import type { RefreshResponse } from "./auth-types";
 
+declare module "axios" {
+  interface AxiosRequestConfig {
+    /**
+     * Public call (login, select-organization, refresh, invitation inspect or
+     * new-user accept). It must not carry a bearer token, because a stale one
+     * makes the server reject an otherwise valid request, and a 401 on it must
+     * never trigger a refresh.
+     */
+    skipAuth?: boolean;
+  }
+}
+
 // ─── Token refresh ─────────────────────────────────────────
 // A 401 from these endpoints means bad credentials or an invalid/expired
 // refresh token — never try to refresh (or redirect) off the back of one,
@@ -58,25 +70,44 @@ const refreshPromises: Record<AuthScope, Promise<RefreshResponse> | null> = {
   platform: null,
 };
 
+/**
+ * Runs `task` while holding a per-scope lock shared by every tab of this
+ * browser. Refresh tokens rotate on each use, so two tabs refreshing with the
+ * same token would log one of them out. Where Web Locks are unavailable the
+ * in-tab dedupe below is the only guard.
+ */
+async function withCrossTabRefreshLock(
+  scope: AuthScope,
+  task: () => Promise<RefreshResponse>,
+): Promise<RefreshResponse> {
+  const locks = typeof navigator !== "undefined" ? navigator.locks : undefined;
+  if (!locks?.request) return task();
+  return await locks.request(`grc-refresh-${scope}`, task);
+}
+
 async function performRefresh(
   client: AxiosInstance,
   scope: AuthScope,
 ): Promise<RefreshResponse> {
   if (!refreshPromises[scope]) {
-    refreshPromises[scope] = (async () => {
+    refreshPromises[scope] = withCrossTabRefreshLock(scope, async () => {
+      // Read inside the lock: another tab may have rotated the token while we waited.
       const storedRefresh = getStoredRefreshToken(scope);
       if (!storedRefresh) {
         throw new Error("No refresh token available");
       }
 
-      const { data } = await client.post<RefreshResponse>("/v1/auth/refresh", {
-        refreshToken: storedRefresh,
-      });
+      const { data } = await client.post<RefreshResponse>(
+        "/v1/auth/refresh",
+        { refreshToken: storedRefresh },
+        { skipAuth: true },
+      );
 
+      // Persist the rotated token before the lock is released.
       setAccessToken(data.accessToken, scope);
       updateStoredRefreshToken(data.refreshToken, scope);
       return data;
-    })().finally(() => {
+    }).finally(() => {
       refreshPromises[scope] = null;
     });
   }
@@ -104,7 +135,7 @@ function createApiClient(scope: AuthScope, onAuthFailure: () => void): AxiosInst
       }
 
       const token = getAccessToken(scope);
-      if (token) {
+      if (token && !req.skipAuth) {
         req.headers.Authorization = `Bearer ${token}`;
       }
       return req;
@@ -127,7 +158,8 @@ function createApiClient(scope: AuthScope, onAuthFailure: () => void): AxiosInst
       const url = originalRequest?.url ?? "";
       const isAuthBootstrap = isNoRefreshPath(url);
 
-      if (isAuthBootstrap || !originalRequest) {
+      // Public calls have no session to refresh; a 401 there is the answer.
+      if (isAuthBootstrap || !originalRequest || originalRequest.skipAuth) {
         return Promise.reject(error);
       }
 

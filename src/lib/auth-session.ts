@@ -44,11 +44,14 @@ export function isPlatformSession(session: SessionShape): boolean {
  */
 export async function revokeIssuedSession(
   client: Pick<AxiosInstance, "post">,
-  tokens: { accessToken: string; refreshToken: string },
+  tokens: { accessToken: string },
 ): Promise<void> {
   try {
-    await client.post("/v1/auth/logout", tokens, {
+    // Logout takes no body: the bearer token identifies the session. skipAuth
+    // keeps the interceptor from overwriting this header with the tab's token.
+    await client.post("/v1/auth/logout", undefined, {
       headers: { Authorization: `Bearer ${tokens.accessToken}` },
+      skipAuth: true,
     });
   } catch {
     // The token is never stored client-side, so a failed revoke is not fatal.

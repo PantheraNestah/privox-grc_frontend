@@ -176,8 +176,8 @@ describe("PlatformAuthProvider portal scope", () => {
     expect(mocks.setAccessToken).not.toHaveBeenCalledWith("t-access-1", "platform");
     expect(mocks.platformApiPost).toHaveBeenCalledWith(
       "/v1/auth/logout",
-      expect.objectContaining({ accessToken: "t-access-1", refreshToken: "t-refresh-1" }),
-      { headers: { Authorization: "Bearer t-access-1" } },
+      undefined,
+      { headers: { Authorization: "Bearer t-access-1" }, skipAuth: true },
     );
   });
 

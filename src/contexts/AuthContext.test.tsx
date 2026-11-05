@@ -174,10 +174,11 @@ describe("AuthProvider portal scope", () => {
     expect(screen.getByTestId("error")).toHaveTextContent("PortalMismatchError");
     expect(mocks.storeRefreshToken).not.toHaveBeenCalled();
     expect(mocks.setAccessToken).not.toHaveBeenCalledWith("access-1");
+    // Logout is Bearer-only: no body, and skipAuth so the explicit header wins.
     expect(mocks.apiPost).toHaveBeenCalledWith(
       "/v1/auth/logout",
-      expect.objectContaining({ accessToken: "access-1", refreshToken: "refresh-1" }),
-      { headers: { Authorization: "Bearer access-1" } },
+      undefined,
+      { headers: { Authorization: "Bearer access-1" }, skipAuth: true },
     );
   });
 
@@ -493,6 +494,7 @@ describe("AuthProvider organization selection", () => {
     expect(mocks.apiPost).toHaveBeenCalledWith(
       "/v1/auth/login",
       expect.objectContaining({ supportsOrganizationSelection: true }),
+      { skipAuth: true },
     );
     expect(mocks.storeRefreshToken).toHaveBeenCalledWith("refresh-1", false);
     expect(screen.getByTestId("result")).toHaveTextContent("authenticated");
@@ -520,10 +522,11 @@ describe("AuthProvider organization selection", () => {
     await act(async () => screen.getByText("login").click());
     await act(async () => screen.getByText("select").click());
 
-    expect(mocks.apiPost).toHaveBeenLastCalledWith("/v1/auth/select-organization", {
-      selectionToken: "selection-1",
-      organizationId: "o2",
-    });
+    expect(mocks.apiPost).toHaveBeenLastCalledWith(
+      "/v1/auth/select-organization",
+      { selectionToken: "selection-1", organizationId: "o2" },
+      { skipAuth: true },
+    );
     expect(screen.getByTestId("authenticated")).toHaveTextContent("true");
     expect(screen.getByTestId("org")).toHaveTextContent("GNC Holdings");
     expect(screen.getByTestId("token")).toHaveTextContent("access-selected");

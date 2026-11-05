@@ -25,7 +25,6 @@ import {
 } from "@/lib/auth-session";
 import { queryClient } from "@/lib/query-client";
 import {
-  getAccessToken,
   setAccessToken,
   getStoredProfile,
   getStoredRefreshToken,
@@ -181,10 +180,8 @@ export function PlatformAuthProvider({ children }: { children: ReactNode }) {
   // ── Logout (calls API then clears local state) ─────────
   const logout = useCallback(async () => {
     try {
-      await platformApi.post("/v1/auth/logout", {
-        accessToken: getAccessToken("platform") ?? "",
-        refreshToken: getStoredRefreshToken("platform") ?? "",
-      });
+      // Bearer only: the interceptor attaches the platform access token.
+      await platformApi.post("/v1/auth/logout");
     } catch {
       // API may be unreachable; still clear locally.
     }

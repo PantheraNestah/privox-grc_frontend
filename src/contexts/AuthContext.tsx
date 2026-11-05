@@ -21,7 +21,6 @@ import {
 import { queryClient } from "@/lib/query-client";
 import { getJwtModules } from "@/lib/jwt";
 import {
-  getAccessToken,
   setAccessToken,
   getStoredRefreshToken,
   storeRefreshToken,
@@ -42,7 +41,6 @@ import type {
   LoginRequest,
   LoginResponse,
   MeResponse,
-  LogoutRequest,
   AuthState,
   OrganizationOptionDto,
 } from "@/lib/auth-types";
@@ -308,15 +306,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // ── Login ──────────────────────────────────────────────
   const login = useCallback(
     async (req: LoginRequest): Promise<LoginResult> => {
-      const { data } = await api.post<LoginResponse>("/v1/auth/login", {
-        identifier: req.identifier,
-        password: req.password,
-        rememberMe: req.rememberMe,
-        // Opt in: accounts with 2+ organizations get the picker instead of a
-        // session bound to their primary organization.
-        supportsOrganizationSelection: true,
-        ...(req.organizationId ? { organizationId: req.organizationId } : {}),
-      });
+      const { data } = await api.post<LoginResponse>(
+        "/v1/auth/login",
+        {
+          identifier: req.identifier,
+          password: req.password,
+          rememberMe: req.rememberMe,
+          // Default is opt-in: accounts with 2+ organizations get the picker
+          // instead of a session bound to their primary organization. Callers
+          // that cannot show a picker (invitation sign-in) pass `false`.
+          supportsOrganizationSelection: req.supportsOrganizationSelection ?? true,
+          ...(req.organizationId ? { organizationId: req.organizationId } : {}),
+        },
+        // Public call: a stale bearer must not ride along on sign-in.
+        { skipAuth: true },
+      );
 
       if (data.status === "ORGANIZATION_SELECTION_REQUIRED") {
         // No tokens, no organization: keep the short-lived selection token in
@@ -374,6 +378,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             selectionToken: pending.selectionToken,
             organizationId,
           },
+          // Authenticated by the selection token in the body, never a bearer.
+          { skipAuth: true },
         );
 
         if (
@@ -457,14 +463,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // ── Logout (calls API then clears local state) ─────────
   const logout = useCallback(async () => {
-    const body: LogoutRequest = {
-      accessToken: getAccessToken() ?? "",
-      refreshToken: getStoredRefreshToken() ?? "",
-    };
-
+    // Bearer only: the interceptor attaches the access token. No body.
     // Fire-and-forget — clear local state regardless of API result
     try {
-      await api.post("/v1/auth/logout", body);
+      await api.post("/v1/auth/logout");
     } catch {
       // API may be unreachable; still clear locally
     }
