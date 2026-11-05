@@ -2,6 +2,7 @@ import { api } from "./api";
 import {
   batchErrorMessage,
   dryRunJsonBatch,
+  fetchAnnotatedBatchWorkbook,
   formatIssueSource,
   submitJsonBatch,
   uploadBatchFile,
@@ -95,5 +96,24 @@ describe("formatIssueSource", () => {
     expect(formatIssueSource({ cell: "C7" })).toBe("cell C7");
     expect(formatIssueSource("/elements/0")).toBe("/elements/0");
     expect(formatIssueSource(null)).toBeNull();
+  });
+});
+
+describe("annotated workbook", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("asks for an annotated xlsx report on a dry run and returns the blob", async () => {
+    const workbook = new Blob(["xlsx"]);
+    const post = vi.spyOn(api, "post").mockResolvedValue({ status: 200, data: workbook } as never);
+    const file = new File(["x"], "plan.xlsx");
+
+    const result = await fetchAnnotatedBatchWorkbook("org-1", file, { name: "FY27", mode: "UPSERT" });
+
+    const [, body, config] = post.mock.calls[0] as [string, FormData, { responseType: string }];
+    expect(body.get("report")).toBe("xlsx");
+    expect(body.get("dryRun")).toBe("true");
+    expect(body.get("mode")).toBe("UPSERT");
+    expect(config.responseType).toBe("blob");
+    expect(result).toBe(workbook);
   });
 });

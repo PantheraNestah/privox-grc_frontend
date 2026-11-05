@@ -293,3 +293,26 @@ export function saveBlob(blob: Blob, filename: string): void {
   link.remove();
   URL.revokeObjectURL(url);
 }
+
+/**
+ * Checks a spreadsheet and returns it back annotated with a result per row,
+ * so the author can fix the flagged rows and upload it again. The guide only
+ * allows this on a dry run of an .xlsx upload.
+ */
+export async function fetchAnnotatedBatchWorkbook(
+  orgId: string,
+  file: File,
+  options: { name: string; mode: BatchMode },
+): Promise<Blob> {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("name", options.name);
+  form.append("mode", options.mode);
+  form.append("dryRun", "true");
+  form.append("report", "xlsx");
+  const { data } = await api.post<Blob>(`${basePath(orgId)}/batches/file`, form, {
+    headers: { "Content-Type": "multipart/form-data" },
+    responseType: "blob",
+  });
+  return data;
+}
