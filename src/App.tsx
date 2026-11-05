@@ -24,6 +24,7 @@ import Index from "./pages/Index.tsx";
 // waterfall on the critical path.
 const OrganizationPickerPage = lazy(() => import("./pages/OrganizationPickerPage.tsx"));
 const AcceptInvitationPage = lazy(() => import("./pages/AcceptInvitationPage.tsx"));
+const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage.tsx"));
 const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
 const Governance = lazy(() => import("./pages/Governance.tsx"));
 const RiskGovernance = lazy(() => import("./pages/RiskGovernance.tsx"));
@@ -92,6 +93,7 @@ const App = () => (
                 {/* Public invitation acceptance & signup (outside RequireAuth) */}
                 <Route path="/signup" element={page(AcceptInvitationPage)} />
                 <Route path="/accept-invitation" element={page(AcceptInvitationPage)} />
+                <Route path="/reset-password" element={page(ResetPasswordPage)} />
                 <Route element={<RequireAuth />}>
                   <Route element={<TenantLayout />}>
                     <Route path="/dashboard" element={page(Dashboard)} />
