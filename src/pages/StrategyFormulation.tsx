@@ -96,8 +96,10 @@ const StrategyFormulation = () => {
     tree: treeQuery.data ?? [],
     summary: summaryQuery.data,
     insights: insightsQuery.data,
-    loading: treeQuery.isPending || summaryQuery.isPending || insightsQuery.isPending,
-    error: treeQuery.error ?? summaryQuery.error ?? insightsQuery.error,
+    // Only the tree is load-bearing: a summary or insights endpoint that is
+    // missing or refuses must not blank a page whose structure loaded.
+    loading: treeQuery.isPending,
+    error: treeQuery.isError ? treeQuery.error : null,
     canManage: canContribute,
     onOpen: setSelectedElementId,
     onNew: openCreate,

@@ -53,7 +53,7 @@ import {
 } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { EmptyState, ErrorState, ListSkeleton } from "@/components/grc/common/states";
+import { EmptyState, ListSkeleton, LoadState } from "@/components/grc/common/states";
 import { MeterBar } from "@/components/grc/assessment/badges";
 import {
   useArchiveStrategyElement,
@@ -235,7 +235,7 @@ function QueryState({
   children: ReactNode;
 }) {
   if (loading) return <ListSkeleton label={label} rows={5} />;
-  if (error) return <ErrorState title={`Couldn't load ${label}`} message={errorMessage(error, `Failed to load ${label}`)} />;
+  if (error) return <LoadState error={error} subject={label} />;
   return children;
 }
 
@@ -755,7 +755,7 @@ export function CreateStrategyElementDialog({
           <div className="space-y-1.5"><Label htmlFor="new-element-type">Element type *</Label><Select value={type} onValueChange={(value) => { const next = value as StrategyElementType; setType(next); setParentElementId(defaultParent(next, rows)); }}><SelectTrigger id="new-element-type"><SelectValue /></SelectTrigger><SelectContent>{STRATEGY_TYPE_ORDER.map((value) => <SelectItem key={value} value={value}>{STRATEGY_TYPE_LABELS[value]}</SelectItem>)}</SelectContent></Select></div>
           {type !== "PILLAR" && <div className="space-y-1.5"><Label htmlFor="new-element-parent">Parent element *</Label><Select value={parentElementId} onValueChange={setParentElementId} disabled={!parentRows.length}><SelectTrigger id="new-element-parent"><SelectValue placeholder="Select parent" /></SelectTrigger><SelectContent>{parentRows.map((row) => <SelectItem key={row.node.id} value={row.node.id}>{row.path.join(" › ")}</SelectItem>)}</SelectContent></Select></div>}
           {type !== "PILLAR" && <div className="space-y-1.5"><Label htmlFor="new-element-unit">Responsible unit *</Label><Select value={orgNodeId} onValueChange={setOrgNodeId} disabled={!orgNodes.length}><SelectTrigger id="new-element-unit"><SelectValue placeholder="Select unit" /></SelectTrigger><SelectContent>{orgNodes.map((node) => <SelectItem key={node.id} value={node.id}>{node.name}</SelectItem>)}</SelectContent></Select></div>}
-          {type !== "PILLAR" && orgNodesError && <div className="md:col-span-2"><ErrorState title="Responsible units unavailable" message={errorMessage(orgNodesError, "The organization unit lookup failed. Confirm the Governance module is allocated to your account.")} /></div>}
+          {type !== "PILLAR" && orgNodesError && <div className="md:col-span-2"><LoadState error={orgNodesError} subject="organization units" /></div>}
           {type !== "PILLAR" && !orgNodesError && !orgNodes.length && <div className="rounded-lg border border-warn/30 bg-warn/5 p-3 text-xs text-warn md:col-span-2">No active organization units are available. Ask an administrator to allocate the Governance module or activate a responsible unit.</div>}
           <div className="space-y-1.5 md:col-span-2"><Label htmlFor="new-strategy-title">Title *</Label><Input id="new-strategy-title" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Give this strategy element a clear name" /></div>
           <div className="space-y-1.5 md:col-span-2"><Label htmlFor="new-strategy-description">Description</Label><Textarea id="new-strategy-description" value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Explain the intended outcome or purpose" /></div>
@@ -984,7 +984,7 @@ export function StrategyElementDetailSheet({
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent className="overflow-y-auto sm:max-w-xl">
           <SheetHeader><SheetTitle className="pr-8">{detail?.type ? STRATEGY_TYPE_LABELS[detail.type] : "Strategy element"}</SheetTitle><SheetDescription>Server-authoritative element, immutable versions and lifecycle actions.</SheetDescription></SheetHeader>
-          {detailQuery.isLoading ? <div className="mt-6"><ListSkeleton label="element detail" rows={3} /></div> : detailQuery.error || !detail ? <div className="mt-6"><ErrorState title="Couldn't load element" message={errorMessage(detailQuery.error, "The element may be outside your assigned scope.")} /></div> : (
+          {detailQuery.isLoading ? <div className="mt-6"><ListSkeleton label="element detail" rows={3} /></div> : detailQuery.isError ? <div className="mt-6"><LoadState error={detailQuery.error} subject="this element" onRetry={() => void detailQuery.refetch()} /></div> : !detail ? <div className="mt-6"><EmptyState icon={Layers3} title="Element not available" description="It may have been archived, or it may sit outside the units you oversee." /></div> : (
             <div className="mt-6 space-y-5">
               <div className="flex flex-wrap items-center gap-2"><StrategyTypeBadge type={detail.type} />{detail.currentVersion && <StrategyStatusBadge status={detail.currentVersion.status} approvalStatus={detail.currentVersion.approvalStatus} />}{draft && <StrategyStatusBadge status={draft.status} approvalStatus={draft.approvalStatus} />}</div>
               <div className="rounded-xl border bg-muted/25 p-4"><p className="text-lg font-semibold text-foreground">{source?.title ?? "Untitled element"}</p><p className="mt-1 text-sm text-muted-foreground">{source?.description || "No description provided."}</p>{canContribute && !draft && !editing && <Button size="sm" variant="brand" className="mt-3" onClick={() => setEditing(true)}><FileClock /> New version</Button>}</div>

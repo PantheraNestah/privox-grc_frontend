@@ -1,5 +1,7 @@
 import { type ReactNode } from "react";
-import { AlertCircle, type LucideIcon } from "lucide-react";
+import { AlertCircle, Info, RotateCw, type LucideIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { classifyLoadFailure } from "@/lib/query-error";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -74,6 +76,46 @@ export function CardGridSkeleton({ count = 6, label }: { count?: number; label: 
           <Skeleton className="h-3 w-4/5" />
         </Card>
       ))}
+    </div>
+  );
+}
+
+/**
+ * Renders a failed request. Use this only for a real failure: an empty result is
+ * not an error and belongs in `EmptyState`. A retry is offered only when
+ * retrying can help, so "no access" and "not available here" do not invite one.
+ */
+export function LoadState({
+  error,
+  subject,
+  onRetry,
+}: {
+  error: unknown;
+  /** Lower case, as it reads in a sentence: "initiatives", "batches". */
+  subject: string;
+  onRetry?: () => void;
+}) {
+  const failure = classifyLoadFailure(error, subject);
+  const Icon = failure.retryable ? AlertCircle : Info;
+  return (
+    <div
+      role="alert"
+      className={
+        failure.retryable
+          ? "flex flex-wrap items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4"
+          : "flex flex-wrap items-start gap-3 rounded-lg border bg-muted/30 p-4"
+      }
+    >
+      <Icon className={failure.retryable ? "mt-0.5 h-4 w-4 shrink-0 text-destructive" : "mt-0.5 h-4 w-4 shrink-0 text-muted-foreground"} />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium">{failure.title}</p>
+        <p className="mt-0.5 text-sm text-muted-foreground">{failure.message}</p>
+      </div>
+      {failure.retryable && onRetry && (
+        <Button variant="outline" size="sm" onClick={onRetry}>
+          <RotateCw className="h-4 w-4" /> Try again
+        </Button>
+      )}
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Loader2, Workflow } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { LoadState } from "@/components/grc/common/states";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   useApprovalLevelRules,
@@ -78,7 +79,9 @@ export function ApprovalRoutingDialog({
 
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         {rules.isPending && <p className="text-sm text-muted-foreground">Loading…</p>}
-        {rules.error && <p className="text-sm text-destructive">Could not load the routing rules.</p>}
+        {rules.isError && (
+          <LoadState error={rules.error} subject="approval routing" onRetry={() => void rules.refetch()} />
+        )}
 
         {rules.data && (
           <ul className="divide-y rounded-md border">

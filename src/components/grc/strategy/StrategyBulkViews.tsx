@@ -2,6 +2,7 @@ import { useMemo, useRef, useState, type ChangeEvent } from "react";
 import { toast } from "sonner";
 import {
   AlertTriangle,
+  Archive,
   CheckCircle2,
   Download,
   Eraser,
@@ -18,6 +19,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { EmptyState, LoadState } from "@/components/grc/common/states";
 import { Textarea } from "@/components/ui/textarea";
 import {
   useBatchDecision,
@@ -517,7 +519,9 @@ function RulesCard({ orgId, canManageSettings }: { orgId: string; canManageSetti
       </CardHeader>
       <CardContent className="space-y-4">
         {rules.isPending && <p className="text-sm text-muted-foreground">Loading rules…</p>}
-        {rules.error && <p className="text-sm text-destructive">Could not load the hierarchy rules.</p>}
+        {rules.isError && (
+          <LoadState error={rules.error} subject="the hierarchy rules" onRetry={() => void rules.refetch()} />
+        )}
         {rules.data && (
           <ul className="space-y-1.5 text-sm">
             {rules.data.rules.map((rule) => (
@@ -535,7 +539,9 @@ function RulesCard({ orgId, canManageSettings }: { orgId: string; canManageSetti
           <div className="space-y-2 border-t pt-4">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Conformance</p>
             {conformance.isPending && <p className="text-sm text-muted-foreground">Checking…</p>}
-            {conformance.error && <p className="text-sm text-destructive">Could not load conformance.</p>}
+            {conformance.isError && (
+              <LoadState error={conformance.error} subject="conformance" onRetry={() => void conformance.refetch()} />
+            )}
             {conformance.data && conformance.data.nonConformingElementCount === 0 && (
               <p className="flex items-center gap-2 text-sm text-success">
                 <CheckCircle2 className="h-4 w-4" /> Every element follows the current rules.
@@ -601,8 +607,14 @@ function BatchesCard({ orgId, canApprove }: { orgId: string; canApprove: boolean
       </CardHeader>
       <CardContent>
         {list.isPending && <p className="text-sm text-muted-foreground">Loading batches…</p>}
-        {list.error && <p className="text-sm text-destructive">Could not load batches.</p>}
-        {list.data && list.data.length === 0 && <p className="text-sm text-muted-foreground">No batches yet.</p>}
+        {list.isError && <LoadState error={list.error} subject="batches" onRetry={() => void list.refetch()} />}
+        {list.data && list.data.length === 0 && (
+          <EmptyState
+            icon={Archive}
+            title="No batches yet"
+            description="Plans you submit from Bulk import appear here with their approval status."
+          />
+        )}
         {list.data && list.data.length > 0 && (
           <ul className="divide-y rounded-md border">
             {list.data.map((batch) => (
@@ -682,7 +694,9 @@ function BatchDetailDialog({
         </DialogHeader>
 
         {detail.isPending && <p className="text-sm text-muted-foreground">Loading…</p>}
-        {detail.error && <p className="text-sm text-destructive">Could not load this batch.</p>}
+        {detail.isError && (
+          <LoadState error={detail.error} subject="this batch" onRetry={() => void detail.refetch()} />
+        )}
 
         {batch && (
           <div className="space-y-4">
