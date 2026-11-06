@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
-import { CheckCircle2, Loader2, Plus, Trash2, XCircle } from "lucide-react";
+import { BarChart3, CheckCircle2, ClipboardList, Loader2, Plus, Trash2, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { EmptyState, LoadState } from "@/components/grc/common/states";
 import {
   useAmendAssessment,
   useAssessment,
@@ -152,9 +153,15 @@ export function WorklistView({
       </CardHeader>
       <CardContent>
         {worklist.isPending && <p className="text-sm text-muted-foreground">Loading…</p>}
-        {worklist.error && <p className="text-sm text-destructive">Could not load initiatives.</p>}
+        {worklist.isError && (
+          <LoadState error={worklist.error} subject="initiatives" onRetry={() => void worklist.refetch()} />
+        )}
         {worklist.data && worklist.data.length === 0 && (
-          <p className="text-sm text-muted-foreground">No published initiatives in this period.</p>
+          <EmptyState
+            icon={ClipboardList}
+            title="No initiatives to assess"
+            description="Published initiatives for the chosen period appear here. Choose another period, or publish an initiative in Strategy Formulation first."
+          />
         )}
         {worklist.data && worklist.data.length > 0 && (
           <div className="overflow-x-auto rounded-md border">
@@ -293,6 +300,9 @@ function AssessmentBody({
       )}
 
       {assessmentId && detail.isPending && <p className="text-sm text-muted-foreground">Loading…</p>}
+      {assessmentId && detail.isError && (
+        <LoadState error={detail.error} subject="this assessment" onRetry={() => void detail.refetch()} />
+      )}
 
       {revision && (
         <RevisionEditor
@@ -644,7 +654,16 @@ export function ApprovalsView({ orgId, canApprove }: { orgId: string; canApprove
       </CardHeader>
       <CardContent>
         {pending.isPending && <p className="text-sm text-muted-foreground">Loading…</p>}
-        {pending.data && pending.data.length === 0 && <p className="text-sm text-muted-foreground">Nothing to decide.</p>}
+        {pending.isError && (
+          <LoadState error={pending.error} subject="approvals" onRetry={() => void pending.refetch()} />
+        )}
+        {pending.data && pending.data.length === 0 && (
+          <EmptyState
+            icon={CheckCircle2}
+            title="Nothing to decide"
+            description="Assessments that reach you for approval appear here. The queue updates on its own."
+          />
+        )}
         {pending.data && pending.data.length > 0 && (
           <ul className="divide-y rounded-md border">
             {pending.data.map((revision) => (
@@ -774,6 +793,16 @@ export function ReportsView({ orgId, period }: { orgId: string; period: Assessme
 
   return (
     <div className="space-y-5">
+      {(summary.isError || rollup.isError) && (
+        <LoadState
+          error={summary.error ?? rollup.error}
+          subject="assessment reports"
+          onRetry={() => {
+            void summary.refetch();
+            void rollup.refetch();
+          }}
+        />
+      )}
       <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {items.map(([label, value]) => (
           <div key={label} className="rounded-lg border bg-background p-3">
@@ -789,7 +818,13 @@ export function ReportsView({ orgId, period }: { orgId: string; period: Assessme
         </CardHeader>
         <CardContent>
           {rollup.isPending && <p className="text-sm text-muted-foreground">Loading…</p>}
-          {rollup.data && rollup.data.length === 0 && <p className="text-sm text-muted-foreground">No pillars yet.</p>}
+          {rollup.data && rollup.data.length === 0 && (
+            <EmptyState
+              icon={BarChart3}
+              title="Nothing to report yet"
+              description="Pillar coverage appears once the strategy has published pillars and initiatives for this period."
+            />
+          )}
           {rollup.data && rollup.data.length > 0 && (
             <div className="overflow-x-auto rounded-md border">
               <table className="w-full text-sm">
@@ -925,7 +960,7 @@ export function AssessmentSettingsDialog({
           </form>
         )}
         {!current && settings.isPending && <p className="text-sm text-muted-foreground">Loading…</p>}
-        {settings.error && <p className="text-sm text-destructive">Could not load settings.</p>}
+        {settings.isError && <LoadState error={settings.error} subject="assessment settings" onRetry={() => void settings.refetch()} />}
       </DialogContent>
     </Dialog>
   );
