@@ -51,15 +51,29 @@ export function formatIssueSource(source: BatchIssue["source"]): string | null {
   return JSON.stringify(source);
 }
 
+/** How the reference in a plan resolved to an organization unit. */
+export type BatchOrgNodeResolution = "ID" | "PATH" | "NAME" | "INHERITED";
+
+/**
+ * The organization unit a plan element is attached to.
+ *
+ * The server sends the resolution as `resolvedFrom`; `reference` is what the
+ * plan said, and `inheritedFrom` names the ancestor whose unit was reused.
+ * This shape is the same on a dry-run report and on a staged batch.
+ */
 export interface BatchOrgNode {
   id?: string | null;
   name?: string | null;
+  type?: string | null;
   path?: string | null;
-  /** How the node reference was resolved. */
-  matchedBy?: "ID" | "PATH" | "NAME" | "INHERITED" | null;
+  resolvedFrom?: BatchOrgNodeResolution | null;
+  reference?: string | null;
+  inheritedFrom?: string | null;
 }
 
+/** A node of the dry-run / submission report, which carries a verdict. */
 export interface BatchTreeNode {
+  key?: string | null;
   type: string;
   code?: string | null;
   title?: string | null;
@@ -67,6 +81,11 @@ export interface BatchTreeNode {
   status: "OK" | "WARNING" | "ERROR";
   orgNode?: BatchOrgNode | null;
   children?: BatchTreeNode[] | null;
+  existingParent?: string | null;
+  targetValue?: number | null;
+  unit?: string | null;
+  direction?: string | null;
+  baselineValue?: number | null;
 }
 
 export interface BatchReportSummary {
@@ -104,14 +123,58 @@ export interface BatchSummary {
   appliedAt?: string | null;
 }
 
+/**
+ * A node of a staged or applied batch. Unlike `BatchTreeNode` it has no verdict:
+ * the batch was validated when it was submitted, so `action` and `status` do not
+ * exist here and a "Warning" badge would be fiction.
+ */
+export interface BatchPlanNode {
+  key?: string | null;
+  code?: string | null;
+  type: string;
+  title?: string | null;
+  description?: string | null;
+  outcomeSummary?: string | null;
+  targetValue?: number | null;
+  unit?: string | null;
+  direction?: "HIGHER_IS_BETTER" | "LOWER_IS_BETTER" | string | null;
+  baselineValue?: number | null;
+  periodStart?: string | null;
+  periodEnd?: string | null;
+  sortOrder?: number | null;
+  orgNode?: BatchOrgNode | null;
+  /** The org node was renamed, moved or ended after the batch was submitted. */
+  pathChanged?: boolean | null;
+  /** Where that node is now; only meaningful when `pathChanged` is true. */
+  currentPath?: string | null;
+  /** The element this node updates, when it is attached to an existing one. */
+  existingParent?: string | null;
+  elementId?: string | null;
+  versionId?: string | null;
+  children?: BatchPlanNode[] | null;
+}
+
+/** What applying a batch did to one code in its plan. */
+export interface BatchResultEntry {
+  elementId: string;
+  versionId: string;
+  action: BatchAction;
+}
+
+/**
+ * `GET /batches/{batchId}`. The staged plan is `plan`, not the report's `tree`,
+ * and `result` is keyed by element code, not a report summary. Both mistakes
+ * made the review dialog show nothing (issue #46).
+ */
 export interface BatchDetail extends BatchSummary {
-  tree: BatchTreeNode[];
-  result?: BatchReport["summary"] | null;
+  sourceFilename?: string | null;
+  plan: BatchPlanNode[];
+  result?: Record<string, BatchResultEntry> | null;
   warnings?: BatchIssue[] | null;
   approvalStatus?: string | null;
+  approvalRequestId?: string | null;
   approvalComments?: string | null;
-  /** True when a staged batch's org node was renamed, moved or ended since submission. */
-  pathChanged?: boolean | null;
+  strictTypeHierarchyUsed?: boolean | null;
 }
 
 export interface BatchSubmission {

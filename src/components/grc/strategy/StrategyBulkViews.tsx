@@ -51,6 +51,8 @@ import {
 import { parsePlanText, type PlanParseResult } from "@/lib/strategy-plan-text";
 import { cn } from "@/lib/utils";
 import { PlanEditor, PlanPreview } from "@/components/grc/strategy/PlanEditor";
+import { BatchPlanTree } from "@/components/grc/strategy/BatchPlanTree";
+import { collectPlanDrift, planNodeLabel } from "@/lib/strategy-batch-plan";
 
 const STATUS_LABEL: Record<BatchStatus, string> = {
   SUBMITTED: "Awaiting decision",
@@ -434,7 +436,9 @@ function TreePreview({ nodes, depth = 0 }: { nodes: BatchTreeNode[]; depth?: num
             {node.orgNode?.path && (
               <span className="text-xs text-muted-foreground">
                 → {node.orgNode.path}
-                {node.orgNode.matchedBy === "INHERITED" ? " (inherited)" : ""}
+                {node.orgNode.resolvedFrom === "INHERITED"
+                  ? ` (inherited${node.orgNode.inheritedFrom ? ` from ${node.orgNode.inheritedFrom}` : ""})`
+                  : ""}
               </span>
             )}
           </div>
@@ -663,7 +667,8 @@ function BatchDetailDialog({
 
   const batch: BatchDetail | undefined = detail.data;
   const canDecide = canApprove && batch?.status === "SUBMITTED";
-  const tree = useMemo(() => batch?.tree ?? [], [batch]);
+  const plan = useMemo(() => batch?.plan ?? [], [batch]);
+  const drift = useMemo(() => collectPlanDrift(plan), [plan]);
 
   const decideWith = async (decision: BatchDecision) => {
     if (!batch) return;
@@ -700,11 +705,20 @@ function BatchDetailDialog({
 
         {batch && (
           <div className="space-y-4">
-            {batch.pathChanged && (
-              <p className="flex items-center gap-2 text-sm text-warn">
-                <AlertTriangle className="h-4 w-4" /> An org node in this plan was renamed, moved or ended after it was
-                submitted. Check the structure before you approve.
-              </p>
+            {drift.length > 0 && (
+              <div role="status" className="rounded-md border border-warn/40 bg-warn/5 p-3 text-sm text-warn">
+                <p className="flex items-center gap-2 font-medium">
+                  <AlertTriangle className="h-4 w-4 shrink-0" /> The organization changed after this plan was submitted
+                </p>
+                <p className="mt-1 text-foreground/80">
+                  {drift.length === 1 ? "One element's unit was" : `${drift.length} elements' units were`} renamed, moved
+                  or ended since submission
+                  {drift.length <= 3
+                    ? `: ${drift.map(({ node }) => planNodeLabel(node)).join(", ")}.`
+                    : "."}{" "}
+                  Check the structure before you approve.
+                </p>
+              </div>
             )}
             {batch.approvalComments && (
               <div className="rounded-md border bg-muted/30 p-3 text-sm">
@@ -721,9 +735,9 @@ function BatchDetailDialog({
                 ))}
               </ul>
             )}
-            {tree.length > 0 && (
+            {plan.length > 0 && (
               <div className="max-h-72 overflow-auto rounded-md border p-2">
-                <TreePreview nodes={tree} />
+                <BatchPlanTree nodes={plan} result={batch.result} />
               </div>
             )}
 

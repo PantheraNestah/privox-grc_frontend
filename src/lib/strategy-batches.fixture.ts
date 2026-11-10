@@ -1,0 +1,230 @@
+/**
+ * Trimmed copies of real responses from the dev backend, kept as fixtures so a
+ * shape change fails a test instead of emptying the review screen.
+ *
+ * Source: GET /organizations/{org}/strategy-formulation/batches/{id} and a
+ * dry run (POST /batches?dryRun=true) on 2026-11-09, backend behind v0.9.4.
+ * Only the fields the front end reads are populated; the surrounding shape —
+ * `plan` rather than `tree`, `resolvedFrom` rather than `matchedBy`, and the
+ * `result` map keyed by code — is exactly what the server sends.
+ */
+
+import type { BatchDetail, BatchReport } from "./strategy-batches";
+
+export const liveBatchDetail = {
+  id: "76ada523-d0fb-45ef-8936-453f84df3af7",
+  name: "GNB FY2027 Strategy Plan",
+  status: "SUBMITTED",
+  mode: "CREATE_ONLY",
+  sourceKind: "XLSX_FILE",
+  sourceFilename: "gnb-fy2027-strategy-plan.xlsx",
+  createdBy: "1380e13c-50c3-4185-a796-88e6ad40c8c8",
+  createdAt: "2026-11-09T08:55:42.434470Z",
+  decidedAt: null,
+  appliedAt: null,
+  approvalStatus: "PENDING",
+  approvalRequestId: "19f7c92e-d32a-45e6-a84b-f14331204161",
+  approvalComments: null,
+  strictTypeHierarchyUsed: true,
+  elementCount: 4,
+  warnings: [],
+  result: {},
+  plan: [
+    {
+      key: "GNB27-P1",
+      code: "GNB27-P1",
+      type: "PILLAR",
+      title: "Resilient Earnings and Balance-Sheet Quality",
+      description: "Grow lending and fee income across both divisions while holding credit quality.",
+      outcomeSummary: null,
+      targetValue: null,
+      unit: null,
+      direction: null,
+      baselineValue: null,
+      periodStart: "2027-01-01",
+      periodEnd: "2027-12-31",
+      sortOrder: 0,
+      orgNode: null,
+      pathChanged: false,
+      currentPath: null,
+      existingParent: null,
+      elementId: null,
+      versionId: null,
+      children: [
+        {
+          key: "GNB27-O1",
+          code: "GNB27-O1",
+          type: "OBJECTIVE",
+          title: "Grow the quality corporate lending book",
+          description: "Increase lending to creditworthy clients without loosening underwriting standards.",
+          outcomeSummary: null,
+          targetValue: null,
+          unit: null,
+          direction: null,
+          baselineValue: null,
+          periodStart: "2027-01-01",
+          periodEnd: "2027-12-31",
+          sortOrder: 0,
+          orgNode: {
+            id: "224e330e-b941-4727-a12e-16efb14801a0",
+            name: "Corporate & Investment Banking",
+            type: "COMPANY",
+            path: "G & Nestahs Bank / Corporate & Investment Banking",
+            resolvedFrom: "PATH",
+            reference: "G & Nestahs Bank / Corporate & Investment Banking",
+          },
+          pathChanged: false,
+          currentPath: "G & Nestahs Bank / Corporate & Investment Banking",
+          existingParent: null,
+          elementId: null,
+          versionId: null,
+          children: [
+            {
+              key: "GNB27-I1",
+              code: "GNB27-I1",
+              type: "INITIATIVE",
+              title: "Corporate credit growth programme",
+              description: "A focused campaign across the corporate and trade-finance segments.",
+              outcomeSummary: "Grow the corporate book by 12%.",
+              targetValue: null,
+              unit: null,
+              direction: null,
+              baselineValue: null,
+              periodStart: "2027-01-01",
+              periodEnd: "2027-12-31",
+              sortOrder: 0,
+              orgNode: {
+                id: "bf1415a3-e8ae-421d-adf8-bb4b2097bf70",
+                name: "Corporate Credit Department",
+                type: "DEPARTMENT",
+                path: "G & Nestahs Bank / Corporate & Investment Banking / Corporate Credit Department",
+                resolvedFrom: "INHERITED",
+                reference: null,
+                inheritedFrom: "GNB27-O1",
+              },
+              pathChanged: true,
+              currentPath:
+                "G & Nestahs Bank / Corporate & Investment Banking / Corporate Credit (reorganised)",
+              existingParent: null,
+              elementId: null,
+              versionId: null,
+              children: [
+                {
+                  key: "GNB27-I1-K1",
+                  code: "GNB27-I1-K1",
+                  type: "KPI",
+                  title: "Median days to approve a credit facility",
+                  description: null,
+                  outcomeSummary: null,
+                  targetValue: 7,
+                  unit: "days",
+                  direction: "LOWER_IS_BETTER",
+                  baselineValue: 14,
+                  periodStart: "2027-01-01",
+                  periodEnd: "2027-12-31",
+                  sortOrder: 0,
+                  orgNode: {
+                    id: "bf1415a3-e8ae-421d-adf8-bb4b2097bf70",
+                    name: "Corporate Credit Department",
+                    type: "DEPARTMENT",
+                    path: "G & Nestahs Bank / Corporate & Investment Banking / Corporate Credit Department",
+                    resolvedFrom: "INHERITED",
+                    reference: null,
+                    inheritedFrom: "GNB27-O1",
+                  },
+                  pathChanged: false,
+                  currentPath: null,
+                  existingParent: null,
+                  elementId: null,
+                  versionId: null,
+                  children: [],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  ],
+} satisfies BatchDetail;
+
+/** The same batch once it has been applied: `result` is keyed by code. */
+export const liveAppliedBatchDetail = {
+  ...liveBatchDetail,
+  status: "APPROVED",
+  approvalStatus: "APPROVED",
+  decidedAt: "2026-11-09T09:00:00Z",
+  appliedAt: "2026-11-09T09:00:00Z",
+  result: {
+    "GNB27-P1": {
+      elementId: "04a2c290-2998-4c3c-bdd8-b6085a945ea7",
+      versionId: "546a2544-52fa-4276-a31b-cd25d79557c1",
+      action: "CREATE",
+    },
+    "GNB27-O1": {
+      elementId: "fab3aa7c-235c-4381-ae9d-10eb92f01717",
+      versionId: "b9faa838-517c-43c9-a745-291f61e76718",
+      action: "UNCHANGED",
+    },
+  },
+  plan: liveBatchDetail.plan.map((node) => ({ ...node, elementId: "04a2c290-2998-4c3c-bdd8-b6085a945ea7" })),
+} satisfies BatchDetail;
+
+/** A 422 dry-run report: the report uses `tree`, and `orgNode` still resolves by `resolvedFrom`. */
+export const liveDryRunReport = {
+  dryRun: true,
+  outcome: "INVALID",
+  batchId: null,
+  approvalRequestId: null,
+  summary: { total: 2, create: 2, newVersion: 0, unchanged: 0, errors: 1, warnings: 0 },
+  issues: [
+    {
+      severity: "ERROR",
+      rule: "F-3",
+      item: "#1",
+      message: "Title is required.",
+      source: { pointer: "/elements/0" },
+    },
+  ],
+  issuesTruncated: false,
+  tree: [
+    {
+      key: "#1",
+      code: null,
+      type: "PILLAR",
+      title: "Customer trust",
+      action: "CREATE",
+      status: "OK",
+      orgNode: null,
+      existingParent: null,
+      direction: null,
+      baselineValue: null,
+      targetValue: null,
+      unit: null,
+      children: [
+        {
+          key: "#1.1",
+          code: "P1.K1",
+          type: "KPI",
+          title: "Median days to settle",
+          action: "CREATE",
+          status: "OK",
+          orgNode: {
+            id: "bf1415a3-e8ae-421d-adf8-bb4b2097bf70",
+            name: "Claims",
+            type: "DEPARTMENT",
+            path: "Head Office / Claims",
+            resolvedFrom: "NAME",
+            reference: "Claims",
+          },
+          existingParent: null,
+          direction: "LOWER_IS_BETTER",
+          baselineValue: 21,
+          targetValue: 14,
+          unit: "days",
+          children: [],
+        },
+      ],
+    },
+  ],
+} satisfies BatchReport;

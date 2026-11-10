@@ -46,7 +46,7 @@ const invalidReport: BatchReport = {
           title: "Median days to settle",
           action: "CREATE",
           status: "ERROR",
-          orgNode: { path: "Head Office / Claims", matchedBy: "NAME" },
+          orgNode: { path: "Head Office / Claims", name: "Claims", resolvedFrom: "NAME" },
           children: [],
         },
       ],
