@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState, type ChangeEvent } from "react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import {
   AlertTriangle,
@@ -16,16 +17,11 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { EmptyState, LoadState } from "@/components/grc/common/states";
-import { Textarea } from "@/components/ui/textarea";
 import {
-  useBatchDecision,
   useBatchDryRun,
   useBatchSubmit,
-  useStrategyBatch,
   useStrategyBatches,
   useStrategyConformance,
   useStrategyHierarchyRules,
@@ -39,8 +35,6 @@ import {
   fetchTemplate,
   saveBlob,
   type BatchAction,
-  type BatchDecision,
-  type BatchDetail,
   type BatchIssue,
   type BatchMode,
   type BatchReport,
@@ -51,15 +45,8 @@ import {
 import { parsePlanText, type PlanParseResult } from "@/lib/strategy-plan-text";
 import { cn } from "@/lib/utils";
 import { PlanEditor, PlanPreview } from "@/components/grc/strategy/PlanEditor";
-import { BatchPlanTree } from "@/components/grc/strategy/BatchPlanTree";
-import { collectPlanDrift, planNodeLabel } from "@/lib/strategy-batch-plan";
+import { BATCH_STATUS_LABELS } from "@/lib/strategy-batch-plan";
 
-const STATUS_LABEL: Record<BatchStatus, string> = {
-  SUBMITTED: "Awaiting decision",
-  APPROVED: "Applied",
-  REJECTED: "Rejected",
-  REVISION_REQUESTED: "Revision requested",
-};
 
 const ACTION_LABEL: Record<BatchAction, string> = {
   CREATE: "Create",
@@ -583,7 +570,6 @@ function RulesCard({ orgId, canManageSettings }: { orgId: string; canManageSetti
 
 function BatchesCard({ orgId, canApprove }: { orgId: string; canApprove: boolean }) {
   const [status, setStatus] = useState<BatchStatus | "">("");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const list = useStrategyBatches(orgId, status || undefined);
 
   return (
@@ -602,9 +588,9 @@ function BatchesCard({ orgId, canApprove }: { orgId: string; canApprove: boolean
           onChange={(e) => setStatus(e.target.value as BatchStatus | "")}
         >
           <option value="">All statuses</option>
-          {(Object.keys(STATUS_LABEL) as BatchStatus[]).map((value) => (
+          {(Object.keys(BATCH_STATUS_LABELS) as BatchStatus[]).map((value) => (
             <option key={value} value={value}>
-              {STATUS_LABEL[value]}
+              {BATCH_STATUS_LABELS[value]}
             </option>
           ))}
         </select>
@@ -623,154 +609,21 @@ function BatchesCard({ orgId, canApprove }: { orgId: string; canApprove: boolean
           <ul className="divide-y rounded-md border">
             {list.data.map((batch) => (
               <li key={batch.id}>
-                <button
-                  type="button"
-                  onClick={() => setSelectedId(batch.id)}
+                <Link
+                  to={`/governance/strategy-formulation/batches/${batch.id}`}
                   className="flex w-full flex-wrap items-center gap-3 px-3 py-2.5 text-left text-sm transition hover:bg-muted/50"
                 >
                   <span className="min-w-0 flex-1 truncate font-medium">{batch.name}</span>
-                  <Badge variant={batch.status === "APPROVED" ? "secondary" : "outline"}>{STATUS_LABEL[batch.status]}</Badge>
+                  <Badge variant={batch.status === "APPROVED" ? "secondary" : "outline"}>{BATCH_STATUS_LABELS[batch.status]}</Badge>
                   <span className="text-xs text-muted-foreground">{batch.mode === "UPSERT" ? "Create or update" : "Create only"}</span>
                   <span className="text-xs text-muted-foreground">{batch.elementCount} elements</span>
                   <span className="text-xs text-muted-foreground">{new Date(batch.createdAt).toLocaleDateString()}</span>
-                </button>
+                </Link>
               </li>
             ))}
           </ul>
         )}
       </CardContent>
-      <BatchDetailDialog
-        orgId={orgId}
-        batchId={selectedId}
-        canApprove={canApprove}
-        onClose={() => setSelectedId(null)}
-      />
     </Card>
-  );
-}
-
-function BatchDetailDialog({
-  orgId,
-  batchId,
-  canApprove,
-  onClose,
-}: {
-  orgId: string;
-  batchId: string | null;
-  canApprove: boolean;
-  onClose: () => void;
-}) {
-  const detail = useStrategyBatch(orgId, batchId);
-  const decide = useBatchDecision(orgId);
-  const [comments, setComments] = useState("");
-  const [error, setError] = useState<string | null>(null);
-
-  const batch: BatchDetail | undefined = detail.data;
-  const canDecide = canApprove && batch?.status === "SUBMITTED";
-  const plan = useMemo(() => batch?.plan ?? [], [batch]);
-  const drift = useMemo(() => collectPlanDrift(plan), [plan]);
-
-  const decideWith = async (decision: BatchDecision) => {
-    if (!batch) return;
-    if (decision !== "APPROVE" && !comments.trim()) {
-      setError("Add a comment so the submitter knows what to change.");
-      return;
-    }
-    setError(null);
-    try {
-      await decide.mutateAsync({ batchId: batch.id, decision, comments: comments.trim() || undefined });
-      toast.success(decision === "APPROVE" ? "Batch approved and applied." : "Decision recorded.");
-      setComments("");
-      onClose();
-    } catch (err) {
-      // 409 means the organization changed since submission, so the plan must be re-checked.
-      setError(batchErrorMessage(err));
-    }
-  };
-
-  return (
-    <Dialog open={batchId !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{batch?.name ?? "Batch"}</DialogTitle>
-          <DialogDescription>
-            {batch ? `${STATUS_LABEL[batch.status]} · ${batch.elementCount} elements` : "Loading…"}
-          </DialogDescription>
-        </DialogHeader>
-
-        {detail.isPending && <p className="text-sm text-muted-foreground">Loading…</p>}
-        {detail.isError && (
-          <LoadState error={detail.error} subject="this batch" onRetry={() => void detail.refetch()} />
-        )}
-
-        {batch && (
-          <div className="space-y-4">
-            {drift.length > 0 && (
-              <div role="status" className="rounded-md border border-warn/40 bg-warn/5 p-3 text-sm text-warn">
-                <p className="flex items-center gap-2 font-medium">
-                  <AlertTriangle className="h-4 w-4 shrink-0" /> The organization changed after this plan was submitted
-                </p>
-                <p className="mt-1 text-foreground/80">
-                  {drift.length === 1 ? "One element's unit was" : `${drift.length} elements' units were`} renamed, moved
-                  or ended since submission
-                  {drift.length <= 3
-                    ? `: ${drift.map(({ node }) => planNodeLabel(node)).join(", ")}.`
-                    : "."}{" "}
-                  Check the structure before you approve.
-                </p>
-              </div>
-            )}
-            {batch.approvalComments && (
-              <div className="rounded-md border bg-muted/30 p-3 text-sm">
-                <p className="text-xs font-medium text-muted-foreground">Last comment</p>
-                <p className="mt-1 whitespace-pre-wrap break-words">{batch.approvalComments}</p>
-              </div>
-            )}
-            {batch.warnings && batch.warnings.length > 0 && (
-              <ul className="space-y-1 text-sm">
-                {batch.warnings.map((warning, index) => (
-                  <li key={`${warning.rule}-${index}`} className="text-warn">
-                    {warning.message}
-                  </li>
-                ))}
-              </ul>
-            )}
-            {plan.length > 0 && (
-              <div className="max-h-72 overflow-auto rounded-md border p-2">
-                <BatchPlanTree nodes={plan} result={batch.result} />
-              </div>
-            )}
-
-            {canDecide && (
-              <div className="space-y-3 border-t pt-4">
-                <Label htmlFor="batch-comments">Comments</Label>
-                <Textarea
-                  id="batch-comments"
-                  rows={3}
-                  maxLength={2000}
-                  placeholder="Required when you reject or ask for a revision"
-                  value={comments}
-                  onChange={(e) => setComments(e.target.value)}
-                  disabled={decide.isPending}
-                />
-                {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-                <div className="flex flex-wrap justify-end gap-2">
-                  <Button variant="outline" onClick={() => decideWith("REQUEST_REVISION")} disabled={decide.isPending}>
-                    Request revision
-                  </Button>
-                  <Button variant="outline" onClick={() => decideWith("REJECT")} disabled={decide.isPending}>
-                    Reject
-                  </Button>
-                  <Button variant="brand" onClick={() => decideWith("APPROVE")} disabled={decide.isPending}>
-                    {decide.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                    Approve and apply
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
   );
 }

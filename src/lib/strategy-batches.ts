@@ -243,6 +243,11 @@ export function batchErrorMessage(error: unknown): string {
       return response.data?.message?.startsWith("DUPLICATE_BATCH")
         ? "This exact plan was already submitted and is still pending or applied."
         : response.data?.message || "Another change conflicts with this batch. Reload and try again.";
+    case 403:
+      return (
+        response.data?.message ||
+        "You do not have permission for this batch action. If you submitted this plan, maker-checker may require another approver."
+      );
     case 413:
       return "The file is over the 2 MiB limit. Split it into smaller batches.";
     case 415:

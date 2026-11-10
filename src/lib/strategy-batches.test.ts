@@ -85,6 +85,15 @@ describe("batchErrorMessage", () => {
     expect(batchErrorMessage({ response: { status: 415, data: {} } })).toMatch(/\.json or \.xlsx/);
   });
 
+  it("keeps the server's maker-checker explanation and has a fallback", () => {
+    expect(
+      batchErrorMessage({
+        response: { status: 403, data: { message: "You cannot decide your own submission" } },
+      }),
+    ).toBe("You cannot decide your own submission");
+    expect(batchErrorMessage({ response: { status: 403, data: {} } })).toMatch(/maker-checker/);
+  });
+
   it("explains that import is switched off when the endpoint is missing", () => {
     expect(batchErrorMessage({ response: { status: 404, data: {} } })).toMatch(/turned off/);
   });

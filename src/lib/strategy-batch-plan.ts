@@ -7,7 +7,7 @@
  * tree and the table cannot disagree about what the plan contains.
  */
 
-import type { BatchAction, BatchPlanNode, BatchResultEntry } from "./strategy-batches";
+import type { BatchAction, BatchMode, BatchPlanNode, BatchResultEntry, BatchStatus } from "./strategy-batches";
 import { STRATEGY_TYPE_LABELS, STRATEGY_TYPE_ORDER } from "./strategy-formulation-view";
 
 /** A plan node with its position, for rendering and keyboard traversal. */
@@ -20,6 +20,19 @@ export interface FlatPlanNode {
   ancestorKeys: string[];
   /** Codes of the ancestors, outermost first; useful for "under X". */
   ancestorCodes: string[];
+  /** The immediate parent, when there is one. */
+  parent: BatchPlanNode | null;
+}
+
+export const BATCH_STATUS_LABELS: Record<BatchStatus, string> = {
+  SUBMITTED: "Awaiting decision",
+  APPROVED: "Applied",
+  REJECTED: "Rejected",
+  REVISION_REQUESTED: "Revision requested",
+};
+
+export function batchModeLabel(mode: BatchMode): string {
+  return mode === "UPSERT" ? "Create or update" : "Create only";
 }
 
 export const PLAN_ACTION_LABELS: Record<BatchAction, string> = {
@@ -47,14 +60,20 @@ export function planTypeLabel(type: string): string {
  */
 export function flattenPlan(
   nodes: BatchPlanNode[] | null | undefined,
-  options: { keyPrefix?: string; depth?: number; ancestorKeys?: string[]; ancestorCodes?: string[] } = {},
+  options: {
+    keyPrefix?: string;
+    depth?: number;
+    ancestorKeys?: string[];
+    ancestorCodes?: string[];
+    parent?: BatchPlanNode | null;
+  } = {},
 ): FlatPlanNode[] {
-  const { keyPrefix = "", depth = 0, ancestorKeys = [], ancestorCodes = [] } = options;
+  const { keyPrefix = "", depth = 0, ancestorKeys = [], ancestorCodes = [], parent = null } = options;
   const result: FlatPlanNode[] = [];
 
   (nodes ?? []).forEach((node, index) => {
     const key = keyPrefix ? `${keyPrefix}/${index}` : String(index);
-    result.push({ node, key, depth, ancestorKeys, ancestorCodes });
+    result.push({ node, key, depth, ancestorKeys, ancestorCodes, parent });
     if (node.children?.length) {
       result.push(
         ...flattenPlan(node.children, {
@@ -62,6 +81,7 @@ export function flattenPlan(
           depth: depth + 1,
           ancestorKeys: [...ancestorKeys, key],
           ancestorCodes: node.code ? [...ancestorCodes, node.code] : ancestorCodes,
+          parent: node,
         }),
       );
     }
