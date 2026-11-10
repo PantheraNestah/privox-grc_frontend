@@ -77,7 +77,8 @@ const StrategyFormulation = () => {
   const [createOpen, setCreateOpen] = useState(false);
   const [createType, setCreateType] = useState<StrategyElementType>("PILLAR");
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+  // A batch review links to the element it published, so honour that on mount.
+  const [selectedElementId, setSelectedElementId] = useState<string | null>(() => searchParams.get("element"));
 
   const treeQuery = useStrategyTree(canView ? orgId : undefined);
   const summaryQuery = useStrategySummary(canView ? orgId : undefined);

@@ -160,7 +160,7 @@ export function BatchPlanTree({
               )}
               style={{ paddingLeft: row.depth * 16 }}
             >
-              {hasChildren ? (
+              {hasChildren && onToggle ? (
                 <button
                   type="button"
                   aria-label={`${expanded ? "Collapse" : "Expand"} ${planNodeLabel(node)}`}

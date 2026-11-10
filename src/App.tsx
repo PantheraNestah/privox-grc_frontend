@@ -30,6 +30,7 @@ const Governance = lazy(() => import("./pages/Governance.tsx"));
 const RiskGovernance = lazy(() => import("./pages/RiskGovernance.tsx"));
 const RiskStrategy = lazy(() => import("./pages/RiskStrategy.tsx"));
 const StrategyFormulation = lazy(() => import("./pages/StrategyFormulation.tsx"));
+const StrategyBatchReview = lazy(() => import("./pages/StrategyBatchReview.tsx"));
 const StrategyAssessment = lazy(() => import("./pages/StrategyAssessment.tsx"));
 const DocumentManagement = lazy(() => import("./pages/DocumentManagement.tsx"));
 const SurveyManagement = lazy(() => import("./pages/SurveyManagement.tsx"));
@@ -102,6 +103,7 @@ const App = () => (
                       <Route path="/governance" element={page(Governance)} />
                       <Route path="/governance/risk-governance" element={page(RiskGovernance)} />
                       <Route path="/governance/strategy-formulation" element={page(StrategyFormulation)} />
+                      <Route path="/governance/strategy-formulation/batches/:batchId" element={page(StrategyBatchReview)} />
                       <Route path="/governance/strategy-assessment" element={page(StrategyAssessment)} />
                       <Route path="/governance/risk-strategy" element={page(RiskStrategy)} />
                       <Route path="/governance/documents" element={page(DocumentManagement)} />

@@ -269,10 +269,10 @@ vi.mock("@/hooks/use-strategy-formulation", () => ({
   }),
 }));
 
-const renderPage = () =>
+const renderPage = (entry = "/governance/strategy-formulation") =>
   render(
     <HelmetProvider>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[entry]}>
         <StrategyFormulation />
       </MemoryRouter>
     </HelmetProvider>,
@@ -306,6 +306,13 @@ describe("StrategyFormulation API workspace", () => {
     expect(screen.getByText("Publication health")).toBeInTheDocument();
     expect(screen.getByText("Formulation readiness")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /4 published, 0 draft and 0 pending approval/ })).toBeInTheDocument();
+  });
+
+  it("opens the element a batch review links to", async () => {
+    renderPage("/governance/strategy-formulation?tab=elements&element=kpi-1");
+
+    const drawer = await screen.findByRole("dialog");
+    expect(within(drawer).getAllByText("Digital adoption").length).toBeGreaterThan(0);
   });
 
   it("keeps users without manage permission read-only", () => {
