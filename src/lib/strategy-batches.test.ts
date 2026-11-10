@@ -1,4 +1,5 @@
 import { api } from "./api";
+import { liveAppliedBatchDetail, liveBatchDetail, liveDryRunReport } from "./strategy-batches.fixture";
 import {
   batchErrorMessage,
   dryRunJsonBatch,
@@ -115,5 +116,43 @@ describe("annotated workbook", () => {
     expect(body.get("mode")).toBe("UPSERT");
     expect(config.responseType).toBe("blob");
     expect(result).toBe(workbook);
+  });
+});
+
+describe("batch detail contract (issue #46)", () => {
+  it("reads a staged plan from `plan`, not the report's `tree`", () => {
+    expect(liveBatchDetail).not.toHaveProperty("tree");
+    expect(liveBatchDetail.plan).toHaveLength(1);
+    expect(liveBatchDetail.plan[0].type).toBe("PILLAR");
+    expect(liveBatchDetail.elementCount).toBe(4);
+    expect(liveBatchDetail.approvalStatus).toBe("PENDING");
+    expect(liveBatchDetail.strictTypeHierarchyUsed).toBe(true);
+    expect(liveBatchDetail.sourceFilename).toMatch(/\.xlsx$/);
+  });
+
+  it("uses resolvedFrom, not matchedBy, on batch and report org nodes", () => {
+    const objective = liveBatchDetail.plan[0].children?.[0];
+    expect(objective?.orgNode?.resolvedFrom).toBe("PATH");
+    expect(objective?.orgNode).not.toHaveProperty("matchedBy");
+
+    const reportOrgNode = liveDryRunReport.tree[0].children?.[0]?.orgNode;
+    expect(reportOrgNode?.resolvedFrom).toBe("NAME");
+    expect(reportOrgNode).not.toHaveProperty("matchedBy");
+  });
+
+  it("keeps drift on the node that moved, not on the batch", () => {
+    expect(liveBatchDetail).not.toHaveProperty("pathChanged");
+    const initiative = liveBatchDetail.plan[0].children?.[0]?.children?.[0];
+    expect(initiative?.pathChanged).toBe(true);
+    expect(initiative?.currentPath).toMatch(/reorganised/);
+  });
+
+  it("types the applied result as a code-keyed map of element outcomes", () => {
+    expect(liveAppliedBatchDetail.result?.["GNB27-P1"]).toMatchObject({
+      action: "CREATE",
+      elementId: expect.any(String),
+      versionId: expect.any(String),
+    });
+    expect(liveAppliedBatchDetail.result?.["GNB27-O1"]?.action).toBe("UNCHANGED");
   });
 });
